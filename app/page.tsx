@@ -1,41 +1,18 @@
 import Link from "next/link";
 import { TauriRedirect } from "@/features/landing";
 
-// Mock download link until real builds are published.
-const MAC_DOWNLOAD_URL = "#download";
-
 export default function Landing() {
     return (
         <div className="min-h-screen flex flex-col bg-base-100 text-base-content">
             <TauriRedirect />
             <header className="sticky top-0 z-20 bg-base-100/90 backdrop-blur border-b border-base-300">
-                <nav className="max-w-5xl mx-auto flex items-center justify-between px-6 h-14">
+                <nav className="max-w-5xl mx-auto flex items-center px-6 h-14">
                     <Link
                         href="/"
                         className="text-lg font-bold tracking-wide"
                     >
                         DOMD
                     </Link>
-                    <div className="flex items-center gap-6 text-sm">
-                        <a
-                            href="#features"
-                            className="hover:text-primary transition-colors"
-                        >
-                            Features
-                        </a>
-                        <a
-                            href="#online"
-                            className="hover:text-primary transition-colors"
-                        >
-                            Online
-                        </a>
-                        <a
-                            href="#download"
-                            className="hover:text-primary transition-colors"
-                        >
-                            Download
-                        </a>
-                    </div>
                 </nav>
             </header>
 
@@ -57,7 +34,7 @@ export default function Landing() {
                             Try DOMD Online
                         </Link>
                         <a
-                            href="#download"
+                            href="https://github.com/do-md/domd/releases/latest/download/DOMD_0.1.0_aarch64.dmg"
                             className="btn btn-ghost btn-lg min-w-48"
                         >
                             Download for Mac
@@ -91,58 +68,6 @@ export default function Landing() {
                             body="Paste any github.com URL or gh:owner/repo shorthand to open a README or markdown file."
                         />
                     </div>
-                </section>
-
-                {/* Online */}
-                <section
-                    id="online"
-                    className="bg-base-200 py-20 scroll-mt-16"
-                >
-                    <div className="max-w-5xl mx-auto px-6 text-center">
-                        <h2 className="text-3xl font-bold mb-4">
-                            DOMD Online
-                        </h2>
-                        <p className="text-base-content/60 max-w-xl mx-auto mb-8">
-                            Nothing to install. Drop a{" "}
-                            <code className="text-sm">.md</code> file or paste
-                            a URL — DOMD opens it instantly in your browser.
-                        </p>
-                        <Link
-                            href="/editor"
-                            className="btn btn-accent btn-lg min-w-48"
-                        >
-                            Open DOMD Online
-                        </Link>
-                        <p className="text-xs text-base-content/40 mt-6">
-                            Works best in Chrome, Edge, or any Chromium-based
-                            browser that supports the File System Access API.
-                        </p>
-                    </div>
-                </section>
-
-                {/* Download */}
-                <section
-                    id="download"
-                    className="max-w-5xl mx-auto px-6 py-20 text-center scroll-mt-16"
-                >
-                    <h2 className="text-3xl font-bold mb-4">
-                        Download for macOS
-                    </h2>
-                    <p className="text-base-content/60 max-w-xl mx-auto mb-8">
-                        Native macOS build for Apple Silicon (M1 / M2 / M3 /
-                        M4). Opens{" "}
-                        <code className="text-sm">.md</code> files directly
-                        from Finder, with system menus and save dialogs.
-                    </p>
-                    <a
-                        href={MAC_DOWNLOAD_URL}
-                        className="btn btn-accent btn-lg min-w-48"
-                    >
-                        Download for Mac (Apple Silicon)
-                    </a>
-                    <p className="text-xs text-base-content/40 mt-6">
-                        Intel and Windows builds are not yet available.
-                    </p>
                 </section>
             </main>
 
