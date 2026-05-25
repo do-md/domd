@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@plugin "daisyui" {
+    themes: false;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@plugin "daisyui/theme" {
+    name: "light";
+    default: true;
+    --color-accent: "#1f2937";
+    --color-accent-content: #ffffff;
+    --color-base-100: rgb(252, 252, 252);
+    --color-base-200: #f5f6f7;
+    --color-base-300: #ebebeb;
+    --color-base-content: rgba(20, 20, 20, 1);
+    --color-primary: oklch(49.12% 0.3096 275.75);
+    --color-neutral: #e5e7eb;
+    --color-neutral-content: #414751;
+    --color-info: #2563eb;
+    --color-info-content: #3c7cab;
+    --color-warning: #b45309;
+    --depth: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@plugin "daisyui/theme" {
+    name: "dark";
+    prefersdark: true;
+    --color-accent: "#1f2937";
+    --color-accent-content: #ffffff;
+    --color-base-100: #1e1e1e;
+    --color-base-200: #181818;
+    --color-base-300: #202020;
+    --color-base-content: #bcbec4;
+    --color-primary: oklch(49.12% 0.3096 275.75);
+    --color-neutral: #2e3034;
+    --color-neutral-content: #aaaaaa;
+    --color-info: #4daafc;
+    --color-info-content: #3c7cab;
+    --color-warning: #c3be00;
+    --depth: 0;
 }
 
+* {
+    box-sizing: border-box;
+}
+
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+/*
+ * Bridge do-md theme tokens onto daisyui semantic colors.
+ * do-md ships sensible literal defaults at zero specificity; this block
+ * remaps them so the editor picks up the active daisyui theme (light/dark).
+ */
+[data-domd-root] {
 }

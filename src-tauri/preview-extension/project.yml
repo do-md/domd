@@ -1,0 +1,38 @@
+name: DOMDPreview
+options:
+  deploymentTarget:
+    macOS: "12.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "12.0"
+    CODE_SIGNING_ALLOWED: NO
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: ""
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  DOMDPreview:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: DOMDPreview/Source
+      - path: DOMDPreview/Resources/web
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_NAME: DOMDPreview
+        PRODUCT_BUNDLE_IDENTIFIER: com.domd.desktop.preview
+        INFOPLIST_FILE: DOMDPreview/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: DOMDPreview/DOMDPreview.entitlements
+        SKIP_INSTALL: YES
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    dependencies:
+      - sdk: QuickLookUI.framework
+      - sdk: WebKit.framework

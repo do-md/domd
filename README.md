@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+![DOMD](https://ik.imagekit.io/al1ld9vvr/cf0de0fa6d1db4ab27f3f992bf8c81bb_WC-EditVideo_1_30fps.gif)
 
-## Getting Started
+# DOMD
 
-First, run the development server:
+**DOMD is a WYSIWYG editor built on a from-scratch, Markdown-native rendering engine.**
+
+- 20 KB gzipped kernel (zero runtime dependencies beyond React)
+- Input and rendering happen in lockstep — cursor stays steady, no lag, no flicker
+
+[**Download for macOS**](#) · [**Try on Web**](#)
+
+<sub>English · [简体中文](./README.zh-CN.md) · [日本語](./README.ja.md)</sub>
+
+---
+
+## Markdown-native
+
+DOMD's WYSIWYG happens directly on Markdown.
+
+Parsing, rendering, editing — engineered for Markdown WYSIWYG from the first line of code.
+
+It is not built on top of ProseMirror, Slate, Lexical, or any general-purpose rich-text framework.
+
+DOMD's edit model serves Markdown directly.
+
+---
+
+## Kernel
+
+DOMD's kernel is a from-scratch Markdown WYSIWYG editor engine.
+
+It is driven by a single source of truth — data — with immutable state. Typing, undo/redo, incremental streaming AI injection, and chunked file loading are all modeled as the same kind of state change inside the kernel.
+
+This makes editing behavior deterministic, state always traceable, and rendering happens only where changes occur.
+
+The entire editing stack fits in 20 KB gzipped.
+
+---
+
+## Instant 1 MB open
+
+![1 MB Markdown previewed via spacebar; top-right opens in DOMD](docs/instant-open.gif)
+
+A 5 KB note and a 1 MB document open at virtually the same perceptual speed.
+
+In Finder, press space — DOMD's own Quick Look extension takes over rendering.
+
+---
+
+## macOS
+
+The Mac experience is built to the bar of system apps. Loading a rendered `.md` feels close to the system opening a `.txt`.
+
+The purest Markdown preview and editing — no project tree, no sidebar, no tabs, no sync, no account. Files stay on your device.
+
+[**Download for macOS**](#)
+
+## Web
+
+Drag a `.md` into the browser to start. Nothing is uploaded.
+
+*(URL will be published with the first Release.)*
+
+---
+
+## CLI
+
+The macOS build ships with a command-line tool `domd-cli` that lets agents drive the window directly.
+
+It supports opening new windows, streaming writes, and rewriting selections. A model's streaming response can be piped straight into `domd-cli insert` — tokens land in the document as they arrive and render as rich text in real time.
+
+The demo at the top of the page was recorded from an Alfred workflow that calls the GPT API and streams the response incrementally into the document.
+
+*(Full command documentation will be published with the first Release.)*
+
+---
+
+## Build
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev              # web
+npm run tauri dev        # macOS native
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+macOS builds are signed for Apple Silicon. Intel and Windows are not currently supported.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## License
 
-## Learn More
+DOMD is dual-licensed.
 
-To learn more about Next.js, take a look at the following resources:
+**Application layer & helper libraries** — All source in this repository, including `@do-md/utils` and `@do-md/zenith`, is MIT licensed; see [LICENSE](LICENSE). Free to read, modify, and self-host.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Core rendering engine** — `@do-md/dist` is distributed as a build artifact only, under [PolyForm Noncommercial 1.0.0](.packages/@do-md/dist/LICENSE). **Any commercial use requires prior written authorization.**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Feedback
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+GitHub Issues and Discussions (links published after the first Release).

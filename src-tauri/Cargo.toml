@@ -1,0 +1,37 @@
+[package]
+name = "app"
+version = "0.1.0"
+description = "DOMD — a from-scratch WYSIWYG Markdown editor for macOS"
+authors = ["Jayden Wang"]
+license = "MIT"
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+default-run = "app"
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "domd-cli"
+path = "src/bin/domd_cli.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.5.6", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.10.3", features = ["devtools"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-log = "2"
+url = "2"
+tokio = { version = "1", features = ["time", "net", "io-util", "macros", "rt"] }
+clap = { version = "4", features = ["derive"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem", "NSResponder"] }
+objc2-foundation = { version = "0.3", features = ["NSString"] }
