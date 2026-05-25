@@ -1,4 +1,5 @@
-![DOMD](https://ik.imagekit.io/al1ld9vvr/cf0de0fa6d1db4ab27f3f992bf8c81bb_WC-EditVideo_1_30fps.gif)
+<img width="928" height="720" alt="cf0de0fa6d1db4ab27f3f992bf8c81bb_WC-EditVideo_1_30fps" src="https://github.com/user-attachments/assets/ede74d56-f5a8-4e3a-9b6b-6c71bc4cdd22" />
+
 
 # DOMD
 
@@ -7,7 +8,7 @@
 - 20 KB gzipped kernel (zero runtime dependencies beyond React)
 - Input and rendering happen in lockstep — cursor stays steady, no lag, no flicker
 
-[**Download for macOS**](#) · [**Try on Web**](#)
+[**Download for macOS**](https://github.com/do-md/domd/releases/latest/download/DOMD_0.1.0_aarch64.dmg) · [**Try on Web**](https://www.domd.app/editor)
 
 <sub>English · [简体中文](./README.zh-CN.md) · [日本語](./README.ja.md)</sub>
 
@@ -39,7 +40,7 @@ The entire editing stack fits in 20 KB gzipped.
 
 ## Instant 1 MB open
 
-![1 MB Markdown previewed via spacebar; top-right opens in DOMD](docs/instant-open.gif)
+https://github.com/user-attachments/assets/d4cb6d94-6efe-4d5d-8a67-846be7f3cd45
 
 A 5 KB note and a 1 MB document open at virtually the same perceptual speed.
 
@@ -53,13 +54,13 @@ The Mac experience is built to the bar of system apps. Loading a rendered `.md` 
 
 The purest Markdown preview and editing — no project tree, no sidebar, no tabs, no sync, no account. Files stay on your device.
 
-[**Download for macOS**](#)
+[**Download for macOS**](https://github.com/do-md/domd/releases/latest/download/DOMD_0.1.0_aarch64.dmg)
 
 ## Web
 
 Drag a `.md` into the browser to start. Nothing is uploaded.
 
-*(URL will be published with the first Release.)*
+https://www.domd.app
 
 ---
 
