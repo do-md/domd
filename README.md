@@ -8,7 +8,7 @@
 - 20 KB gzipped kernel (zero runtime dependencies beyond React)
 - Input and rendering happen in lockstep — cursor stays steady, no lag, no flicker
 
-[**Download for macOS**](https://github.com/do-md/domd/releases/latest/download/DOMD_0.1.0_aarch64.dmg) · [**Try on Web**](https://www.domd.app/editor)
+[**Download for macOS**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Try on Web**](https://www.domd.app/editor)
 
 <sub>English · [简体中文](./README.zh-CN.md) · [日本語](./README.ja.md)</sub>
 
@@ -58,7 +58,7 @@ The purest Markdown preview and editing — no project tree, no sidebar, no tabs
 
 ## Web
 
-Drag a `.md` into the browser to start. Nothing is uploaded.
+Open the editor and start writing WYSIWYG in the browser — or drag a `.md` straight onto the page to edit it in place. Everything runs locally; files never leave your device.
 
 https://www.domd.app
 

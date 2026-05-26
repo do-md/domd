@@ -7,6 +7,8 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 mod benchmark;
 mod cli_server;
+#[cfg(target_os = "macos")]
+mod untitled_doc;
 
 // ── macOS dock menu ──────────────────────────────────────────────────────────
 
@@ -103,6 +105,12 @@ mod dock_menu {
 static WIN_ID: AtomicU32 = AtomicU32::new(0);
 
 pub struct WindowFiles(pub Mutex<HashMap<String, String>>);
+
+/// Per-window `UntitledDoc` (NSDocument subclass) used to drive the native
+/// "save changes?" sheet for untitled+dirty docs on macOS. Populated lazily
+/// on close request, cleared when the close flow resolves.
+#[cfg(target_os = "macos")]
+pub struct WindowDocs(pub Mutex<HashMap<String, untitled_doc::WindowDoc>>);
 
 /// Tracks which webview windows have fully mounted and rendered. The
 /// editor calls `benchmark_mark_ready` after its first two RAFs, which is
@@ -536,6 +544,101 @@ pub(crate) fn open_or_reuse(app: &AppHandle, path: String) -> OpenOutcome {
     }
 }
 
+// ── native (macOS) close flow ────────────────────────────────────────────────
+
+#[cfg(target_os = "macos")]
+fn start_native_close_flow(app: AppHandle, label: String, content: String) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSWindow;
+
+    let mtm = match MainThreadMarker::new() {
+        Some(m) => m,
+        None => return,
+    };
+    let webview_window = match app.get_webview_window(&label) {
+        Some(w) => w,
+        None => return,
+    };
+    let ns_window_ptr = match webview_window.ns_window() {
+        Ok(p) => p as *mut NSWindow,
+        Err(_) => return,
+    };
+
+    let suggested = suggest_name_from_content(&content);
+    let doc = untitled_doc::UntitledDoc::new(mtm, suggested);
+    // SAFETY: Tauri-owned NSWindow lives at least until the window is
+    // destroyed; the close flow finishes before that.
+    unsafe { doc.set_ns_window(&*ns_window_ptr) };
+
+    let app_for_cb = app.clone();
+    let label_for_cb = label.clone();
+    let callback: Box<dyn FnOnce(bool, Option<String>)> =
+        Box::new(move |should_close, saved_path| {
+            // Clean up the doc on the next runloop tick — calling
+            // `state::remove` synchronously from inside the doc's own
+            // selector would decrement its retain count mid-call. We let
+            // AppKit unwind first.
+            let app_drop = app_for_cb.clone();
+            let label_drop = label_for_cb.clone();
+            let _ = app_for_cb.run_on_main_thread(move || {
+                app_drop
+                    .state::<WindowDocs>()
+                    .0
+                    .lock()
+                    .unwrap()
+                    .remove(&label_drop);
+            });
+
+            if !should_close {
+                return;
+            }
+
+            if let Some(path) = saved_path {
+                app_for_cb
+                    .state::<WindowFiles>()
+                    .0
+                    .lock()
+                    .unwrap()
+                    .insert(label_for_cb.clone(), path.clone());
+                if let Some(win) = app_for_cb.get_webview_window(&label_for_cb) {
+                    let filename = std::path::Path::new(&path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("DOMD")
+                        .to_string();
+                    let _ = win.set_title(&filename);
+                }
+            }
+
+            if let Some(win) = app_for_cb.get_webview_window(&label_for_cb) {
+                let _ = win.destroy();
+            }
+        });
+
+    doc.begin_close(content.into_bytes(), callback);
+
+    // Hold a strong ref in WindowDocs so the doc outlives this function
+    // (canCloseDocument is async — the delegate fires later).
+    app.state::<WindowDocs>()
+        .0
+        .lock()
+        .unwrap()
+        .insert(label, untitled_doc::WindowDoc::new(doc));
+}
+
+/// Cheap suggestion: first non-blank line of the markdown, stripped of
+/// `#` markers, sanitized through the same logic as the menu Save path.
+#[cfg(target_os = "macos")]
+fn suggest_name_from_content(md: &str) -> String {
+    let first = md
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("")
+        .trim_start_matches('#')
+        .trim();
+    sanitize_filename(first.to_string())
+}
+
 // ── entry point ───────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -544,11 +647,14 @@ pub fn run() {
         .nth(1)
         .filter(|a| !a.starts_with('-') && std::path::Path::new(a).exists());
 
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .manage(WindowFiles(Mutex::new(HashMap::new())))
         .manage(WindowReady(Mutex::new(HashMap::new())))
         .manage(WindowSelections(Mutex::new(HashMap::new())))
-        .manage(WindowContents(Mutex::new(HashMap::new())))
+        .manage(WindowContents(Mutex::new(HashMap::new())));
+    #[cfg(target_os = "macos")]
+    let builder = builder.manage(WindowDocs(Mutex::new(HashMap::new())));
+    let app = builder
         .invoke_handler(tauri::generate_handler![
             get_my_path,
             read_file,
@@ -566,16 +672,35 @@ pub fn run() {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     let label = window.label().to_string();
-                    let has_path = window
-                        .app_handle()
-                        .state::<WindowFiles>()
-                        .0
-                        .lock()
-                        .unwrap()
-                        .contains_key(&label);
-                    if !has_path {
+                    let app = window.app_handle();
+                    let has_path =
+                        app.state::<WindowFiles>().0.lock().unwrap().contains_key(&label);
+                    if has_path {
+                        // Saved file — let it close.
+                        return;
+                    }
+                    // Pathless. Check dirty + content from the FE-pushed
+                    // snapshot.
+                    let content_state = app.state::<WindowContents>().get(&label);
+                    let is_dirty = content_state.as_ref().map_or(false, |c| c.is_dirty);
+                    if !is_dirty {
+                        // Blank or untouched — let it close.
+                        return;
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        let content = content_state
+                            .map(|c| c.content)
+                            .unwrap_or_default();
                         api.prevent_close();
-                        let _ = window.emit_to(window.label(), "confirm-close", ());
+                        // Trigger the native NSDocument flow on the main
+                        // thread. Errors are silent — worst case the window
+                        // stays open and the user can click X again.
+                        let app_clone = app.clone();
+                        let label_clone = label.clone();
+                        let _ = window.run_on_main_thread(move || {
+                            start_native_close_flow(app_clone, label_clone, content);
+                        });
                     }
                 }
                 tauri::WindowEvent::Destroyed => {
@@ -585,6 +710,10 @@ pub fn run() {
                     app.state::<WindowReady>().remove(&label);
                     app.state::<WindowSelections>().remove(&label);
                     app.state::<WindowContents>().remove(&label);
+                    #[cfg(target_os = "macos")]
+                    {
+                        app.state::<WindowDocs>().0.lock().unwrap().remove(&label);
+                    }
                 }
                 _ => {}
             }

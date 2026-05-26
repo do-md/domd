@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { DOMD, DOMDProvider, toMarkdown, useEditor, useRenderData } from "@do-md/react";
+import {
+    DOMD,
+    DOMDProvider,
+    toMarkdown,
+    useEditor,
+    useRenderData,
+} from "@do-md/react";
+import "@do-md/react/style.css";
 import {
     getGrammarVersion,
     subscribeGrammarLoad,

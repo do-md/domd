@@ -11,7 +11,6 @@ import { useDocumentLoaders } from "../hooks/use-document-loaders";
 import { useTauriDragDrop } from "../hooks/use-tauri-drag-drop";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { useWebDragDrop } from "../hooks/use-web-drag-drop";
-import { CloseModal } from "./close-modal";
 import { Editor } from "./editor";
 import { UrlModal } from "./url-modal";
 
@@ -35,7 +34,6 @@ export function EditorApp() {
     } = useDocumentLoaders();
 
     const [showUrlModal, setShowUrlModal] = useState(false);
-    const [showCloseModal, setShowCloseModal] = useState(false);
 
     const metaRef = useRef(meta);
     metaRef.current = meta;
@@ -81,41 +79,12 @@ export function EditorApp() {
     // Tauri: menu → "Open URL..." opens the same modal as the web button.
     useTauriEvent("menu-open-url", () => setShowUrlModal(true));
 
-    // Tauri: confirm-close handling — window-scoped
-    useTauriEvent("confirm-close", async () => {
-        const m = metaRef.current;
-        const isPathless = m && m.kind === "tauri" && !m.path;
-
-        if (isPathless && saveRef.current) {
-            setShowCloseModal(true);
-            return;
-        }
-        const { invoke } = await tauriCore();
-        await invoke("force_close_window");
-    });
-
     const tauriDragging = useTauriDragDrop(claimAndLoadTauriPath);
     const { dragging: webDragging, dragHandlers } = useWebDragDrop(
         ({ file, handle }) => {
             loadFromFile(file, handle);
         },
     );
-
-    const handleCloseSave = async () => {
-        setShowCloseModal(false);
-        if (saveRef.current) {
-            const saved = await saveRef.current();
-            if (!saved) return;
-        }
-        const { invoke } = await tauriCore();
-        await invoke("force_close_window");
-    };
-
-    const handleCloseDiscard = async () => {
-        setShowCloseModal(false);
-        const { invoke } = await tauriCore();
-        await invoke("force_close_window");
-    };
 
     const isWeb = !isTauri();
     const dragging = tauriDragging || webDragging;
@@ -163,14 +132,6 @@ export function EditorApp() {
                 <UrlModal
                     onClose={() => setShowUrlModal(false)}
                     onSubmit={loadRemote}
-                />
-            ) : null}
-
-            {showCloseModal ? (
-                <CloseModal
-                    onSave={handleCloseSave}
-                    onDiscard={handleCloseDiscard}
-                    onCancel={() => setShowCloseModal(false)}
                 />
             ) : null}
         </div>

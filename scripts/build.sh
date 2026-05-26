@@ -126,9 +126,8 @@ xcrun stapler staple "$APP_BUNDLE"
 
 # ── Build DMG (with stapled .app + /Applications symlink) ────────────────────
 echo "Building DMG..."
-VERSION=$(plutil -extract CFBundleShortVersionString raw -o - "$APP_BUNDLE/Contents/Info.plist")
 DMG_DIR="$PROJECT_DIR/src-tauri/target/$TARGET/release/bundle/dmg"
-DMG_PATH="$DMG_DIR/DOMD_${VERSION}_aarch64.dmg"
+DMG_PATH="$DMG_DIR/DOMD_aarch64.dmg"
 mkdir -p "$DMG_DIR"
 rm -f "$DMG_PATH"
 
