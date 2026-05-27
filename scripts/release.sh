@@ -9,12 +9,13 @@
 #   - Read the new version from package.json
 #   - Verify it differs from src-tauri/tauri.conf.json (terminates if same)
 #   - Sync the new version into Cargo.toml, tauri.conf.json, and project.yml
-#   - Run scripts/build.sh (signed + notarized DMG; needs .env.local)
+#   - Run scripts/build.sh once per target (signed + notarized DMG; needs .env.local)
 #   - Commit + tag + push to origin
-#   - Create a GitHub release with the DMG attached
+#   - Create a GitHub release with both DMGs attached
 #
-# Output DMG: DOMD_aarch64.dmg (no version in name — matches README's
-# releases/latest/download/... permalink so the link stays valid across releases).
+# Output DMGs: DOMD_aarch64.dmg (Apple Silicon) + DOMD_x86_64.dmg (Intel).
+# No version in the names — matches README's releases/latest/download/...
+# permalink so the link stays valid across releases.
 #
 # Recovery: if build fails after the version sync, reset with
 #   git checkout -- package.json src-tauri/Cargo.toml \
@@ -84,15 +85,21 @@ for f in src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/preview-extens
     fi
 done
 
-# ── [2/4] Build signed + notarized DMG ────────────────────────────────────────
-echo "[2/4] Building signed + notarized DMG (a few minutes)..."
-"$SCRIPT_DIR/build.sh"
-
-DMG_PATH="$PROJECT_DIR/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/DOMD_aarch64.dmg"
-if [ ! -f "$DMG_PATH" ]; then
-    echo "Error: expected DMG at $DMG_PATH" >&2
-    exit 1
-fi
+# ── [2/4] Build signed + notarized DMGs (Apple Silicon + Intel) ──────────────
+echo "[2/4] Building signed + notarized DMGs for both arches (this takes a while)..."
+TARGETS=(aarch64-apple-darwin x86_64-apple-darwin)
+DMG_PATHS=()
+for TARGET in "${TARGETS[@]}"; do
+    ARCH="${TARGET%-apple-darwin}"
+    echo ">> Building $TARGET..."
+    "$SCRIPT_DIR/build.sh" "$TARGET"
+    DMG="$PROJECT_DIR/src-tauri/target/$TARGET/release/bundle/dmg/DOMD_${ARCH}.dmg"
+    if [ ! -f "$DMG" ]; then
+        echo "Error: expected DMG at $DMG" >&2
+        exit 1
+    fi
+    DMG_PATHS+=("$DMG")
+done
 
 # ── [3/4] Commit + tag + push ─────────────────────────────────────────────────
 echo "[3/4] Committing + tagging + pushing..."
@@ -106,14 +113,20 @@ git push
 git push origin "$TAG"
 
 # ── [4/4] Create GitHub release ───────────────────────────────────────────────
+# --notes content is prepended to the auto-generated changelog by gh.
 echo "[4/4] Creating GitHub release $TAG..."
+RELEASE_NOTES=$(cat <<'EOF'
+> **Note:** The Intel (x86_64) build is tested via Rosetta 2 on Apple Silicon, not on native Intel hardware — please report any issues.
+EOF
+)
 gh release create "$TAG" \
     --title "DOMD $TAG" \
+    --notes "$RELEASE_NOTES" \
     --generate-notes \
-    "$DMG_PATH"
+    "${DMG_PATHS[@]}"
 
 echo ""
 echo "Done."
 echo "  Tag:     $TAG"
-echo "  DMG:     $DMG_PATH"
+for d in "${DMG_PATHS[@]}"; do echo "  DMG:     $d"; done
 echo "  Release: $(gh release view "$TAG" --json url -q .url 2>/dev/null || echo "see GitHub")"

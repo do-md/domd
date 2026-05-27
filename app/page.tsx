@@ -53,12 +53,42 @@ export default function Landing() {
                         >
                             Try DOMD Online
                         </Link>
-                        <a
-                            href="https://github.com/do-md/domd/releases/latest/download/DOMD_0.1.0_aarch64.dmg"
-                            className="btn btn-ghost btn-lg min-w-48"
-                        >
-                            Download for Mac
-                        </a>
+                        <div className="dropdown dropdown-bottom dropdown-center">
+                            <div
+                                tabIndex={0}
+                                role="button"
+                                className="btn btn-ghost btn-lg min-w-48"
+                            >
+                                Download for Mac
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                    className="w-4 h-4 opacity-60"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z"
+                                        clipRule="evenodd"
+                                    />
+                                </svg>
+                            </div>
+                            <ul
+                                tabIndex={0}
+                                className="dropdown-content menu bg-base-100 border border-base-300 rounded-box z-10 w-48 p-2 shadow mt-1"
+                            >
+                                <li>
+                                    <a href="https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg">
+                                        Apple Silicon
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg">
+                                        Intel
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </section>
 

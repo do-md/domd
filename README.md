@@ -8,7 +8,7 @@
 - 20 KB gzipped kernel (zero runtime dependencies beyond React)
 - Input and rendering happen in lockstep — cursor stays steady, no lag, no flicker
 
-[**Download for macOS**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Try on Web**](https://www.domd.app/editor)
+[**Try on Web**](https://www.domd.app/editor) · Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
 <sub>English · [简体中文](./README.zh-CN.md) · [日本語](./README.ja.md)</sub>
 
@@ -54,7 +54,7 @@ The Mac experience is built to the bar of system apps. Loading a rendered `.md` 
 
 The purest Markdown preview and editing — no project tree, no sidebar, no tabs, no sync, no account. Files stay on your device.
 
-[**Download for macOS**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg)
+Download for macOS: [**Apple Silicon**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Intel**](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
 ## Web
 

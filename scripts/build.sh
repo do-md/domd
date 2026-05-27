@@ -3,7 +3,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-TARGET="aarch64-apple-darwin"
+
+# Target triple — first arg, defaults to Apple Silicon.
+# Supported: aarch64-apple-darwin (Apple Silicon) | x86_64-apple-darwin (Intel)
+TARGET="${1:-aarch64-apple-darwin}"
+case "$TARGET" in
+  aarch64-apple-darwin|x86_64-apple-darwin) ;;
+  *) echo "Error: unsupported target '$TARGET'" >&2; exit 1 ;;
+esac
+ARCH="${TARGET%-apple-darwin}"
+
+# Ensure cross-compile stdlib is available (idempotent).
+rustup target add "$TARGET" >/dev/null
 
 # ── Load .env.local if running locally ────────────────────────────────────────
 if [ -f "$PROJECT_DIR/.env.local" ]; then
@@ -47,7 +58,7 @@ security set-key-partition-list -S apple-tool:,apple:,codesign: \
   -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
 
 # ── Build main app (Tauri signs but skip notarization; we notarize once at end) ──
-echo "Building DOMD..."
+echo "Building DOMD for $TARGET..."
 cd "$PROJECT_DIR"
 # Omit APPLE_API_KEY_PATH so Tauri only signs and does not notarize the half-
 # baked bundle; we add the QL extension below, then sign + notarize the whole.
@@ -127,7 +138,7 @@ xcrun stapler staple "$APP_BUNDLE"
 # ── Build DMG (with stapled .app + /Applications symlink) ────────────────────
 echo "Building DMG..."
 DMG_DIR="$PROJECT_DIR/src-tauri/target/$TARGET/release/bundle/dmg"
-DMG_PATH="$DMG_DIR/DOMD_aarch64.dmg"
+DMG_PATH="$DMG_DIR/DOMD_${ARCH}.dmg"
 mkdir -p "$DMG_DIR"
 rm -f "$DMG_PATH"
 
