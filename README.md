@@ -54,7 +54,7 @@ The Mac experience is built to the bar of system apps. Loading a rendered `.md` 
 
 The purest Markdown preview and editing — no project tree, no sidebar, no tabs, no sync, no account. Files stay on your device.
 
-[**Download for macOS**](https://github.com/do-md/domd/releases/latest/download/DOMD_0.1.0_aarch64.dmg)
+[**Download for macOS**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg)
 
 ## Web
 
