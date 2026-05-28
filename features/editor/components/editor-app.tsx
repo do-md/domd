@@ -18,9 +18,9 @@ import { UrlModal } from "./url-modal";
 export function EditorApp() {
     const searchParams = useSearchParams();
 
-    // Initial state is always null/null so SSR (`output: "export"`) and the
-    // first client render produce the same neutral placeholder — no hydration
-    // mismatch. The mount effect below resolves the real source.
+    // Initial state is always null/null so SSR and the first client render
+    // produce the same neutral placeholder — no hydration mismatch. The mount
+    // effect below resolves the real source.
     const {
         meta,
         setMeta,

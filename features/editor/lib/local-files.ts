@@ -41,7 +41,8 @@ export async function fetchLocalFile(path: string): Promise<{
 }
 
 export async function saveLocalFile(path: string, content: string) {
-    const res = await fetch(`/api/local-files?path=${encodeURIComponent(path)}`,
+    const res = await fetch(
+        `/api/local-files?path=${encodeURIComponent(path)}`,
         {
             method: "PUT",
             headers: { "content-type": "application/json" },
