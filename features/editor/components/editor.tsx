@@ -38,6 +38,7 @@ export function Editor({
     onToggleSidebar,
     onReloadLocalFiles,
     onOpenLocalFile,
+    onCreateLocalFile,
     showLocalFiles,
 }: {
     meta: FileMeta;
@@ -53,13 +54,16 @@ export function Editor({
     onToggleSidebar: () => void;
     onReloadLocalFiles: () => void;
     onOpenLocalFile: (path: string) => void;
+    onCreateLocalFile: () => void;
     showLocalFiles: boolean;
 }) {
     const renderData = useRenderData();
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [serverDirty, setServerDirty] = useState(false);
     const editor = useEditor();
     const store = useEditorStoreApi();
+    const lastSavedServerMdRef = useRef("");
 
     const metaRef = useLatest(meta);
     const domdRef = useRef<HTMLDivElement>(null);
@@ -151,6 +155,10 @@ export function Editor({
                 const result = await saveDocument(currentMeta, md, getTitle);
                 if (!result.ok) return false;
                 onMetaUpdate(result.meta);
+                if (currentMeta.kind === "server") {
+                    lastSavedServerMdRef.current = md;
+                    setServerDirty(false);
+                }
                 if (
                     currentMeta.kind === "web" ||
                     currentMeta.kind === "server"
@@ -198,10 +206,11 @@ export function Editor({
     const baseVersionRef = useRef(grammarVersion);
     useEffect(() => {
         if (grammarVersion <= baseVersionRef.current) return;
-        if (!editor) return;
+        if (!editor?.editorStore) return;
+        const store = editor.editorStore;
         const id = setTimeout(() => {
             const md = toMarkdown(renderDataRef.current) ?? "";
-            editor.editorStore.resetMD(md);
+            store.resetMD(md);
         }, 50);
         return () => clearTimeout(id);
     }, [grammarVersion, editor]);
@@ -210,6 +219,25 @@ export function Editor({
     useTauriEvent("menu-save", () => {
         doSaveRef.current(renderDataRef.current);
     });
+
+    useEffect(() => {
+        if (meta.kind === "server") {
+            lastSavedServerMdRef.current =
+                toMarkdown(renderDataRef.current) ?? "";
+            setServerDirty(false);
+            return;
+        }
+        setServerDirty(false);
+    }, [meta]);
+
+    useEffect(() => {
+        if (meta.kind !== "server") return;
+        const handle = setTimeout(() => {
+            const md = toMarkdown(renderData) ?? "";
+            setServerDirty(md !== lastSavedServerMdRef.current);
+        }, 150);
+        return () => clearTimeout(handle);
+    }, [renderData, meta.kind]);
 
     // Tauri: CLI → insert text. Driven from the Rust-side cli_server
     // (~/.domd/cli.sock). A blank new window has no children → no cursor →
@@ -359,6 +387,12 @@ export function Editor({
                         <span className="truncate">Local files</span>
                         <div className="flex items-center gap-1">
                             <button
+                                onClick={onCreateLocalFile}
+                                className="btn btn-xs btn-ghost"
+                            >
+                                New
+                            </button>
+                            <button
                                 onClick={onReloadLocalFiles}
                                 className="btn btn-xs btn-ghost"
                             >
@@ -398,6 +432,8 @@ export function Editor({
                                 {localFiles.map((file) => {
                                     const isActive =
                                         activeLocalPath === file.path;
+                                    const isActiveDirty =
+                                        isActive && serverDirty;
                                     return (
                                         <li key={file.path}>
                                             <button
@@ -410,8 +446,15 @@ export function Editor({
                                                         : ""
                                                 }`}
                                             >
-                                                <div className="truncate">
-                                                    {file.name}
+                                                <div className="flex items-center gap-1 min-w-0">
+                                                    <span className="truncate">
+                                                        {file.name}
+                                                    </span>
+                                                    {isActiveDirty ? (
+                                                        <span className="text-warning">
+                                                            ●
+                                                        </span>
+                                                    ) : null}
                                                 </div>
                                                 <div className="truncate text-[10px] text-base-content/50">
                                                     {file.path}
