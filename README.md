@@ -1,6 +1,5 @@
 <img width="928" height="720" alt="cf0de0fa6d1db4ab27f3f992bf8c81bb_WC-EditVideo_1_30fps" src="https://github.com/user-attachments/assets/ede74d56-f5a8-4e3a-9b6b-6c71bc4cdd22" />
 
-
 # DOMD
 
 **DOMD is a WYSIWYG editor built on a from-scratch, Markdown-native rendering engine.**
@@ -8,7 +7,9 @@
 - 20 KB gzipped kernel (zero runtime dependencies beyond React)
 - Input and rendering happen in lockstep — cursor stays steady, no lag, no flicker
 
-[**Try on Web**](https://www.domd.app/editor) · Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
+[**Try on Web**](https://www.domd.app/editor)
+
+Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
 <sub>English · [简体中文](./README.zh-CN.md) · [日本語](./README.ja.md)</sub>
 
@@ -72,8 +73,6 @@ It supports opening new windows, streaming writes, and rewriting selections. A m
 
 The demo at the top of the page was recorded from an Alfred workflow that calls the GPT API and streams the response incrementally into the document.
 
-*(Full command documentation will be published with the first Release.)*
-
 ---
 
 ## Build
@@ -112,7 +111,7 @@ The demo at the top of the page was recorded from an Alfred workflow that calls 
 npm run tauri dev
 ```
 
-macOS builds are signed for Apple Silicon. Intel and Windows native builds are not currently supported.
+Windows native builds are not currently supported.
 
 ---
 
@@ -128,4 +127,5 @@ DOMD is dual-licensed.
 
 ## Feedback
 
-GitHub Issues and Discussions (links published after the first Release).
+- [GitHub Issues](https://github.com/do-md/domd/issues)
+- [GitHub Discussions](https://github.com/do-md/domd/discussions)
