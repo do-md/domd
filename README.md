@@ -78,13 +78,41 @@ The demo at the top of the page was recorded from an Alfred workflow that calls 
 
 ## Build
 
+### Web app (Windows)
+
+**Prerequisites**
+- Windows 10/11
+- Node.js (LTS) with npm
+- Git (optional, for cloning)
+
+**Steps**
+1. Open PowerShell or Windows Terminal in the repo root.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
+   Then open http://localhost:3000.
+4. Build and run production:
+   ```bash
+   npm run build
+   npm run start
+   ```
+5. Optional lint:
+   ```bash
+   npm run lint
+   ```
+
+### Native (macOS only)
+
 ```bash
-npm install
-npm run dev              # web
-npm run tauri dev        # macOS native
+npm run tauri dev
 ```
 
-macOS builds are signed for Apple Silicon. Intel and Windows are not currently supported.
+macOS builds are signed for Apple Silicon. Intel and Windows native builds are not currently supported.
 
 ---
 
