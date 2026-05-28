@@ -4,6 +4,7 @@ import {
     scanIdbRefs,
 } from "@/common/lib/image-storage";
 import { tauriCore, tauriDialog } from "@/common/lib/tauri";
+import { saveLocalFile } from "./local-files";
 import type { FileMeta } from "./types";
 
 export type SaveResult =
@@ -19,6 +20,9 @@ export async function saveDocument(
         if (currentMeta.kind === "tauri") {
             return await saveTauri(currentMeta, md, getTitle);
         }
+        if (currentMeta.kind === "server") {
+            return await saveServer(currentMeta, md);
+        }
         return await saveWeb(currentMeta, md, getTitle);
     } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") {
@@ -27,6 +31,14 @@ export async function saveDocument(
         console.error(e);
         return { ok: false };
     }
+}
+
+async function saveServer(
+    currentMeta: Extract<FileMeta, { kind: "server" }>,
+    md: string,
+): Promise<SaveResult> {
+    await saveLocalFile(currentMeta.path, md);
+    return { ok: true, meta: currentMeta };
 }
 
 async function saveTauri(
