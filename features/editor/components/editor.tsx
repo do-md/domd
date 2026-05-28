@@ -20,6 +20,7 @@ import { tauriCore } from "@/common/lib/tauri";
 import { useLatest } from "@/common/lib/use-latest";
 import { useAutoSave } from "../hooks/use-auto-save";
 import { useTauriEvent } from "../hooks/use-tauri-event";
+import type { LocalFileEntry } from "../lib/local-files";
 import { saveDocument } from "../lib/save-document";
 import type { FileMeta } from "../lib/types";
 
@@ -28,17 +29,41 @@ export function Editor({
     onMetaUpdate,
     onRequestOpenUrl,
     saveRef,
+    localFiles,
+    localFilesLoading,
+    localFilesError,
+    localOpenError,
+    localRoot,
+    sidebarOpen,
+    onToggleSidebar,
+    onReloadLocalFiles,
+    onOpenLocalFile,
+    onCreateLocalFile,
+    showLocalFiles,
 }: {
     meta: FileMeta;
     onMetaUpdate: (meta: FileMeta) => void;
     onRequestOpenUrl: () => void;
     saveRef: React.MutableRefObject<(() => Promise<boolean>) | null>;
+    localFiles: LocalFileEntry[];
+    localFilesLoading: boolean;
+    localFilesError: string | null;
+    localOpenError: string | null;
+    localRoot: string | null;
+    sidebarOpen: boolean;
+    onToggleSidebar: () => void;
+    onReloadLocalFiles: () => void;
+    onOpenLocalFile: (path: string) => void;
+    onCreateLocalFile: () => void;
+    showLocalFiles: boolean;
 }) {
     const renderData = useRenderData();
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [serverDirty, setServerDirty] = useState(false);
     const editor = useEditor();
     const store = useEditorStoreApi();
+    const lastSavedServerMdRef = useRef("");
 
     const metaRef = useLatest(meta);
     const domdRef = useRef<HTMLDivElement>(null);
@@ -130,7 +155,14 @@ export function Editor({
                 const result = await saveDocument(currentMeta, md, getTitle);
                 if (!result.ok) return false;
                 onMetaUpdate(result.meta);
-                if (currentMeta.kind === "web") {
+                if (currentMeta.kind === "server") {
+                    lastSavedServerMdRef.current = md;
+                    setServerDirty(false);
+                }
+                if (
+                    currentMeta.kind === "web" ||
+                    currentMeta.kind === "server"
+                ) {
                     setSaved(true);
                     if (savedTimerRef.current)
                         clearTimeout(savedTimerRef.current);
@@ -174,10 +206,11 @@ export function Editor({
     const baseVersionRef = useRef(grammarVersion);
     useEffect(() => {
         if (grammarVersion <= baseVersionRef.current) return;
-        if (!editor) return;
+        if (!editor?.editorStore) return;
+        const store = editor.editorStore;
         const id = setTimeout(() => {
             const md = toMarkdown(renderDataRef.current) ?? "";
-            editor.editorStore.resetMD(md);
+            store.resetMD(md);
         }, 50);
         return () => clearTimeout(id);
     }, [grammarVersion, editor]);
@@ -186,6 +219,25 @@ export function Editor({
     useTauriEvent("menu-save", () => {
         doSaveRef.current(renderDataRef.current);
     });
+
+    useEffect(() => {
+        if (meta.kind === "server") {
+            lastSavedServerMdRef.current =
+                toMarkdown(renderDataRef.current) ?? "";
+            setServerDirty(false);
+            return;
+        }
+        setServerDirty(false);
+    }, [meta]);
+
+    useEffect(() => {
+        if (meta.kind !== "server") return;
+        const handle = setTimeout(() => {
+            const md = toMarkdown(renderData) ?? "";
+            setServerDirty(md !== lastSavedServerMdRef.current);
+        }, 150);
+        return () => clearTimeout(handle);
+    }, [renderData, meta.kind]);
 
     // Tauri: CLI → insert text. Driven from the Rust-side cli_server
     // (~/.domd/cli.sock). A blank new window has no children → no cursor →
@@ -311,39 +363,152 @@ export function Editor({
         return () => window.removeEventListener("beforeunload", handler);
     }, [metaRef]);
 
-    const showSaveBar = meta.kind === "web";
+    const showSaveBar = meta.kind !== "tauri";
+    const activeLocalPath = meta.kind === "server" ? meta.path : null;
 
     return (
-        <div className="fixed inset-0 flex flex-col bg-base-100 overflow-hidden">
-            {showSaveBar ? (
-                <div className="shrink-0 h-9 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
-                    <span className="truncate flex-1">{meta.name}</span>
-                    <button
-                        onClick={onRequestOpenUrl}
-                        className="btn btn-xs btn-ghost"
-                    >
-                        Open URL...
-                    </button>
-                    <button
-                        onClick={() => doSave(renderData)}
-                        disabled={saving}
-                        className="btn btn-xs btn-neutral"
-                    >
-                        {saving ? "Saving..." : saved ? "Saved" : "Save"}
-                    </button>
-                </div>
+        <div className="fixed inset-0 flex bg-base-100 overflow-hidden">
+            {showLocalFiles && sidebarOpen ? (
+                <button
+                    aria-label="Close file list"
+                    onClick={onToggleSidebar}
+                    className="fixed inset-0 z-20 bg-black/30 md:hidden"
+                />
+            ) : null}
+            {showLocalFiles ? (
+                <aside
+                    className={`z-30 flex h-full flex-col bg-base-200 transition-all duration-200 overflow-hidden ${
+                        sidebarOpen
+                            ? "w-72 md:w-64 translate-x-0 border-r border-base-300"
+                            : "w-0 -translate-x-full border-r-0"
+                    } fixed md:relative`}
+                >
+                    <div className="shrink-0 h-9 flex items-center justify-between px-3 text-xs font-medium text-base-content/70 border-b border-base-300">
+                        <span className="truncate">Local files</span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={onCreateLocalFile}
+                                className="btn btn-xs btn-ghost"
+                            >
+                                New
+                            </button>
+                            <button
+                                onClick={onReloadLocalFiles}
+                                className="btn btn-xs btn-ghost"
+                            >
+                                Reload
+                            </button>
+                            <button
+                                onClick={onToggleSidebar}
+                                className="btn btn-xs btn-ghost"
+                            >
+                                Hide
+                            </button>
+                        </div>
+                    </div>
+                    <div className="px-3 py-2 text-[11px] text-base-content/50 border-b border-base-300 truncate">
+                        {localRoot ?? "Folder unavailable"}
+                    </div>
+                    {localOpenError ? (
+                        <div className="px-3 py-2 text-[11px] text-error border-b border-base-300">
+                            {localOpenError}
+                        </div>
+                    ) : null}
+                    <div className="flex-1 overflow-y-auto">
+                        {localFilesLoading ? (
+                            <div className="px-3 py-3 text-xs text-base-content/60">
+                                Loading files...
+                            </div>
+                        ) : localFilesError ? (
+                            <div className="px-3 py-3 text-xs text-error">
+                                {localFilesError}
+                            </div>
+                        ) : localFiles.length === 0 ? (
+                            <div className="px-3 py-3 text-xs text-base-content/60">
+                                No markdown files found.
+                            </div>
+                        ) : (
+                            <ul className="py-2">
+                                {localFiles.map((file) => {
+                                    const isActive =
+                                        activeLocalPath === file.path;
+                                    const isActiveDirty =
+                                        isActive && serverDirty;
+                                    return (
+                                        <li key={file.path}>
+                                            <button
+                                                onClick={() =>
+                                                    onOpenLocalFile(file.path)
+                                                }
+                                                className={`w-full px-3 py-2 text-left text-xs hover:bg-base-300/60 ${
+                                                    isActive
+                                                        ? "bg-base-300/80 font-medium"
+                                                        : ""
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-1 min-w-0">
+                                                    <span className="truncate">
+                                                        {file.name}
+                                                    </span>
+                                                    {isActiveDirty ? (
+                                                        <span className="text-warning">
+                                                            ●
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <div className="truncate text-[10px] text-base-content/50">
+                                                    {file.path}
+                                                </div>
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </div>
+                </aside>
             ) : null}
 
-            <div
-                className="flex-1 overflow-y-auto"
-                onClick={(e) => {
-                    if (domdRef.current?.contains(e.target as Node)) return;
-                    editor?.focus();
-                }}
-            >
-                <div className="max-w-3xl mx-auto px-6 py-8">
-                    <div ref={domdRef}>
-                        <DOMD />
+            <div className="flex-1 flex flex-col overflow-hidden">
+                {showSaveBar ? (
+                    <div className="shrink-0 h-9 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
+                        {showLocalFiles ? (
+                            <button
+                                onClick={onToggleSidebar}
+                                className="btn btn-xs btn-ghost"
+                            >
+                                {sidebarOpen ? "Hide files" : "Files"}
+                            </button>
+                        ) : null}
+                        <span className="truncate flex-1">{meta.name}</span>
+                        <button
+                            onClick={onRequestOpenUrl}
+                            className="btn btn-xs btn-ghost"
+                        >
+                            Open URL...
+                        </button>
+                        <button
+                            onClick={() => doSave(renderData)}
+                            disabled={saving}
+                            className="btn btn-xs btn-neutral"
+                        >
+                            {saving ? "Saving..." : saved ? "Saved" : "Save"}
+                        </button>
+                    </div>
+                ) : null}
+
+                <div
+                    className="flex-1 overflow-y-auto"
+                    onClick={(e) => {
+                        if (domdRef.current?.contains(e.target as Node))
+                            return;
+                        editor?.focus();
+                    }}
+                >
+                    <div className="max-w-3xl mx-auto px-6 py-8">
+                        <div ref={domdRef}>
+                            <DOMD />
+                        </div>
                     </div>
                 </div>
             </div>

@@ -62,6 +62,10 @@ Open the editor and start writing WYSIWYG in the browser — or drag a `.md` str
 
 https://www.domd.app
 
+### Local folder access (web)
+
+To browse and edit local markdown files from the web editor, set `LOCAL_MARKDOWN_DIR` in `config/server.ts` to the folder you want to expose (default: `/tmp/domd-local`), then run `npm run dev` or `npm run build && npm run start`. Ensure the folder exists before starting the server.
+
 ---
 
 ## CLI

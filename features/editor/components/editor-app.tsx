@@ -1,11 +1,16 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DOMDProvider } from "@do-md/react";
 import { tokenize } from "@/common/lib/prism";
 import { loadImage } from "@/common/lib/image-storage";
 import { isTauri } from "@/common/lib/platform";
 import { tauriCore } from "@/common/lib/tauri";
+import {
+    fetchLocalFiles,
+    saveLocalFile,
+    type LocalFileEntry,
+} from "../lib/local-files";
 import { ImageDropHandler } from "../hooks/use-image-drop";
 import { useDocumentLoaders } from "../hooks/use-document-loaders";
 import { useTauriDragDrop } from "../hooks/use-tauri-drag-drop";
@@ -17,9 +22,9 @@ import { UrlModal } from "./url-modal";
 export function EditorApp() {
     const searchParams = useSearchParams();
 
-    // Initial state is always null/null so SSR (`output: "export"`) and the
-    // first client render produce the same neutral placeholder — no hydration
-    // mismatch. The mount effect below resolves the real source.
+    // Initial state is always null/null so SSR and the first client render
+    // produce the same neutral placeholder — no hydration mismatch. The mount
+    // effect below resolves the real source.
     const {
         meta,
         setMeta,
@@ -31,9 +36,16 @@ export function EditorApp() {
         claimAndLoadTauriPath,
         loadRemote,
         loadFromFile,
+        loadLocalPath,
     } = useDocumentLoaders();
 
     const [showUrlModal, setShowUrlModal] = useState(false);
+    const [localFiles, setLocalFiles] = useState<LocalFileEntry[]>([]);
+    const [localRoot, setLocalRoot] = useState<string | null>(null);
+    const [localFilesLoading, setLocalFilesLoading] = useState(false);
+    const [localFilesError, setLocalFilesError] = useState<string | null>(null);
+    const [localOpenError, setLocalOpenError] = useState<string | null>(null);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const metaRef = useRef(meta);
     metaRef.current = meta;
@@ -89,6 +101,110 @@ export function EditorApp() {
     const isWeb = !isTauri();
     const dragging = tauriDragging || webDragging;
 
+    const refreshLocalFiles = useCallback(async () => {
+        if (!isWeb) return;
+        setLocalFilesLoading(true);
+        try {
+            const result = await fetchLocalFiles();
+            setLocalFiles(result.files);
+            setLocalRoot(result.root);
+            setLocalFilesError(null);
+        } catch (error) {
+            setLocalFiles([]);
+            setLocalRoot(null);
+            setLocalFilesError(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to load local files.",
+            );
+        } finally {
+            setLocalFilesLoading(false);
+        }
+    }, [isWeb]);
+
+    const normalizeLocalPath = useCallback((raw: string) => {
+        const trimmed = raw.trim().replace(/\\/g, "/");
+        const withoutLeading = trimmed.replace(/^\/+/, "");
+        if (!withoutLeading) return null;
+        if (/^[a-zA-Z]:/.test(withoutLeading)) return null;
+        const parts = withoutLeading.split("/");
+        if (parts.some((part) => !part || part === "." || part === "..")) {
+            return null;
+        }
+        const withExt = /\.(md|markdown)$/i.test(withoutLeading)
+            ? withoutLeading
+            : `${withoutLeading}.md`;
+        return withExt;
+    }, []);
+
+    useEffect(() => {
+        if (!isWeb) return;
+        refreshLocalFiles();
+        if (window.matchMedia("(min-width: 768px)").matches) {
+            setSidebarOpen(true);
+        }
+    }, [isWeb, refreshLocalFiles]);
+
+    const handleOpenLocalFile = useCallback(
+        async (path: string) => {
+            try {
+                await loadLocalPath(path);
+                setLocalOpenError(null);
+                if (window.matchMedia("(max-width: 767px)").matches) {
+                    setSidebarOpen(false);
+                }
+            } catch (error) {
+                setLocalOpenError(
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to open file.",
+                );
+            }
+        },
+        [loadLocalPath],
+    );
+
+    const handleCreateLocalFile = useCallback(async () => {
+        if (!isWeb) return;
+        const input = window.prompt(
+            "New file name (relative to the local folder):",
+            "Untitled.md",
+        );
+        if (input === null) return;
+        const normalized = normalizeLocalPath(input);
+        if (!normalized) {
+            setLocalOpenError("Please enter a valid relative markdown path.");
+            return;
+        }
+        const exists = localFiles.some(
+            (file) => file.path.toLowerCase() === normalized.toLowerCase(),
+        );
+        if (exists) {
+            const overwrite = window.confirm(
+                "A file with this name already exists. Overwrite it?",
+            );
+            if (!overwrite) return;
+        }
+        try {
+            await saveLocalFile(normalized, "");
+            await refreshLocalFiles();
+            await handleOpenLocalFile(normalized);
+            setLocalOpenError(null);
+        } catch (error) {
+            setLocalOpenError(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to create file.",
+            );
+        }
+    }, [
+        isWeb,
+        localFiles,
+        normalizeLocalPath,
+        refreshLocalFiles,
+        handleOpenLocalFile,
+    ]);
+
     if (view === "loading") {
         return <div className="fixed inset-0 bg-base-100" />;
     }
@@ -125,6 +241,19 @@ export function EditorApp() {
                     onMetaUpdate={setMeta}
                     onRequestOpenUrl={() => setShowUrlModal(true)}
                     saveRef={saveRef}
+                    localFiles={localFiles}
+                    localFilesLoading={localFilesLoading}
+                    localFilesError={localFilesError}
+                    localOpenError={localOpenError}
+                    localRoot={localRoot}
+                    sidebarOpen={sidebarOpen}
+                    onToggleSidebar={() =>
+                        setSidebarOpen((current) => !current)
+                    }
+                    onReloadLocalFiles={refreshLocalFiles}
+                    onOpenLocalFile={handleOpenLocalFile}
+                    onCreateLocalFile={handleCreateLocalFile}
+                    showLocalFiles={isWeb}
                 />
             </DOMDProvider>
 

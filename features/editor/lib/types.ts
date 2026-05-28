@@ -5,6 +5,7 @@ export type FileMeta =
           name: string;
           handle: FileSystemFileHandle | null;
           dirHandle?: FileSystemDirectoryHandle | null;
-      };
+      }
+    | { kind: "server"; path: string; name: string };
 
 export type View = "loading" | "editor";
