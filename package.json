@@ -1,6 +1,6 @@
 {
     "name": "domd",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "private": true,
     "description": "DOMD — a from-scratch WYSIWYG Markdown editor",
     "author": "Jayden Wang",
