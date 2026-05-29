@@ -13,6 +13,9 @@ Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/
 
 <sub>[English](./README.md) · 简体中文 · [日本語](./README.ja.md)</sub>
 
+> [!WARNING]
+> **v0.1.4 修复了一个严重 bug**：v0.1.3 及更早版本的回车 / 删除键与 Markdown 保存存在问题，请[更新到最新版本](https://github.com/do-md/domd/releases/latest)。
+
 ---
 
 ## Markdown 原生
