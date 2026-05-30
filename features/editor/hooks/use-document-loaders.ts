@@ -4,6 +4,7 @@ import { fetchMarkdown, resolveMarkdownUrl } from "../lib/resolve-url";
 import { isTauri } from "@/common/lib/platform";
 import { tauriCore } from "@/common/lib/tauri";
 import type { FileMeta, View } from "../lib/types";
+import { fetchLocalFile } from "../lib/local-files";
 
 export function useDocumentLoaders() {
     const [meta, setMeta] = useState<FileMeta | null>(null);
@@ -95,6 +96,14 @@ export function useDocumentLoaders() {
         [],
     );
 
+    const loadLocalPath = useCallback(async (path: string) => {
+        const file = await fetchLocalFile(path);
+        setMeta({ kind: "server", path: file.path, name: file.name });
+        setContent(file.content);
+        setVersion((n) => n + 1);
+        setView("editor");
+    }, []);
+
     return {
         meta,
         setMeta,
@@ -106,5 +115,6 @@ export function useDocumentLoaders() {
         claimAndLoadTauriPath,
         loadRemote,
         loadFromFile,
+        loadLocalPath,
     };
 }

@@ -66,6 +66,10 @@ Download for macOS: [**Apple Silicon**](https://github.com/do-md/domd/releases/l
 
 https://www.domd.app
 
+### 本地文件夹访问（Web）
+
+如需从 Web 编辑器浏览和编辑本地 Markdown 文件，请在 `config/server.ts` 中将 `LOCAL_MARKDOWN_DIR` 设置为你要暴露的文件夹（默认：`/tmp/domd-local`），然后运行 `npm run dev` 或 `npm run build && npm run start`。启动前请确保该文件夹已存在。
+
 ---
 
 ## CLI
