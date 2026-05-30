@@ -67,6 +67,18 @@ https://www.domd.app
 
 To browse and edit local markdown files from the web editor, set `LOCAL_MARKDOWN_DIR` in `config/server.ts` to the folder you want to expose (default: `/tmp/domd-local`), then run `npm run dev` or `npm run build && npm run start`. Ensure the folder exists before starting the server.
 
+### Dev server via tunnel
+
+If you access the dev server through a tunnel (for example, `*.dev`), Next.js blocks cross-origin requests to `/_next/webpack-hmr` by default. This repo uses `next.config.ts` (not `next.config.js`). Add your tunnel host to the existing `allowedDevOrigins` list (keep the other options), then restart the dev server:
+
+```ts
+// next.config.ts
+const nextConfig = {
+  images: { unoptimized: true },
+  allowedDevOrigins: ["home3000.domd.app", "your-tunnel.example.dev"],
+};
+```
+
 ---
 
 ## CLI
