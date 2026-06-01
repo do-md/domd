@@ -14,7 +14,7 @@ Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/
 <sub>English · [简体中文](./README.zh-CN.md) · [日本語](./README.ja.md)</sub>
 
 > [!WARNING]
-> **v0.1.4 fixes a critical bug** in v0.1.3 and earlier affecting the Enter/Delete keys and Markdown saving. Please [update to the latest release](https://github.com/do-md/domd/releases/latest).
+> **v0.2.0 is out** — improved editing experience (Enter / Tab / Delete bugs fixed) plus built-in auto-update (no more manual DMG re-downloads). [Update now](https://github.com/do-md/domd/releases/latest).
 
 ---
 

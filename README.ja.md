@@ -14,7 +14,7 @@ Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/
 <sub>[English](./README.md) · [简体中文](./README.zh-CN.md) · 日本語</sub>
 
 > [!WARNING]
-> **v0.1.4 で重大なバグを修正しました**。v0.1.3 以前では Enter / Delete キーと Markdown の保存に問題があります。[最新版への更新](https://github.com/do-md/domd/releases/latest)をお願いします。
+>
 
 ---
 

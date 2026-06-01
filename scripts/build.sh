@@ -25,7 +25,8 @@ fi
 
 # ── Validate required env vars ────────────────────────────────────────────────
 for var in APPLE_SIGNING_IDENTITY APPLE_CERTIFICATE_BASE64 APPLE_CERTIFICATE_PASSWORD \
-           APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_BASE64; do
+           APPLE_API_ISSUER APPLE_API_KEY APPLE_API_KEY_BASE64 \
+           TAURI_SIGNING_PRIVATE_KEY; do
   if [ -z "${!var:-}" ]; then
     echo "Error: $var is not set" >&2
     exit 1
@@ -134,6 +135,23 @@ xcrun notarytool submit "$ZIP_PATH" \
   --wait
 
 xcrun stapler staple "$APP_BUNDLE"
+
+# ── Package updater bundle (tar.gz of stapled .app + minisign signature) ─────
+# Built AFTER stapling so the updater archive contains the QL extension,
+# domd-cli, and the notarization ticket. We can't use `tauri build --bundles
+# updater` because that runs before we inject the QL extension and CLI.
+echo "Packaging updater bundle..."
+MACOS_DIR="$PROJECT_DIR/src-tauri/target/$TARGET/release/bundle/macos"
+TAR_PATH="$MACOS_DIR/DOMD_${ARCH}.app.tar.gz"
+rm -f "$TAR_PATH" "$TAR_PATH.sig"
+tar -czf "$TAR_PATH" -C "$MACOS_DIR" "DOMD.app"
+
+echo "Signing updater bundle with Tauri signer..."
+npx tauri signer sign --password "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" "$TAR_PATH"
+if [ ! -f "$TAR_PATH.sig" ]; then
+  echo "Error: expected signature at $TAR_PATH.sig" >&2
+  exit 1
+fi
 
 # ── Build DMG (with stapled .app + /Applications symlink) ────────────────────
 echo "Building DMG..."
