@@ -89,17 +89,51 @@ done
 echo "[2/4] Building signed + notarized DMGs for both arches (this takes a while)..."
 TARGETS=(aarch64-apple-darwin x86_64-apple-darwin)
 DMG_PATHS=()
+TAR_PATHS=()
+SIG_AARCH64=""
+SIG_X86_64=""
 for TARGET in "${TARGETS[@]}"; do
     ARCH="${TARGET%-apple-darwin}"
     echo ">> Building $TARGET..."
     "$SCRIPT_DIR/build.sh" "$TARGET"
     DMG="$PROJECT_DIR/src-tauri/target/$TARGET/release/bundle/dmg/DOMD_${ARCH}.dmg"
+    TAR="$PROJECT_DIR/src-tauri/target/$TARGET/release/bundle/macos/DOMD_${ARCH}.app.tar.gz"
     if [ ! -f "$DMG" ]; then
         echo "Error: expected DMG at $DMG" >&2
         exit 1
     fi
+    if [ ! -f "$TAR" ] || [ ! -f "$TAR.sig" ]; then
+        echo "Error: expected updater bundle at $TAR(.sig)" >&2
+        exit 1
+    fi
     DMG_PATHS+=("$DMG")
+    TAR_PATHS+=("$TAR" "$TAR.sig")
+    case "$ARCH" in
+        aarch64) SIG_AARCH64=$(cat "$TAR.sig") ;;
+        x86_64)  SIG_X86_64=$(cat "$TAR.sig") ;;
+    esac
 done
+
+# ── Generate latest.json (Tauri updater manifest) ────────────────────────────
+LATEST_JSON="$PROJECT_DIR/src-tauri/target/latest.json"
+PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+cat > "$LATEST_JSON" <<EOF
+{
+  "version": "$NEW_VERSION",
+  "notes": "See https://github.com/do-md/domd/releases/tag/$TAG",
+  "pub_date": "$PUB_DATE",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "$SIG_AARCH64",
+      "url": "https://github.com/do-md/domd/releases/download/$TAG/DOMD_aarch64.app.tar.gz"
+    },
+    "darwin-x86_64": {
+      "signature": "$SIG_X86_64",
+      "url": "https://github.com/do-md/domd/releases/download/$TAG/DOMD_x86_64.app.tar.gz"
+    }
+  }
+}
+EOF
 
 # ── [3/4] Commit + tag + push ─────────────────────────────────────────────────
 echo "[3/4] Committing + tagging + pushing..."
@@ -123,10 +157,14 @@ gh release create "$TAG" \
     --title "DOMD $TAG" \
     --notes "$RELEASE_NOTES" \
     --generate-notes \
-    "${DMG_PATHS[@]}"
+    "${DMG_PATHS[@]}" \
+    "${TAR_PATHS[@]}" \
+    "$LATEST_JSON"
 
 echo ""
 echo "Done."
 echo "  Tag:     $TAG"
 for d in "${DMG_PATHS[@]}"; do echo "  DMG:     $d"; done
+for t in "${TAR_PATHS[@]}"; do echo "  Updater: $t"; done
+echo "  Manifest: $LATEST_JSON"
 echo "  Release: $(gh release view "$TAG" --json url -q .url 2>/dev/null || echo "see GitHub")"

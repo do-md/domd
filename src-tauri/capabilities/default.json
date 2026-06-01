@@ -10,6 +10,8 @@
     "core:default",
     "core:window:allow-set-title",
     "core:window:allow-close",
-    "dialog:default"
+    "dialog:default",
+    "updater:default",
+    "process:default"
   ]
 }

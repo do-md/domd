@@ -1,6 +1,6 @@
 {
     "name": "domd",
-    "version": "0.1.4",
+    "version": "0.2.0",
     "private": true,
     "description": "DOMD — a from-scratch WYSIWYG Markdown editor",
     "author": "Jayden Wang",
@@ -16,6 +16,8 @@
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/plugin-deep-link": "^2.4.8",
         "@tauri-apps/plugin-dialog": "^2.7.0",
+        "@tauri-apps/plugin-process": "^2.0.0",
+        "@tauri-apps/plugin-updater": "^2.0.0",
         "daisyui": "^5.5.19",
         "dexie": "^4.0.11",
         "immer": "^11.1.4",

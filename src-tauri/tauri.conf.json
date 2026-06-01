@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "DOMD",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "identifier": "com.domd.desktop",
   "build": {
     "frontendDist": "../out",
@@ -45,5 +45,12 @@
       "signingIdentity": "Developer ID Application: Jintao Wang (G3TUSL5X84)"
     }
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/do-md/domd/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg2OUIyNUI4Nzg4RDAxNkIKUldSckFZMTR1Q1diaGhQZml2a053WXY5Q0U3VkI3M2ZHSTdVUXhpclRpWEZoZ2ViZ2xnUlBzWVQK"
+    }
+  }
 }

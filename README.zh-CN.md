@@ -14,7 +14,7 @@ Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/
 <sub>[English](./README.md) · 简体中文 · [日本語](./README.ja.md)</sub>
 
 > [!WARNING]
-> **v0.1.4 修复了一个严重 bug**：v0.1.3 及更早版本的回车 / 删除键与 Markdown 保存存在问题，请[更新到最新版本](https://github.com/do-md/domd/releases/latest)。
+> **v0.2.0 已发布** —— 优化编辑体验（修复回车 / Tab / 删除键的 bug），并新增自动更新（以后无需手动下载 DMG）。建议[立即更新](https://github.com/do-md/domd/releases/latest)。
 
 ---
 

@@ -16,6 +16,7 @@ import { useDocumentLoaders } from "../hooks/use-document-loaders";
 import { useTauriDragDrop } from "../hooks/use-tauri-drag-drop";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { useWebDragDrop } from "../hooks/use-web-drag-drop";
+import { UpdateBanner } from "@/features/updater/update-banner";
 import { Editor } from "./editor";
 import { UrlModal } from "./url-modal";
 
@@ -263,6 +264,8 @@ export function EditorApp() {
                     onSubmit={loadRemote}
                 />
             ) : null}
+
+            <UpdateBanner />
         </div>
     );
 }
