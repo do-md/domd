@@ -2,6 +2,14 @@ import Prism, { type Token } from "prismjs";
 
 export type CodeToken = string | Token;
 
+// DOMD calls `tokenize` manually per code block. Disable Prism's
+// DOMContentLoaded auto-highlight so it doesn't walk SSR'd markup and trip
+// hooks registered by language modules (e.g. prism-php's markup-templating
+// hook), which would throw and abort hydration.
+if (typeof window !== "undefined") {
+    (Prism as unknown as { manual: boolean }).manual = true;
+}
+
 // Eager: high-frequency languages people actually write in markdown.
 // Everything else is lazy-loaded on demand via ensureGrammar().
 import "prismjs/components/prism-javascript";
@@ -13,6 +21,9 @@ import "prismjs/components/prism-java";
 import "prismjs/components/prism-c";
 import "prismjs/components/prism-go";
 import "prismjs/components/prism-rust";
+// `prism-markup-templating` MUST be imported before `prism-php` — php's
+// before-tokenize hook calls markup-templating.tokenizePlaceholders.
+import "prismjs/components/prism-markup-templating";
 import "prismjs/components/prism-php";
 import "prismjs/components/prism-bash";
 import "prismjs/components/prism-json";

@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DOMDProvider } from "@do-md/react";
+import { track } from "@vercel/analytics";
 import { tokenize } from "@/common/lib/prism";
 import { loadImage } from "@/common/lib/image-storage";
 import { isTauri } from "@/common/lib/platform";
-import { tauriCore } from "@/common/lib/tauri";
+import { tauriApp, tauriCore } from "@/common/lib/tauri";
 import { ImageDropHandler } from "../hooks/use-image-drop";
 import { useDocumentLoaders } from "../hooks/use-document-loaders";
 import { useTauriDragDrop } from "../hooks/use-tauri-drag-drop";
@@ -39,6 +40,23 @@ export function EditorApp() {
     const metaRef = useRef(meta);
     metaRef.current = meta;
     const saveRef = useRef<(() => Promise<boolean>) | null>(null);
+
+    // Tauri-only: emit a custom analytics event on each webview mount so the
+    // dashboard can distinguish desktop sessions from web pageviews. Version
+    // is read via the Tauri API (canonical app version) rather than the FE
+    // package.json. Failures are swallowed — analytics must not break the app.
+    useEffect(() => {
+        if (!isTauri()) return;
+        (async () => {
+            try {
+                const { getVersion } = await tauriApp();
+                const version = await getVersion();
+                track("app_open", { platform: "tauri", version });
+            } catch {
+                track("app_open", { platform: "tauri" });
+            }
+        })();
+    }, []);
 
     // Resolve the initial source on mount. Each branch ends by setting
     // meta/content (directly or via applyBlank), which flips view to "editor".

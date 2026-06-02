@@ -64,7 +64,7 @@ Download for macOS: [**Apple Silicon**](https://github.com/do-md/domd/releases/l
 
 Open the editor and start writing WYSIWYG in the browser — or drag a `.md` straight onto the page to edit it in place. Everything runs locally; files never leave your device.
 
-https://www.domd.app
+<https://www.domd.app>
 
 ---
 
@@ -97,7 +97,7 @@ The demo at the top of the page was recorded from an Alfred workflow that calls 
    ```bash
    npm run dev
    ```
-   Then open http://localhost:3000.
+   Then open <http://localhost:3000>.
 4. Build and run production:
    ```bash
    npm run build

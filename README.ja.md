@@ -64,7 +64,7 @@ Download for macOS: [**Apple Silicon**](https://github.com/do-md/domd/releases/l
 
 エディタを開けば、そのままブラウザで WYSIWYG に書き始められます。`.md` をページにドラッグすれば、その場で開いて編集を続けられます。すべてローカルで動作し、ファイルはアップロードされず、お使いの端末から出ることはありません。
 
-https://www.domd.app
+<https://www.domd.app>
 
 ---
 

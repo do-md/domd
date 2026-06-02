@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import "./prism-themes.css";
 
@@ -40,6 +41,7 @@ export default function RootLayout({
             </head>
             <body className="h-full bg-base-100 text-base-content">
                 {children}
+                <Analytics />
             </body>
         </html>
     );
