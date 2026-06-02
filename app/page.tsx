@@ -47,13 +47,13 @@ export default async function Landing() {
                         target="_blank"
                         rel="noreferrer noopener"
                         aria-label="GitHub"
-                        className="btn btn-ghost btn-sm btn-circle"
+                        className="btn btn-ghost btn-circle"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 24 24"
                             fill="currentColor"
-                            className="w-5 h-5"
+                            className="w-8 h-8"
                         >
                             <path
                                 fillRule="evenodd"
@@ -64,7 +64,7 @@ export default async function Landing() {
                     </a>
                     <Link
                         href="/editor"
-                        className="btn btn-link btn-sm no-underline hover:underline"
+                        className="btn btn-link no-underline hover:underline"
                         style={{ color: "rgb(60, 124, 171)" }}
                     >
                         Try Online
