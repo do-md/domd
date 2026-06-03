@@ -3,12 +3,37 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, Window};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{AboutMetadataBuilder, Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 mod benchmark;
 mod cli_server;
 #[cfg(target_os = "macos")]
 mod untitled_doc;
+
+// ── macOS app icon ───────────────────────────────────────────────────────────
+//
+// In dev (`cargo tauri dev`) and sometimes in fresh installs the bundle's
+// Info.plist CFBundleIconFile isn't picked up by NSApp at launch, so NSAlert
+// dialogs (used by tauri-plugin-dialog's ask/message and by Tauri's About
+// panel fallback) render a generic folder icon. Setting
+// applicationIconImage explicitly at setup time fixes both.
+
+#[cfg(target_os = "macos")]
+fn set_nsapp_icon(png_bytes: &'static [u8]) {
+    use objc2::{AnyThread, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::NSData;
+
+    let Some(mtm) = MainThreadMarker::new() else {
+        return;
+    };
+    let data = NSData::with_bytes(png_bytes);
+    let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) else {
+        return;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    unsafe { app.setApplicationIconImage(Some(&image)) };
+}
 
 // ── macOS dock menu ──────────────────────────────────────────────────────────
 
@@ -730,7 +755,57 @@ pub fn run() {
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             app.handle().plugin(tauri_plugin_process::init())?;
 
+            // ── App icon ─────────────────────────────────────────────────────
+            // Embedded once and reused for both the About panel (via
+            // AboutMetadata) and NSAlert dialogs (via NSApp's
+            // applicationIconImage — `tauri-plugin-dialog`'s ask/message render
+            // on NSAlert, which picks up its icon from there).
+            const APP_ICON_PNG: &[u8] = include_bytes!("../icons/128x128@2x.png");
+            let about_icon = tauri::image::Image::from_bytes(APP_ICON_PNG).ok();
+
+            #[cfg(target_os = "macos")]
+            set_nsapp_icon(APP_ICON_PNG);
+
             // ── Menu bar ─────────────────────────────────────────────────────
+            // App menu (DOMD) — owns About + Check for Updates so they land in
+            // the conventional macOS spot (right under the Apple menu).
+            let about_metadata = AboutMetadataBuilder::new()
+                .name(Some("DOMD"))
+                .version(Some(env!("CARGO_PKG_VERSION").to_string()))
+                .website(Some("https://github.com/do-md/domd"))
+                .website_label(Some("github.com/do-md/domd"))
+                .icon(about_icon)
+                .build();
+            let about_item = PredefinedMenuItem::about(
+                app,
+                Some("About DOMD"),
+                Some(about_metadata),
+            )?;
+            let check_updates_item = MenuItem::with_id(
+                app,
+                "check-updates",
+                "Check for Updates...",
+                true,
+                None::<&str>,
+            )?;
+            let app_menu = Submenu::with_items(
+                app,
+                "DOMD",
+                true,
+                &[
+                    &about_item,
+                    &check_updates_item,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::services(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::hide(app, None)?,
+                    &PredefinedMenuItem::hide_others(app, None)?,
+                    &PredefinedMenuItem::show_all(app, None)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    &PredefinedMenuItem::quit(app, None)?,
+                ],
+            )?;
+
             let new_window_item =
                 MenuItem::with_id(app, "new-window", "New Window", true, Some("Cmd+N"))?;
             let open_url_item =
@@ -772,7 +847,7 @@ pub fn run() {
                 ],
             )?;
 
-            let menu = Menu::with_items(app, &[&file_menu, &edit_menu])?;
+            let menu = Menu::with_items(app, &[&app_menu, &file_menu, &edit_menu])?;
             app.set_menu(menu)?;
 
             app.on_menu_event(|app, event| {
@@ -799,6 +874,12 @@ pub fn run() {
                 } else if event.id() == "install-cli" {
                     #[cfg(target_os = "macos")]
                     std::thread::spawn(|| install_cli_to_path());
+                } else if event.id() == "check-updates" {
+                    if let Some(win) = app.webview_windows().values().find(|w| {
+                        w.is_focused().unwrap_or(false)
+                    }) {
+                        let _ = win.emit_to(win.label(), "menu-check-updates", ());
+                    }
                 }
             });
 
