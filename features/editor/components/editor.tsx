@@ -43,53 +43,60 @@ export function Editor({
     const metaRef = useLatest(meta);
     const domdRef = useRef<HTMLDivElement>(null);
 
-    // useEffect(() => {
-    //     if (editor?.aiInsertInCursor) {
-    //         // @ts-ignore
-    //         window.aiInsertInCursor = (text: string) => {
-    //             editor?.aiInsertInCursor(text);
-    //         };
-    //         // @ts-ignore
-    //         window.insertText = (text: string) => {
-    //             store?.insertText(text);
-    //         };
-    //         // @ts-ignore
-    //         window.insertTexts = async (...texts: string) => {
-    //             const SPEED = 1.0;
+    useEffect(() => {
+        // @ts-expect-error
+        window.toMarkdown = () => {
+            return toMarkdown(renderData);
+        };
+    }, [store, renderData]);
 
-    //             const sleep = (ms: number) =>
-    //                 new Promise((r) => setTimeout(r, ms * SPEED));
-    //             const rand = (min: number, max: number) =>
-    //                 min + Math.random() * (max - min);
+    useEffect(() => {
+        if (editor?.aiInsertInCursor) {
+            // @ts-expect-error
+            window.aiInsertInCursor = (text: string) => {
+                editor?.aiInsertInCursor(text);
+            };
+            // @ts-expect-error
+            window.insertText = (text: string) => {
+                store?.insertText(text);
+            };
+            // @ts-expect-error
+            window.insertTexts = async (...texts: string) => {
+                const SPEED = 1.0;
 
-    //             for (const chunk of texts) {
-    //                 store.insertText(chunk);
-    //                 await sleep(rand(25, 60));
-    //             }
-    //         };
-    //         // @ts-ignore
-    //         window.mockAI = async (text: string) => {
-    //             const SPEED = 1.0;
+                const sleep = (ms: number) =>
+                    new Promise((r) => setTimeout(r, ms * SPEED));
+                const rand = (min: number, max: number) =>
+                    min + Math.random() * (max - min);
 
-    //             const content = text;
+                for (const chunk of texts) {
+                    store?.insertText(chunk);
+                    await sleep(rand(25, 60));
+                }
+            };
+            // @ts-expect-error
+            window.mockAI = async (text: string) => {
+                const SPEED = 1.0;
 
-    //             const sleep = (ms: number) =>
-    //                 new Promise((r) => setTimeout(r, ms * SPEED));
-    //             const rand = (min: number, max: number) =>
-    //                 min + Math.random() * (max - min);
+                const content = text;
 
-    //             let i = 0;
-    //             while (i < content.length) {
-    //                 const chunkSize = 1 + Math.floor(Math.random() * 5); // 1..5
-    //                 const chunk = content.slice(i, i + chunkSize);
-    //                 store.insertText(chunk);
-    //                 i += chunkSize;
+                const sleep = (ms: number) =>
+                    new Promise((r) => setTimeout(r, ms * SPEED));
+                const rand = (min: number, max: number) =>
+                    min + Math.random() * (max - min);
 
-    //                 await sleep(rand(25, 60));
-    //             }
-    //         };
-    //     }
-    // }, [editor, store]);
+                let i = 0;
+                while (i < content.length) {
+                    const chunkSize = 1 + Math.floor(Math.random() * 5); // 1..5
+                    const chunk = content.slice(i, i + chunkSize);
+                    store?.insertText(chunk);
+                    i += chunkSize;
+
+                    await sleep(rand(25, 60));
+                }
+            };
+        }
+    }, [editor, store]);
 
     // Benchmark: signal once after the initial paint. initMd makes renderData
     // available synchronously on first render, so a single mount effect is enough.
