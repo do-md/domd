@@ -2,9 +2,10 @@
 
 # DOMD
 
-**DOMD is a WYSIWYG editor built on a from-scratch, Markdown-native rendering engine.**
+**DOMD is a WYSIWYG Markdown editor built on a 20KB, from-scratch, Markdown-native engine for human editing and AI streaming.**
 
 - 20 KB gzipped kernel (zero runtime dependencies beyond React)
+- Streams and edits 20,000-line Markdown documents smoothly
 - Input and rendering happen in lockstep — cursor stays steady, no lag, no flicker
 
 [**Try on Web**](https://www.domd.app/editor)
@@ -42,13 +43,21 @@ The entire editing stack fits in 20 KB gzipped.
 
 ---
 
-## Instant 1 MB open
+## Instant large-file opening
 
 https://github.com/user-attachments/assets/d4cb6d94-6efe-4d5d-8a67-846be7f3cd45
 
 A 5 KB note and a 1 MB document open at virtually the same perceptual speed.
 
 In Finder, press space — DOMD's own Quick Look extension takes over rendering.
+
+---
+
+## Streaming
+
+AI models emit Markdown token by token, often splitting in the middle of syntax. DOMD ingests those streams chunk by chunk and renders them live — open fences, half-built tables, and partial lists render correctly mid-stream, then absorb their real terminators without flicker when they arrive. Comfortable at any chunk size, through 20,000-line documents and beyond.
+
+[**Try the streaming playground**](https://www.domd.app/playground)
 
 ---
 
@@ -118,13 +127,19 @@ Windows native builds are not currently supported.
 
 ---
 
-## License
+## Licensing
 
-DOMD is dual-licensed.
+DOMD is a product-first project: the application layer is open-source where applicable, while the editor engine is separately licensed.
 
-**Application layer & helper libraries** — All source in this repository, including `@do-md/utils` and `@do-md/zenith`, is MIT licensed; see [LICENSE](LICENSE). Free to read, modify, and self-host.
+The application layer, including the macOS app, web app, and helper libraries, is open-source where applicable and intended for learning, personal use, contribution, and transparency.
 
-**Core rendering engine** — `@do-md/dist` is distributed as a build artifact only, under [PolyForm Noncommercial 1.0.0](.packages/@do-md/dist/LICENSE). **Any commercial use requires prior written authorization.**
+The core editor engine, `@do-md/dist`, is distributed as a prebuilt build artifact under the PolyForm Noncommercial 1.0.0 license. It includes DOMD's Markdown editing and rendering capabilities.
+
+You may use `@do-md/dist` for evaluation, personal projects, non-commercial projects, including non-commercial open-source projects, experiments, and prototypes.
+
+Commercial use requires prior written authorization. This includes commercial embedding, SaaS/product integration, redistribution, or offering DOMD as part of a paid product, SDK, editor component, or hosted service.
+
+For commercial licensing, please contact the project author.
 
 ---
 

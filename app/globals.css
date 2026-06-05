@@ -18,7 +18,12 @@
     --color-neutral-content: #414751;
     --color-info: #2563eb;
     --color-info-content: #3c7cab;
-    --color-warning: #b45309;
+    --color-warning: #f59e0b;
+    --color-warning-content: oklch(27% 0.077 45.635);
+    --color-success: #10b981;
+    --color-success-content: oklch(26% 0.051 172.552);
+    --color-error: #ef4444;
+    --color-error-content: oklch(0% 0 0);
     --depth: 0;
 }
 
@@ -34,9 +39,14 @@
     --color-primary: oklch(49.12% 0.3096 275.75);
     --color-neutral: #2e3034;
     --color-neutral-content: #aaaaaa;
-    --color-info: #4daafc;
+    --color-info: #2563eb;
     --color-info-content: #3c7cab;
-    --color-warning: #c3be00;
+    --color-warning: #f59e0b;
+    --color-warning-content: oklch(27% 0.077 45.635);
+    --color-success: #10b981;
+    --color-success-content: oklch(26% 0.051 172.552);
+    --color-error: #ef4444;
+    --color-error-content: oklch(0% 0 0);
     --depth: 0;
 }
 
@@ -57,4 +67,70 @@ body {
  * remaps them so the editor picks up the active daisyui theme (light/dark).
  */
 [data-domd-root] {
+}
+
+/*
+ * Dual-handle range slider used by the playground (chunk-size min/max).
+ * Two native <input type="range"> are stacked; we hide each input's own
+ * track and only expose the thumb, with pointer-events restricted to the
+ * thumb so both handles stay independently draggable.
+ */
+/*
+ * The wrapper is h-5 (20px). We size each input to the thumb height (14px)
+ * and absolutely center it vertically in the wrapper, so the thumb (which
+ * fills its own input vertically) ends up centered on the visual track —
+ * no fragile margin-top math against browser-specific track positioning.
+ */
+.dual-range {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 14px;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.dual-range::-webkit-slider-runnable-track {
+    background: transparent;
+    border: none;
+    height: 14px;
+}
+.dual-range::-moz-range-track {
+    background: transparent;
+    border: none;
+    height: 14px;
+}
+.dual-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    pointer-events: auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: var(--color-base-100);
+    border: 2px solid var(--color-base-content);
+    cursor: grab;
+    margin-top: 0;
+}
+.dual-range::-webkit-slider-thumb:active {
+    cursor: grabbing;
+}
+.dual-range::-moz-range-thumb {
+    pointer-events: auto;
+    box-sizing: border-box;
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: var(--color-base-100);
+    border: 2px solid var(--color-base-content);
+    cursor: grab;
+}
+.dual-range:focus {
+    outline: none;
 }

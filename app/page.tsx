@@ -62,13 +62,22 @@ export default async function Landing() {
                             />
                         </svg>
                     </a>
-                    <Link
-                        href="/editor"
-                        className="btn btn-link no-underline hover:underline"
-                        style={{ color: "rgb(60, 124, 171)" }}
-                    >
-                        Try Online
-                    </Link>
+                    <div className="flex items-center gap-1 sm:gap-2">
+                        <Link
+                            href="/editor"
+                            className="btn btn-link no-underline hover:underline px-2"
+                            style={{ color: "rgb(60, 124, 171)" }}
+                        >
+                            Online editor
+                        </Link>
+                        <Link
+                            href="/playground"
+                            className="btn btn-link no-underline hover:underline px-2"
+                            style={{ color: "rgb(60, 124, 171)" }}
+                        >
+                            Streaming playground
+                        </Link>
+                    </div>
                 </nav>
             </header>
 

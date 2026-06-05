@@ -43,6 +43,18 @@ export function Editor({
     const metaRef = useLatest(meta);
     const domdRef = useRef<HTMLDivElement>(null);
 
+    // Auto-focus once when the editor instance materializes. @do-md hands the
+    // editor back via a deferred setTimeout in its provider, so the first
+    // render sees `editor === null` — a plain mount effect would no-op. The
+    // ref keeps focus from re-firing later (e.g. after user has clicked
+    // elsewhere or another doc swap re-runs this effect).
+    const didFocusRef = useRef(false);
+    useEffect(() => {
+        if (!editor || didFocusRef.current) return;
+        didFocusRef.current = true;
+        editor.focus?.();
+    }, [editor]);
+
     useEffect(() => {
         // @ts-expect-error
         window.toMarkdown = () => {

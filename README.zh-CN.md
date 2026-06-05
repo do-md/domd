@@ -2,9 +2,10 @@
 
 # DOMD
 
-**DOMD 是一款基于自研原生 Markdown 渲染引擎的 WYSIWYG 编辑器。**
+**DOMD 是一款 WYSIWYG Markdown 编辑器，基于 20 KB 自研、Markdown 原生引擎构建，同时面向人手输入与 AI 流式写入。**
 
 - 20 KB gzipped 内核（除 React 外零运行时依赖）
+- 20,000 行的 Markdown 文档，流式写入与编辑依旧顺滑
 - 输入与渲染同步发生，光标始终稳定，编辑无延迟、无抖动
 
 [**Try on Web**](https://www.domd.app/editor)
@@ -42,13 +43,21 @@ DOMD 的内核是一套从零实现的 Markdown WYSIWYG 编辑器引擎。
 
 ---
 
-## 1 MB 秒开
+## 大文件秒开
 
 https://github.com/user-attachments/assets/d4cb6d94-6efe-4d5d-8a67-846be7f3cd45
 
 5 KB 笔记和 1 MB 文档，打开体验几乎没有区别。
 
 Finder 里按空格，DOMD 自己的 Quick Look 扩展接管渲染。
+
+---
+
+## 流式输入
+
+AI 模型按 token 输出 Markdown，常常在语法中间被切断。DOMD 把这种流按 chunk 持续吸收并实时渲染——未闭合的代码块、半成型的表格、未收尾的列表，在流的中途也能正确渲染；真正的结束标记到来时，无缝衔接、不抖动。任意 chunk 大小都从容，20,000 行甚至更长的文档也轻松。
+
+[**前往流式输入 Playground**](https://www.domd.app/playground)
 
 ---
 
