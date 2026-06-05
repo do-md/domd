@@ -184,7 +184,8 @@ export function ControlPanel({
         : doc.description;
 
     return (
-        <div className="flex flex-col gap-5 text-sm">
+        <div className="flex flex-col h-full min-h-0 w-full text-sm">
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-5 px-5 pt-5 pb-4">
             <div>
                 <div className="text-base font-semibold mb-1">
                     AI streaming playground
@@ -352,7 +353,15 @@ export function ControlPanel({
                 </div>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="text-[11px] text-base-content/50 leading-relaxed border-t border-base-300 pt-3">
+                The same 20 KB Markdown-native core powers preview, edit, and
+                stream. This page simulates a token-by-token Markdown stream
+                arriving from an AI model — the editor is locked while a stream
+                is running.
+            </div>
+            </div>
+
+            <div className="shrink-0 flex flex-col gap-2 px-5 py-3 border-t border-base-300">
                 {isStreaming ? (
                     <button
                         type="button"
@@ -386,13 +395,6 @@ export function ControlPanel({
                 >
                     Clear editor
                 </button>
-            </div>
-
-            <div className="text-[11px] text-base-content/50 leading-relaxed border-t border-base-300 pt-3">
-                The same 20 KB Markdown-native core powers preview, edit, and
-                stream. This page simulates a token-by-token Markdown stream
-                arriving from an AI model — the editor is locked while a stream
-                is running.
             </div>
         </div>
     );

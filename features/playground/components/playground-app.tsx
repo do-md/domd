@@ -1,12 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-    DOMD,
-    DOMDProvider,
-    useEditor,
-    useEditorStoreApi,
-} from "@do-md/react";
+import { DOMD, DOMDProvider, useEditor, useEditorStoreApi } from "@do-md/react";
 import "@do-md/react/style.css";
 import { tokenize } from "@/common/lib/prism";
 import { SAMPLE_DOCS, resolveDocContent } from "../lib/sample-docs";
@@ -95,6 +90,13 @@ export function PlaygroundApp() {
     const [metrics, setMetrics] = useState<StreamMetrics>(EMPTY_METRICS);
 
     const [mobileOpen, setMobileOpen] = useState(false);
+    // Mobile users land with the settings modal open so they don't have to
+    // hunt for it. Defer to a post-mount effect to avoid SSR/client mismatch.
+    useEffect(() => {
+        if (window.matchMedia("(max-width: 767px)").matches) {
+            setMobileOpen(true);
+        }
+    }, []);
     const [dragging, setDragging] = useState(false);
     // Stays loaded across runs so users can restart the same dropped file.
     const [droppedDoc, setDroppedDoc] = useState<{
@@ -264,7 +266,7 @@ export function PlaygroundApp() {
 
             <div className="flex-1 flex min-h-0">
                 {/* Desktop sidebar */}
-                <aside className="hidden md:flex w-80 shrink-0 border-r border-base-300 bg-base-200/50 overflow-y-auto p-5">
+                <aside className="hidden md:flex w-80 shrink-0 border-r border-base-300 bg-base-200/50">
                     <ControlPanel {...controlProps} />
                 </aside>
 
@@ -321,12 +323,12 @@ export function PlaygroundApp() {
             <dialog
                 className={`modal ${mobileOpen ? "modal-open" : ""} md:hidden`}
             >
-                <div className="modal-box max-w-md w-[92%] p-5">
+                <div className="modal-box max-w-md w-[92%] p-0 max-h-[80vh] flex flex-col overflow-hidden">
                     <ControlPanel
                         {...controlProps}
                         onApply={() => setMobileOpen(false)}
                     />
-                    <div className="modal-action mt-4">
+                    <div className="shrink-0 px-5 py-2 border-t border-base-300 flex justify-end">
                         <button
                             type="button"
                             className="btn btn-sm btn-ghost"

@@ -68,14 +68,14 @@ export default async function Landing() {
                             className="btn btn-link no-underline hover:underline px-2"
                             style={{ color: "rgb(60, 124, 171)" }}
                         >
-                            Online editor
+                            Editor
                         </Link>
                         <Link
                             href="/playground"
                             className="btn btn-link no-underline hover:underline px-2"
                             style={{ color: "rgb(60, 124, 171)" }}
                         >
-                            Streaming playground
+                            Stream
                         </Link>
                     </div>
                 </nav>

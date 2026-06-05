@@ -8,7 +8,15 @@ import { useEditorStoreApi } from "@do-md/react";
 // Streams `text` into the surrounding DOMDProvider one chunk at a time,
 // mimicking an AI token stream. Must sit inside the provider so `useEditor`
 // returns the live editor.
-function StreamDriver({ text, onDone }: { text: string; onDone: () => void }) {
+function StreamDriver({
+    text,
+    abortRef,
+    onDone,
+}: {
+    text: string;
+    abortRef: React.MutableRefObject<boolean>;
+    onDone: () => void;
+}) {
     const editorStore = useEditorStoreApi();
     const onDoneRef = useRef(onDone);
 
@@ -18,8 +26,10 @@ function StreamDriver({ text, onDone }: { text: string; onDone: () => void }) {
 
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         const rand = (a: number, b: number) => a + Math.random() * (b - a);
+        const aborted = () => cancelled || abortRef.current;
 
         (async () => {
+            if (aborted()) return;
             // Seed: empty doc has no cursor, so plain insertText would be a
             // no-op. resetMD parses an initial slice, then focus() puts the
             // caret at end-of-doc so aiInsertInCursor has somewhere to land.
@@ -28,14 +38,26 @@ function StreamDriver({ text, onDone }: { text: string; onDone: () => void }) {
             let i = firstSize;
 
             while (i < text.length) {
-                if (cancelled) return;
-                await sleep(rand(25, 45));
-                if (cancelled) return;
+                if (aborted()) return;
+                // Split the inter-chunk wait into ~10ms slices so a tap can
+                // halt insertions within one slice. A single 25–45ms sleep
+                // would let one more insertText slip through after abort and
+                // mutate the DOM during the pointerdown→click window, which
+                // iOS reads as instability and cancels the click.
+                const target = rand(25, 45);
+                let waited = 0;
+                while (waited < target) {
+                    if (aborted()) return;
+                    const step = Math.min(target - waited, 10);
+                    await sleep(step);
+                    waited += step;
+                }
+                if (aborted()) return;
                 const size = 2 + Math.floor(Math.random() * 5); // 2..6
                 editorStore.insertText(text.slice(i, i + size));
                 i += size;
             }
-            if (!cancelled) {
+            if (!aborted()) {
                 // Defer: React 19 warns when an effect's continuation lands
                 // a setState back into the same commit cycle. Bouncing
                 // through a macrotask breaks that chain.
@@ -46,7 +68,7 @@ function StreamDriver({ text, onDone }: { text: string; onDone: () => void }) {
         return () => {
             cancelled = true;
         };
-    }, [editorStore, text]);
+    }, [editorStore, text, abortRef]);
 
     return null;
 }
@@ -76,6 +98,10 @@ function pickStream(streams: ReadmeStreams): string {
 // Transition timing between SSR content and the streaming editor.
 const HOLD_MS = 300; // let the SSR'd content sit visible before we start swapping
 const FADE_MS = 350; // duration of the fade-out / fade-in halves
+// How long to keep the DOM stable after a tap on a nav link before flipping
+// blockInput off. iOS dispatches click ~50–300ms after pointerdown; mutating
+// the DOM inside that window will cancel the click.
+const ABORT_RERENDER_DELAY_MS = 400;
 
 type Phase = "ssr" | "fading" | "streaming";
 
@@ -90,6 +116,11 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
     const [phase, setPhase] = useState<Phase>("ssr");
     const [streamText, setStreamText] = useState<string | null>(null);
     const [streamingDone, setStreamingDone] = useState(false);
+    // Synchronous abort signal for the streaming loop. We flip this in the
+    // pointerdown handler without calling setState, so no React render runs
+    // between pointerdown and the synthesized click — iOS cancels the click
+    // if the DOM mutates in that window.
+    const abortRef = useRef(false);
 
     useEffect(() => {
         const text = pickStream(streams);
@@ -105,6 +136,24 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
             clearTimeout(t2);
         };
     }, [streams]);
+
+    useEffect(() => {
+        if (phase !== "streaming" || streamingDone) return;
+        const onPointerDown = (e: PointerEvent) => {
+            const target = e.target as Element | null;
+            if (!target?.closest("a")) return;
+            // Stop the streaming loop synchronously — no setState, no render.
+            abortRef.current = true;
+            // Lift blockInput only after click had a chance to dispatch.
+            setTimeout(
+                () => setStreamingDone(true),
+                ABORT_RERENDER_DELAY_MS,
+            );
+        };
+        document.addEventListener("pointerdown", onPointerDown, true);
+        return () =>
+            document.removeEventListener("pointerdown", onPointerDown, true);
+    }, [phase, streamingDone]);
 
     const blockInput = phase === "streaming" && !streamingDone;
 
@@ -137,6 +186,7 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
                     <DOMD />
                     <StreamDriver
                         text={streamText}
+                        abortRef={abortRef}
                         onDone={() => setStreamingDone(true)}
                     />
                 </DOMDProvider>
