@@ -78,8 +78,14 @@ function resolveGitHubSpec(spec: string): MarkdownSource | null {
     if (!rest) return null;
 
     const at = rest.lastIndexOf("@");
-    const beforeAt = at >= 0 ? rest.slice(0, at) : rest;
-    const ref = at >= 0 ? rest.slice(at + 1).trim() : null;
+    const refCandidate = at >= 0 ? rest.slice(at + 1).trim() : null;
+    // A `gh:` ref is a branch or tag name, so it never contains "/" or ".".
+    // Without this guard, a file path like `docs/file@v1.md` is misparsed:
+    // the `@` inside the filename is treated as a ref separator, the file
+    // path loses the trailing `.md`, and the GitHub API 404s.
+    const looksLikeRef = refCandidate !== null && !/[\/.]/.test(refCandidate);
+    const ref = looksLikeRef ? refCandidate : null;
+    const beforeAt = ref ? rest.slice(0, at) : rest;
 
     const [repoPart, filePartRaw] = beforeAt.split(":", 2);
     const m = repoPart.match(/^([^/]+)\/([^/]+)$/);
