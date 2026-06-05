@@ -47,6 +47,25 @@ export function runResolveUrlTests(): void {
             `atInFilename: expected path to include 'docs/file@v1.md', got ${atInFilename.url}`,
         );
     }
+    // Branch ref with `/` (slash-separated) must still be a ref.
+    case_(
+        "gh:owner/repo:docs/file.md@feature/new-docs",
+        "feature/new-docs",
+        "docs/file.md",
+    );
+    // Semver tag with `.` must still be a ref.
+    case_("gh:owner/repo:README.md@v1.0.0", "v1.0.0", "README.md");
+    // `.markdown` extension also keeps `@` as part of the filename.
+    const atInMarkdown = resolveMarkdownUrl("gh:owner/repo:docs/page@v2.markdown");
+    if (!atInMarkdown) throw new Error("atInMarkdown: got null");
+    if (atInMarkdown.url.includes("ref=")) {
+        throw new Error(`atInMarkdown: expected no ref, got ${atInMarkdown.url}`);
+    }
+    if (!atInMarkdown.url.includes("docs/page@v2.markdown")) {
+        throw new Error(
+            `atInMarkdown: expected path to include 'docs/page@v2.markdown', got ${atInMarkdown.url}`,
+        );
+    }
 }
 
 if (typeof process !== "undefined" && process.env?.RUN_RESOLVE_URL_TESTS === "1") {

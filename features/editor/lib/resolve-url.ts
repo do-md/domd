@@ -79,11 +79,15 @@ function resolveGitHubSpec(spec: string): MarkdownSource | null {
 
     const at = rest.lastIndexOf("@");
     const refCandidate = at >= 0 ? rest.slice(at + 1).trim() : null;
-    // A `gh:` ref is a branch or tag name, so it never contains "/" or ".".
-    // Without this guard, a file path like `docs/file@v1.md` is misparsed:
-    // the `@` inside the filename is treated as a ref separator, the file
-    // path loses the trailing `.md`, and the GitHub API 404s.
-    const looksLikeRef = refCandidate !== null && !/[\/.]/.test(refCandidate);
+    // Disambiguate `@` inside the filename from the ref separator.
+    // A `gh:` ref is a branch or tag name, but a filename can contain `@`
+    // (e.g. `file@v1.md`). Treat the suffix as a filename when it ends with
+    // a known Markdown extension (`.md`, `.markdown`, `.mdx`); otherwise
+    // treat it as a ref. This keeps `feature/foo` and `v1.0.0` as refs.
+    const isMarkdownFileSuffix = (s: string) =>
+        /\.(md|markdown|mdx)$/i.test(s);
+    const looksLikeRef =
+        refCandidate !== null && !isMarkdownFileSuffix(refCandidate);
     const ref = looksLikeRef ? refCandidate : null;
     const beforeAt = ref ? rest.slice(0, at) : rest;
 
