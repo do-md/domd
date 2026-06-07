@@ -33,18 +33,18 @@ function StreamDriver({
             // Seed: empty doc has no cursor, so plain insertText would be a
             // no-op. resetMD parses an initial slice, then focus() puts the
             // caret at end-of-doc so aiInsertInCursor has somewhere to land.
-            const firstSize = 2 + Math.floor(Math.random() * 5); // 2..6
+            const firstSize = 180 + Math.floor(Math.random() * 60); // 180..239
             editorStore.resetMD(text.slice(0, firstSize));
             let i = firstSize;
 
             while (i < text.length) {
                 if (aborted()) return;
                 // Split the inter-chunk wait into ~10ms slices so a tap can
-                // halt insertions within one slice. A single 25–45ms sleep
+                // halt insertions within one slice. A single 60–90ms sleep
                 // would let one more insertText slip through after abort and
                 // mutate the DOM during the pointerdown→click window, which
                 // iOS reads as instability and cancels the click.
-                const target = rand(25, 45);
+                const target = rand(55, 85);
                 let waited = 0;
                 while (waited < target) {
                     if (aborted()) return;
@@ -53,7 +53,7 @@ function StreamDriver({
                     waited += step;
                 }
                 if (aborted()) return;
-                const size = 2 + Math.floor(Math.random() * 5); // 2..6
+                const size = 50 + Math.floor(Math.random() * 15); // 50..64
                 editorStore.insertText(text.slice(i, i + size));
                 i += size;
             }
@@ -145,10 +145,7 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
             // Stop the streaming loop synchronously — no setState, no render.
             abortRef.current = true;
             // Lift blockInput only after click had a chance to dispatch.
-            setTimeout(
-                () => setStreamingDone(true),
-                ABORT_RERENDER_DELAY_MS,
-            );
+            setTimeout(() => setStreamingDone(true), ABORT_RERENDER_DELAY_MS);
         };
         document.addEventListener("pointerdown", onPointerDown, true);
         return () =>
