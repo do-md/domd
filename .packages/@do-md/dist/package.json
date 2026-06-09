@@ -1,0 +1,15 @@
+{
+    "name": "react-domd",
+    "type": "module",
+    "types": "./index.d.ts",
+    "main": "./index.cjs",
+    "module": "./index.js",
+    "exports": {
+        ".": {
+            "types": "./index.d.ts",
+            "import": "./index.js",
+            "require": "./index.cjs"
+        },
+        "./style.css": "./style.css"
+    }
+}

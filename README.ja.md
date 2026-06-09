@@ -1,149 +1,153 @@
-<img width="928" height="720" alt="cf0de0fa6d1db4ab27f3f992bf8c81bb_WC-EditVideo_1_30fps" src="https://github.com/user-attachments/assets/ede74d56-f5a8-4e3a-9b6b-6c71bc4cdd22" />
-
 # DOMD
 
-**DOMD は WYSIWYG な Markdown エディターで、20 KB の自社開発・Markdown ネイティブエンジンを基盤に、人による編集と AI のストリーミング書き込みの両方を一つの仕組みで扱います。**
+**DOMD は、20 KB の自前 Markdown ネイティブエンジンで動作する WYSIWYG Markdown エディタです。**
 
-- 20 KB gzipped のカーネル（React 以外のランタイム依存ゼロ）
-- 20,000 行の Markdown ドキュメントでも、ストリーミング書き込みと編集が滑らかに動作
-- 入力とレンダリングは同時に発生し、カーソルは常に安定。遅延もチラつきもありません
+日常的な編集、大きな Markdown ファイル、そして AI によるリアルタイムなストリーミング書き込みのために作られています。
 
-[**Try on Web**](https://www.domd.app/editor)
+* 20 KB Brotli 圧縮カーネル。ランタイム依存は React と Immer のみ
+* 20,000 行規模の Markdown 文書でも、編集とストリーミング書き込みをスムーズに処理
+* 入力とレンダリングが同期して動作：カーソルは安定し、遅延やちらつきを抑制
+* ネイティブ macOS アプリ、Quick Look プレビュー、ローカル優先の Web エディタ、agent 向け CLI を提供
 
-Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
+[**Web で試す**](https://www.domd.app/editor) · [**Streaming Playground**](https://www.domd.app/playground) · [**Input Playground**](https://www.domd.app/chat)
+
+macOS 版をダウンロード：[Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
 <sub>[English](./README.md) · [简体中文](./README.zh-CN.md) · 日本語</sub>
 
-> [!WARNING]
-> **v0.2.0 をリリース** —— 編集体験を改善（Enter / Tab / Delete のバグを修正）、自動アップデートを内蔵（手動での DMG 再ダウンロードは不要に）。[今すぐアップデート](https://github.com/do-md/domd/releases/latest)。
+---
+
+## Markdown ネイティブカーネル
+
+DOMD の WYSIWYG 編集は、Markdown そのものの上で動作します。
+
+Markdown 文書自体が、編集状態の唯一の source of truth です。
+
+DOMD は ProseMirror、Slate、Lexical のような汎用リッチテキストフレームワークの上には構築されていません。パース、レンダリング、編集、undo / redo、AI ストリーミング挿入、チャンク単位のファイル読み込みは、すべてカーネル内の決定的な状態変化として扱われます。
+
+変更が発生したとき、DOMD は実際に変わった部分だけをレンダリングします。編集スタック全体は、Brotli 圧縮後で 20 KB に収まります。
 
 ---
 
-## Markdown ネイティブ
+## ストリーミング書き込み
 
-DOMD の WYSIWYG は、Markdown の上で直接起こります。
+AI モデルは Markdown を少しずつ出力します。しかも、構文の途中で分割されることもよくあります。
 
-パース、レンダリング、編集 —— 最初のコード一行目から、Markdown の WYSIWYG のために設計されています。
+DOMD はそうした出力を chunk 単位で受け取り、その場でリアルタイムにレンダリングできます。
 
-ProseMirror、Slate、Lexical のような汎用リッチテキストエンジンの上には載っていません。
+閉じられていないコードブロック、途中まで書かれたテーブル、未完成のリストも、ストリーミング中に自然に表示されます。実際の終端が届いたときも、内容はそのまま吸収され、ちらつきや全文再レンダリングは発生しません。
 
-DOMD の編集モデルは、Markdown のために直接設計されています。
+DOMD は chunk の大きさに依存しません。20,000 行の文書に対して継続的にストリーミング書き込みを行っても、滑らかな操作感を保ちます。
 
----
-
-## カーネル
-
-DOMD のカーネルは、ゼロから実装した Markdown WYSIWYG エディターエンジンです。
-
-「データ」を唯一の駆動源とし、状態は不変です。入力、アンドゥ／リドゥ、AI のストリーミング差分注入、ファイルの分割ロード —— カーネル内ではすべて同じ種類の状態変化として統一的にモデル化されます。
-
-これにより編集の挙動は決定論的になり、状態は常に追跡可能で、レンダリングは変化した部分にのみ発生します。
-
-編集スタック全体が 20 KB gzipped に収まっています。
+[**Streaming Playground を試す**](https://www.domd.app/playground)
 
 ---
 
-## 大きなファイルを瞬時に開く
+## Markdown ネイティブ入力
+
+DOMD は、Markdown ネイティブな入力 UI としても利用できます。
+
+コメント欄、Prompt 入力欄、CMS フィールド、チャット入力、Issue フォームなど、構造化されたテキスト入力が必要な場所に向いています。
+
+ユーザーが Markdown を入力すると、内容はリアルタイムに WYSIWYG 表示されます。一方で、内部の value は Markdown のまま保持されます。
+
+チャット風の入力では、`Enter` で送信し、`Shift + Enter` で改行するような挙動にも対応できます。
+
+[**Input Playground を試す**](https://www.domd.app/chat)
+
+---
+
+## 大きなファイルでも速い
 
 https://github.com/user-attachments/assets/d4cb6d94-6efe-4d5d-8a67-846be7f3cd45
 
-5 KB のメモも 1 MB のドキュメントも、開く体感はほとんど変わりません。
+5 KB のメモを開くときと、1 MB の Markdown 文書を開くときで、体感速度はほとんど変わりません。
 
-Finder でスペースを押すと、DOMD 自身の Quick Look 拡張がレンダリングを引き受けます。
+これはプレーンテキストのプレビューではなく、完全な WYSIWYG Markdown レンダリングです。
 
----
-
-## ストリーミング入力
-
-AI モデルは Markdown を token 単位で出力し、しばしば構文の途中で切れます。DOMD はそのストリームを chunk 単位で取り込み、リアルタイムにレンダリングします —— 閉じられていないコードフェンス、組み上がっていないテーブル、途中までの箇条書きも、ストリーミングの最中に正しく描画され、本当の終端記号が到着するとちらつかずに吸収されます。どんな chunk サイズでも安定し、20,000 行を超えるドキュメントでも余裕です。
-
-[**ストリーミング Playground を試す**](https://www.domd.app/playground)
+Finder で `.md` ファイルを選択してスペースキーを押すと、DOMD に付属する Quick Look 拡張が Markdown のレンダリングを担当します。
 
 ---
 
 ## macOS
 
-Mac での体験はシステムアプリの水準に合わせています。レンダリング済みの `.md` を読み込む体感は、システムが `.txt` を開くのに近いものです。
+DOMD の macOS アプリは、軽く、直接的で、ネイティブに近い体験を目指しています。
 
-もっとも純粋な Markdown プレビューと編集 —— プロジェクトツリーなし、サイドバーなし、タブなし、同期なし、アカウントなし。ファイルはあなたの手元に残ります。
+レンダリング済みの `.md` ファイルを開く感覚は、システムで `.txt` ファイルを開く感覚に近いものです。速く、軽く、余計なものがありません。
 
-Download for macOS: [**Apple Silicon**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Intel**](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
+DOMD は普通の Markdown ファイルワークフローを採用しています。プロジェクトツリー、サイドバー、タブ、同期サービス、アカウントはありません。ファイルは常に自分のデバイス上に残ります。
+
+macOS 版をダウンロード：[**Apple Silicon**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Intel**](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
+
+---
 
 ## Web
 
-エディタを開けば、そのままブラウザで WYSIWYG に書き始められます。`.md` をページにドラッグすれば、その場で開いて編集を続けられます。すべてローカルで動作し、ファイルはアップロードされず、お使いの端末から出ることはありません。
+ブラウザを開くだけで、WYSIWYG Markdown 編集を始められます。
 
-<https://www.domd.app>
+`.md` ファイルをページにドラッグ＆ドロップして、そのままローカルで編集することもできます。すべての処理は手元の環境で行われ、ファイルがデバイスの外に送信されることはありません。
+
+https://www.domd.app
 
 ---
 
 ## CLI
 
-macOS 版にはコマンドラインツール `domd-cli` が同梱されており、エージェントがウィンドウを直接駆動できます。
+macOS 版には `domd-cli` が同梱されています。agent、スクリプト、ランチャー、自動化ツールから DOMD のウィンドウを直接操作できます。
 
-新規ウィンドウの作成、ストリーミング書き込み、選択範囲の書き換えに対応しています。モデルのストリーミング応答をそのまま `domd-cli insert` にパイプすれば、トークンが届いた瞬間に文書へ書き込まれ、リッチテキストとして即座にレンダリングされます。
+これにより、DOMD は単なるエディタではなく、ローカルの Markdown レンダリングサーフェスとしても利用できます。
 
-ページ冒頭のデモは、GPT API を呼び出す Alfred workflow が、ストリーミング応答を文書へ差分的に書き込んでいく様子を録画したものです。
+`domd-cli` は、新しいウィンドウを開く、ストリーミング書き込みを行う、選択範囲を書き換える、といった操作に対応しています。モデルのストリーミングレスポンスを `domd-cli insert` に直接 pipe すれば、token が届くたびに文書へ挿入され、リアルタイムにリッチテキスト Markdown としてレンダリングされます。
+
+ページ上部のデモ動画は、Alfred workflow から GPT API を呼び出し、そのレスポンスを DOMD に増分書き込みして録画したものです。
 
 ---
 
-## ビルド
+## 開発
 
-### Web アプリ（Windows）
+```bash
+npm install
+npm run dev
+```
 
-**前提条件**
-- Windows 10/11
-- Node.js（LTS）と npm
-- Git（任意、クローン用）
-
-**手順**
-1. リポジトリのルートで PowerShell または Windows Terminal を開きます。
-2. 依存関係をインストール：
-   ```bash
-   npm install
-   ```
-3. 開発サーバーを起動：
-   ```bash
-   npm run dev
-   ```
-   その後 http://localhost:3000 を開きます。
-4. 本番ビルドと実行：
-   ```bash
-   npm run build
-   npm run start
-   ```
-5. 任意の lint：
-   ```bash
-   npm run lint
-   ```
-
-### ネイティブ（macOS のみ）
+ネイティブ macOS アプリを開発する場合：
 
 ```bash
 npm run tauri dev
 ```
 
-Windows ネイティブビルドは現時点では対象外です。
+現在、Windows のネイティブビルドには対応していません。
+
+詳しいセットアップとコントリビューション方法は [CONTRIBUTING.md](./CONTRIBUTING.md) を参照してください。
 
 ---
 
-## ライセンス
+## License
 
-DOMD はプロダクトファーストのプロジェクトです。アプリケーション層は該当範囲でオープンソースとし、エディターエンジンは別ライセンスで提供します。
+DOMD は product-first なプロジェクトです。
 
-アプリケーション層（macOS アプリ、Web アプリ、ヘルパーライブラリを含む）は該当範囲でオープンソースとし、学習、個人利用、コントリビューション、透明性のために公開されています。
+macOS アプリ、Web アプリ、補助ライブラリを含むアプリケーション層は、それぞれのライセンスに基づいてオープンソースとして公開されています。学習、個人利用、コントリビューション、透明性のためのものです。
 
-コアエディターエンジン `@do-md/dist` はビルド済み成果物として配布され、PolyForm Noncommercial 1.0.0 ライセンスのもとで提供されます。DOMD の Markdown 編集およびレンダリング機能を含みます。
+コア編集エンジンである `@do-md/dist` は別ライセンスで提供され、事前ビルド済みの成果物として配布されます。ライセンスは PolyForm Noncommercial 1.0.0 です。`@do-md/dist` には DOMD の Markdown 編集機能とレンダリング機能が含まれます。
 
-`@do-md/dist` は、評価、個人プロジェクト、非商用プロジェクト（非商用のオープンソースプロジェクトを含む）、実験、プロトタイプに利用できます。
+`@do-md/dist` は、以下の用途で利用できます。
 
-商用利用には事前の書面による許諾が必要です。これには商用組み込み、SaaS / 製品への統合、再配布、または DOMD を有償の製品・SDK・エディターコンポーネント・ホスティングサービスの一部として提供する行為が含まれます。
+* 評価と試用
+* 個人プロジェクト
+* 非商用プロジェクト
+* 非商用のオープンソースプロジェクト
+* 実験とプロトタイプ開発
 
-商用ライセンスについては、プロジェクト作者までご連絡ください。
+商用利用には、事前の書面による許可が必要です。
+
+これには、商用製品への組み込み、SaaS / プロダクト連携、再配布、DOMD を有料製品・SDK・エディタコンポーネント・ホスト型サービスの一部として提供することが含まれます。
+
+商用ライセンスについては、プロジェクト作者までお問い合わせください。
 
 ---
 
-## フィードバック
+## フィードバックとコントリビューション
 
-- [GitHub Issues](https://github.com/do-md/domd/issues)
-- [GitHub Discussions](https://github.com/do-md/domd/discussions)
+* [GitHub Issues](https://github.com/do-md/domd/issues)
+* [GitHub Discussions](https://github.com/do-md/domd/discussions)
+* [Contributing guide](./CONTRIBUTING.md)

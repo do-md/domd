@@ -16,6 +16,7 @@ import {
 } from "../lib/types";
 import { ControlPanel } from "./control-panel";
 import { StreamDriver, type StreamMetrics } from "./stream-driver";
+import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 
 const EMPTY_METRICS: StreamMetrics = { chars: 0, chunks: 0, elapsedMs: 0 };
 
@@ -304,6 +305,7 @@ export function PlaygroundApp() {
                             >
                                 <EditorInit skipSeed={runId > 0} />
                                 <DOMD />
+                                <CustomCursor />
                                 <StreamDriver
                                     runId={runId}
                                     text={streamText}

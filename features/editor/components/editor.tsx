@@ -12,6 +12,7 @@ import {
     useEditor,
     useRenderData,
     useEditorStoreApi,
+    useEditorStore,
 } from "@do-md/react";
 import "@do-md/react/style.css";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
@@ -22,6 +23,7 @@ import { useAutoSave } from "../hooks/use-auto-save";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { saveDocument } from "../lib/save-document";
 import type { FileMeta } from "../lib/types";
+import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 
 export function Editor({
     meta,
@@ -39,6 +41,7 @@ export function Editor({
     const [saved, setSaved] = useState(false);
     const editor = useEditor();
     const store = useEditorStoreApi();
+    const isEditable = useEditorStore((store) => store.isEditable);
 
     const metaRef = useLatest(meta);
     const domdRef = useRef<HTMLDivElement>(null);
@@ -363,6 +366,7 @@ export function Editor({
                 <div className="max-w-3xl mx-auto px-6 py-8">
                     <div ref={domdRef}>
                         <DOMD />
+                        {isEditable &&  <CustomCursor />}
                     </div>
                 </div>
             </div>

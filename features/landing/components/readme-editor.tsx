@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { DOMD, DOMDProvider } from "@do-md/react";
 import "@do-md/react/style.css";
 import { tokenize } from "@/common/lib/prism";
+import { pickByLocale } from "@/common/lib/locale";
 import { useEditorStoreApi } from "@do-md/react";
+import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 
 // Streams `text` into the surrounding DOMDProvider one chunk at a time,
 // mimicking an AI token stream. Must sit inside the provider so `useEditor`
@@ -76,23 +78,8 @@ function StreamDriver({
 export type ReadmeStreams = { en: string; zh: string; ja: string };
 
 // Match browser-preferred locale to one of the three README translations.
-// Walks navigator.languages in order so a user with ["fr","zh-CN","en"] picks
-// English (their primary), but ["zh-CN","en"] picks Chinese. Falls back to
-// English for any locale we don't ship.
 function pickStream(streams: ReadmeStreams): string {
-    const langs =
-        typeof navigator === "undefined"
-            ? []
-            : navigator.languages?.length
-              ? navigator.languages
-              : [navigator.language];
-    for (const raw of langs) {
-        const tag = (raw || "").toLowerCase();
-        if (tag.startsWith("zh")) return streams.zh;
-        if (tag.startsWith("ja")) return streams.ja;
-        if (tag.startsWith("en")) return streams.en;
-    }
-    return streams.en;
+    return pickByLocale(streams);
 }
 
 // Transition timing between SSR content and the streaming editor.
@@ -181,6 +168,7 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
                     codeTokenizer={tokenize}
                 >
                     <DOMD />
+                    <CustomCursor />
                     <StreamDriver
                         text={streamText}
                         abortRef={abortRef}

@@ -1,149 +1,151 @@
-<img width="928" height="720" alt="cf0de0fa6d1db4ab27f3f992bf8c81bb_WC-EditVideo_1_30fps" src="https://github.com/user-attachments/assets/ede74d56-f5a8-4e3a-9b6b-6c71bc4cdd22" />
-
 # DOMD
 
-**DOMD 是一款 WYSIWYG Markdown 编辑器，基于 20 KB 自研、Markdown 原生引擎构建，同时面向人手输入与 AI 流式写入。**
+**DOMD 是一款所见即所得 Markdown 编辑器，基于 20 KB 自研 Markdown 原生内核构建。**
 
-- 20 KB gzipped 内核（除 React 外零运行时依赖）
-- 20,000 行的 Markdown 文档，流式写入与编辑依旧顺滑
-- 输入与渲染同步发生，光标始终稳定，编辑无延迟、无抖动
+面向日常写作、大型 Markdown 文档，以及 AI 内容的实时流式写入。
 
-[**Try on Web**](https://www.domd.app/editor)
+* 20 KB Brotli 压缩内核，运行时只依赖 React 和 Immer
+* 20,000 行 Markdown 文档也能顺滑编辑、流式写入
+* 输入和渲染同步完成：光标稳定，无明显延迟、无闪烁
+* 提供原生 macOS 应用、Quick Look 预览、本地优先 Web 编辑器，以及面向 agent 的 CLI
 
-Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
+[**在线试用**](https://www.domd.app/editor) · [**流式写入 Playground**](https://www.domd.app/playground) · [**输入框 Playground**](https://www.domd.app/chat)
+
+下载 macOS 版本：[Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
 <sub>[English](./README.md) · 简体中文 · [日本語](./README.ja.md)</sub>
 
-> [!WARNING]
-> **v0.2.0 已发布** —— 优化编辑体验（修复回车 / Tab / 删除键的 bug），并新增自动更新（以后无需手动下载 DMG）。建议[立即更新](https://github.com/do-md/domd/releases/latest)。
+---
+
+## Markdown 原生内核
+
+DOMD 的所见即所得编辑直接发生在 Markdown 之上。
+
+Markdown 文档本身就是编辑状态的唯一来源。
+
+DOMD 没有基于 ProseMirror、Slate、Lexical 这类通用富文本框架构建。解析、渲染、编辑、撤销/重做、AI 流式写入、分块文件加载，都会在内核中被建模为确定性的状态变化。
+
+内容变化时，DOMD 只渲染真正发生变化的部分。整套编辑栈经过 Brotli 压缩后只有 20 KB。
 
 ---
 
-## Markdown 原生
+## 流式写入
 
-DOMD 的所见即所得，直接发生在 Markdown 上。
+AI 模型通常会一段一段输出 Markdown，而且经常会把语法切在中间。
 
-解析、渲染、编辑，从第一行代码起就是为 Markdown 所见即所得而构建。
+DOMD 可以按 chunk 接收这些内容，并在写入过程中实时渲染。
 
-它不建立在 ProseMirror、Slate、Lexical 这类通用富文本引擎之上。
+未闭合的代码块、还没完成的表格、写到一半的列表，都可以在流式过程中正确显示。等真正的结束符到达时，内容会自然合并，不会闪烁，也不需要整篇重渲染。
 
-DOMD 的编辑模型，直接服务于 Markdown。
+DOMD 对 chunk 大小不敏感，即使在 20,000 行文档里持续流式写入，也能保持顺滑。
 
----
-
-## 内核
-
-DOMD 的内核是一套从零实现的 Markdown WYSIWYG 编辑器引擎。
-
-它以"数据"为唯一驱动源，状态不可变。输入、撤销还原、AI 流式增量注入、文件分块加载，在内核中被统一建模为同一类状态变更。
-
-这使得编辑行为具备确定性，状态始终可追溯，渲染只发生在变化的部分。
-
-整个编辑栈，被压进 20 KB gzipped。
+[**试试流式写入 Playground**](https://www.domd.app/playground)
 
 ---
 
-## 大文件秒开
+## Markdown 原生输入框
+
+DOMD 也可以作为 Markdown 原生输入框使用，适合评论框、Prompt 输入框、CMS 字段、聊天输入框、Issue 表单，以及任何需要结构化文本输入的地方。
+
+用户输入 Markdown 时，内容会实时渲染成所见即所得效果，但底层 value 仍然保持为 Markdown。
+
+在聊天输入场景中，可以用 `Enter` 提交，用 `Shift + Enter` 换行。
+
+[**试试输入框 Playground**](https://www.domd.app/chat)
+
+---
+
+## 大文件性能
 
 https://github.com/user-attachments/assets/d4cb6d94-6efe-4d5d-8a67-846be7f3cd45
 
-5 KB 笔记和 1 MB 文档，打开体验几乎没有区别。
+打开一篇 5 KB 笔记，和打开一篇 1 MB Markdown 文档，在感知速度上几乎没有区别。
 
-Finder 里按空格，DOMD 自己的 Quick Look 扩展接管渲染。
+这里不是普通纯文本预览，而是完整的所见即所得 Markdown 渲染。
 
----
-
-## 流式输入
-
-AI 模型按 token 输出 Markdown，常常在语法中间被切断。DOMD 把这种流按 chunk 持续吸收并实时渲染——未闭合的代码块、半成型的表格、未收尾的列表，在流的中途也能正确渲染；真正的结束标记到来时，无缝衔接、不抖动。任意 chunk 大小都从容，20,000 行甚至更长的文档也轻松。
-
-[**前往流式输入 Playground**](https://www.domd.app/playground)
+在 Finder 里选中 `.md` 文件后按空格，DOMD 自带的 Quick Look 扩展会接管 Markdown 渲染。
 
 ---
 
 ## macOS
 
-Mac 上的体验对标系统应用。一份渲染好的 `.md`，加载体验接近系统打开一份 `.txt`。
+DOMD 的 macOS 应用追求轻量、直接、接近系统原生体验。
 
-最纯粹的 Markdown 预览和编辑，没有项目树、侧栏、标签页、同步、账号。文件在你电脑上。
+打开一个渲染后的 `.md` 文件，感觉应该接近系统打开 `.txt` 文件：快、轻、没有额外负担。
 
-Download for macOS: [**Apple Silicon**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Intel**](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
+DOMD 使用普通 Markdown 文件工作流：没有项目树，没有侧边栏，没有标签页，没有同步服务，也不需要账号。文件始终留在你的设备上。
+
+下载 macOS 版本：[**Apple Silicon**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Intel**](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
+
+---
 
 ## Web
 
-打开编辑器即可在浏览器里直接所见即所得编辑，也可以把 `.md` 拖到页面上原地打开继续写。全部在本地运行，文件不上传、不离开你的设备。
+打开网页即可开始所见即所得 Markdown 编辑。
 
-<https://www.domd.app>
+你也可以把 `.md` 文件直接拖进页面，在浏览器里本地编辑。所有处理都在本机完成，文件不会离开你的设备。
+
+https://www.domd.app
 
 ---
 
 ## CLI
 
-macOS 版本附带一个命令行工具 `domd-cli`，让 Agent 直接驱动窗口。
+macOS 版本内置 `domd-cli`，可以让 agent、脚本、启动器和自动化工具直接控制 DOMD 窗口。
 
-支持新建窗口、流式写入、重写选区。AI 模型的流式响应可直接管道至 `domd-cli insert`，token 抵达即写入文档，直接渲染为富文本。
+这让 DOMD 不只是一个编辑器，也可以成为本地 Markdown 渲染界面。
 
-页面顶部的演示，是由一个调用 GPT API 的 Alfred workflow，将流式响应直接增量写入文档录制而成。
+`domd-cli` 支持打开新窗口、流式写入、改写选区等操作。模型的流式响应可以直接 pipe 到 `domd-cli insert`，token 会一边到达，一边写入文档，并实时渲染成富文本 Markdown。
+
+页面顶部的演示视频，就是通过 Alfred workflow 调用 GPT API，然后把模型响应增量写入 DOMD 录制出来的。
 
 ---
 
-## 构建
+## 开发
 
-### Web 应用（Windows）
+```bash
+npm install
+npm run dev
+```
 
-**前置要求**
-- Windows 10/11
-- Node.js（LTS）及 npm
-- Git（可选，用于克隆仓库）
-
-**步骤**
-1. 在仓库根目录打开 PowerShell 或 Windows Terminal。
-2. 安装依赖：
-   ```bash
-   npm install
-   ```
-3. 启动开发服务器：
-   ```bash
-   npm run dev
-   ```
-   然后打开 <http://localhost:3000>。
-4. 构建并运行生产版本：
-   ```bash
-   npm run build
-   npm run start
-   ```
-5. 可选 lint：
-   ```bash
-   npm run lint
-   ```
-
-### 原生应用（仅 macOS）
+开发原生 macOS 应用：
 
 ```bash
 npm run tauri dev
 ```
 
-Windows 原生构建暂不支持。
+目前暂不支持 Windows 原生构建。
+
+完整开发和贡献说明见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ---
 
-## 许可
+## License
 
-DOMD 是一个以产品为先的项目：应用层在适用范围内开源，编辑器引擎单独授权。
+DOMD 是一个产品优先的项目。
 
-应用层，包括 macOS 应用、Web 应用与辅助库，在适用范围内开源，用于学习、个人使用、贡献与透明度。
+应用层代码，包括 macOS 应用、Web 应用和辅助库，会根据各自许可证开源，方便学习、个人使用、贡献和审查。
 
-核心编辑器引擎 `@do-md/dist` 以预构建产物形式分发，采用 PolyForm Noncommercial 1.0.0 许可证。它包含 DOMD 的 Markdown 编辑与渲染能力。
+核心编辑器引擎 `@do-md/dist` 单独授权，并以预构建产物形式发布，使用 PolyForm Noncommercial 1.0.0 许可证。它包含 DOMD 的 Markdown 编辑和渲染能力。
 
-你可以将 `@do-md/dist` 用于评估、个人项目、非商业项目（包括非商业开源项目）、实验与原型。
+你可以在以下场景中使用 `@do-md/dist`：
 
-商业用途须事先获得书面授权。包括商业嵌入、SaaS / 产品集成、再分发，或将 DOMD 作为付费产品、SDK、编辑器组件或托管服务的一部分提供。
+* 评估和试用
+* 个人项目
+* 非商业项目
+* 非商业开源项目
+* 实验和原型开发
+
+商业使用需要提前获得书面授权。
+
+这包括但不限于：商业产品集成、SaaS / 产品嵌入、重新分发，或将 DOMD 作为付费产品、SDK、编辑器组件、托管服务的一部分提供。
 
 如需商业授权，请联系项目作者。
 
 ---
 
-## 反馈
+## 反馈与贡献
 
-- [GitHub Issues](https://github.com/do-md/domd/issues)
-- [GitHub Discussions](https://github.com/do-md/domd/discussions)
+* [GitHub Issues](https://github.com/do-md/domd/issues)
+* [GitHub Discussions](https://github.com/do-md/domd/discussions)
+* [Contributing guide](./CONTRIBUTING.md)

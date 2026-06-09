@@ -21,7 +21,7 @@
         "paths": {
             "@/*": ["./*"],
             "@do-md/utils": ["./.packages/@do-md/utils"],
-            "@do-md/react": ["./.packages/@do-md/dist/index.js"],
+            "@do-md/react": ["./.packages/@do-md/dist"],
             "@do-md/react/style.css": ["./.packages/@do-md/dist/style.css"],
             "@do-md/zenith": ["./.packages/@do-md/zenith"],
             "@do-md/zenith/middleware": ["./.packages/@do-md/zenith/middleware"]

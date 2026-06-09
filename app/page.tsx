@@ -4,10 +4,66 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ReadmeEditor, TauriRedirect } from "@/features/landing";
 
+const TITLE = "DOMD — A clean WYSIWYG Markdown editor";
+const DESCRIPTION =
+    "DOMD is a WYSIWYG editor built on a from-scratch, Markdown-native rendering engine. 20 KB gzipped kernel — no account, no cloud, files stay on your device.";
+
 export const metadata: Metadata = {
-    title: "DOMD — A clean WYSIWYG Markdown editor",
-    description:
-        "DOMD is a WYSIWYG editor built on a from-scratch, Markdown-native rendering engine. 20 KB gzipped kernel — no account, no cloud, files stay on your device.",
+    title: { absolute: TITLE },
+    description: DESCRIPTION,
+    alternates: {
+        canonical: "/",
+    },
+    keywords: [
+        "WYSIWYG Markdown editor",
+        "Markdown editor",
+        "Markdown native engine",
+        "AI streaming Markdown editor",
+        "large Markdown file editor",
+        "macOS Markdown app",
+        "local-first Markdown editor",
+        "Typora alternative",
+    ],
+    openGraph: {
+        type: "website",
+        siteName: "DOMD",
+        locale: "en_US",
+        url: "/",
+        title: TITLE,
+        description: DESCRIPTION,
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: TITLE,
+        description: DESCRIPTION,
+    },
+};
+
+// Structured data for rich results: DOMD is a free, cross-platform editor app.
+const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "DOMD",
+    applicationCategory: "DeveloperApplication",
+    applicationSubCategory: "Markdown editor",
+    operatingSystem: "macOS, Web",
+    description: DESCRIPTION,
+    url: "https://www.domd.app",
+    downloadUrl: "https://github.com/do-md/domd/releases/latest",
+    softwareHelp: "https://github.com/do-md/domd",
+    offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+    },
+    featureList: [
+        "WYSIWYG editing directly on Markdown",
+        "20 KB from-scratch Markdown-native engine",
+        "Real-time AI Markdown streaming",
+        "Smooth editing through 20,000-line documents",
+        "Native macOS app with Quick Look preview",
+        "Local-first — no account, no cloud",
+    ],
 };
 
 // Strip raw HTML (tags, comments) from the README so the editor never sees
@@ -39,6 +95,10 @@ export default async function Landing() {
 
     return (
         <div className="min-h-screen flex flex-col bg-base-100 text-base-content">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
             <TauriRedirect />
             <header className="sticky top-0 z-20 bg-base-100/90 backdrop-blur border-b border-base-300">
                 <nav className="max-w-3xl mx-auto flex items-center justify-between px-6 h-14">
@@ -76,6 +136,13 @@ export default async function Landing() {
                             style={{ color: "rgb(60, 124, 171)" }}
                         >
                             Stream
+                        </Link>
+                        <Link
+                            href="/chat"
+                            className="btn btn-link no-underline hover:underline px-2"
+                            style={{ color: "rgb(60, 124, 171)" }}
+                        >
+                            Input
                         </Link>
                     </div>
                 </nav>

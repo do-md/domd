@@ -3,9 +3,55 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import "./prism-themes.css";
 
+const SITE_URL = "https://www.domd.app";
+
 export const metadata: Metadata = {
-    title: "DOMD",
-    description: "Markdown editor",
+    metadataBase: new URL(SITE_URL),
+    title: "DOMD — WYSIWYG Markdown editor",
+    description:
+        "A WYSIWYG Markdown editor powered by a 20 KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
+    applicationName: "DOMD",
+    authors: [{ name: "DOMD" }],
+    creator: "DOMD",
+    publisher: "DOMD",
+    keywords: [
+        "Markdown editor",
+        "WYSIWYG Markdown",
+        "Markdown WYSIWYG editor",
+        "Markdown editor for Mac",
+        "macOS Markdown app",
+        "local-first Markdown",
+        "AI streaming Markdown",
+        "Markdown rendering engine",
+        "Typora alternative",
+        "MarkEdit alternative",
+    ],
+    robots: {
+        index: true,
+        follow: true,
+        googleBot: {
+            index: true,
+            follow: true,
+            "max-image-preview": "large",
+            "max-snippet": -1,
+            "max-video-preview": -1,
+        },
+    },
+    openGraph: {
+        type: "website",
+        siteName: "DOMD",
+        locale: "en_US",
+        url: SITE_URL,
+        title: "DOMD — WYSIWYG Markdown editor",
+        description:
+            "A WYSIWYG Markdown editor powered by a 20 KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "DOMD — WYSIWYG Markdown editor",
+        description:
+            "A WYSIWYG Markdown editor powered by a 20 KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
+    },
 };
 
 /**
