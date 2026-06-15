@@ -144,7 +144,13 @@ echo "Packaging updater bundle..."
 MACOS_DIR="$PROJECT_DIR/src-tauri/target/$TARGET/release/bundle/macos"
 TAR_PATH="$MACOS_DIR/DOMD_${ARCH}.app.tar.gz"
 rm -f "$TAR_PATH" "$TAR_PATH.sig"
-tar -czf "$TAR_PATH" -C "$MACOS_DIR" "DOMD.app"
+# COPYFILE_DISABLE=1 + --no-mac-metadata stop macOS bsdtar from embedding
+# AppleDouble "._*" members (it serializes the .app's extended attributes —
+# com.apple.provenance, com.dropbox.attrs, etc. — into ._DOMD.app and friends).
+# `tar -tzf` hides those members from its own listing, so the archive LOOKS
+# clean, but the Tauri updater's Rust `tar` crate sees them raw and dies with
+# "failed to unpack `._DOMD.app`", breaking both auto- and manual updates.
+COPYFILE_DISABLE=1 tar --no-mac-metadata -czf "$TAR_PATH" -C "$MACOS_DIR" "DOMD.app"
 
 echo "Signing updater bundle with Tauri signer..."
 npx tauri signer sign --password "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" "$TAR_PATH"
