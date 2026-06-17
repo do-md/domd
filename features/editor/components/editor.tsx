@@ -204,9 +204,18 @@ export function Editor({
             editor.editorStore.resetMD(text);
             return;
         }
-        // TODO(user): if there's an active range selection, delete it before
-        // insertText so the new text replaces the selection (standard editor
-        // behavior). store.insertText currently only handles the caret case.
+        // If the user has an active range selection, delete it first so the
+        // inserted text replaces the selection (standard editor behavior).
+        // store.insertText only handles the caret case today.
+        try {
+            const sel = store?.getSelectionState?.();
+            if (sel && sel.type === "range" && sel.anchor && sel.head && sel.anchor !== sel.head) {
+                store?.deleteRange?.(sel.anchor, sel.head);
+            }
+        } catch {
+            // getSelectionState may throw if the document isn't ready yet;
+            // fall through and let insertText handle the caret case.
+        }
         store?.insertText(text);
     });
 
