@@ -1,5 +1,7 @@
 {
-    "name": "react-domd",
+    "name": "@do-md/core-react",
+    "description": "A Markdown WYSIWYG editor for React",
+    "license": "PolyForm-Noncommercial-1.0.0",
     "type": "module",
     "types": "./index.d.ts",
     "main": "./index.cjs",
@@ -11,5 +13,9 @@
             "require": "./index.cjs"
         },
         "./style.css": "./style.css"
-    }
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "version": "0.2.8"
 }
