@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.2.5"
+version = "0.2.6"
 description = "DOMD — a from-scratch WYSIWYG Markdown editor for macOS"
 authors = ["Jayden Wang"]
 license = "MIT"
