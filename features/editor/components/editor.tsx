@@ -13,8 +13,8 @@ import {
     useRenderData,
     useEditorStoreApi,
     useEditorStore,
-} from "@do-md/react";
-import "@do-md/react/style.css";
+} from "@do-md/core-react";
+import "@do-md/core-react/style.css";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
 import { isTauri } from "@/common/lib/platform";
 import { tauriCore } from "@/common/lib/tauri";

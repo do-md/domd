@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { useEditorStoreApi } from "@do-md/react";
+import { useEditorStoreApi } from "@do-md/core-react";
 import { SPEED_DELAY, type SpeedPreset } from "../lib/types";
 
 export type StreamMetrics = {

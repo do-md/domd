@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { DOMD, DOMDProvider } from "@do-md/react";
-import "@do-md/react/style.css";
+import { DOMD, DOMDProvider } from "@do-md/core-react";
+import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
 import type { ChatMessage } from "../lib/types";
 

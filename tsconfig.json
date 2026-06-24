@@ -1,7 +1,11 @@
 {
     "compilerOptions": {
         "target": "ES2017",
-        "lib": ["dom", "dom.iterable", "esnext"],
+        "lib": [
+            "dom",
+            "dom.iterable",
+            "esnext"
+        ],
         "allowJs": true,
         "skipLibCheck": true,
         "strict": true,
@@ -19,12 +23,18 @@
             }
         ],
         "paths": {
-            "@/*": ["./*"],
-            "@do-md/utils": ["./.packages/@do-md/utils"],
-            "@do-md/react": ["./.packages/@do-md/dist"],
-            "@do-md/react/style.css": ["./.packages/@do-md/dist/style.css"],
-            "@do-md/zenith": ["./.packages/@do-md/zenith"],
-            "@do-md/zenith/middleware": ["./.packages/@do-md/zenith/middleware"]
+            "@/*": [
+                "./*"
+            ],
+            "@do-md/utils": [
+                "./.packages/@do-md/utils"
+            ],
+            "@do-md/zenith": [
+                "./.packages/@do-md/zenith"
+            ],
+            "@do-md/zenith/middleware": [
+                "./.packages/@do-md/zenith/middleware"
+            ]
         }
     },
     "include": [
@@ -37,5 +47,7 @@
         ".packages/**/*.ts",
         ".packages/**/*.tsx"
     ],
-    "exclude": ["node_modules"]
+    "exclude": [
+        "node_modules"
+    ]
 }

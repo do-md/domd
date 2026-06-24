@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { DOMD, DOMDProvider, useEditor, useEditorStoreApi } from "@do-md/react";
-import "@do-md/react/style.css";
+import { DOMD, DOMDProvider, useEditor, useEditorStoreApi } from "@do-md/core-react";
+import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
 import { SAMPLE_DOCS, resolveDocContent } from "../lib/sample-docs";
 import {

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import type { useRenderData } from "@do-md/react";
+import type { useRenderData } from "@do-md/core-react";
 import type { FileMeta } from "../lib/types";
 
 type RenderData = ReturnType<typeof useRenderData>;

@@ -14,8 +14,8 @@ import {
     useEditor,
     useEditorStoreApi,
     useRenderData,
-} from "@do-md/react";
-import "@do-md/react/style.css";
+} from "@do-md/core-react";
+import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 

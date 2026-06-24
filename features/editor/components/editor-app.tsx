@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { DOMDProvider } from "@do-md/react";
+import { DOMDProvider } from "@do-md/core-react";
 import { track } from "@vercel/analytics";
 import { tokenize } from "@/common/lib/prism";
 import { loadImage } from "@/common/lib/image-storage";

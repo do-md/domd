@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, Window};
 use tauri::menu::{AboutMetadataBuilder, Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -105,6 +105,21 @@ mod dock_menu {
                 >(new_window_imp),
                 c"v@:@".as_ptr(),
             );
+
+            // applicationShouldTerminate: → review unsaved windows before
+            // quitting. tao's delegate doesn't implement this selector, so the
+            // Dock "Quit" / Cmd+Q `terminate:` path otherwise hits AppKit's
+            // default (NSTerminateNow) and dies without the save sheet. The
+            // return type is NSApplicationTerminateReply (NSUInteger → "Q").
+            objc2::ffi::class_addMethod(
+                cls_ptr,
+                sel!(applicationShouldTerminate:),
+                std::mem::transmute::<
+                    extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject) -> usize,
+                    unsafe extern "C-unwind" fn(),
+                >(should_terminate_imp),
+                c"Q@:@".as_ptr(),
+            );
         }
     }
 
@@ -124,6 +139,35 @@ mod dock_menu {
         if let Some(h) = HANDLE.get() {
             super::new_empty_window(h);
         }
+    }
+
+    // NSApplicationTerminateReply values.
+    const NS_TERMINATE_CANCEL: usize = 0;
+    const NS_TERMINATE_NOW: usize = 1;
+
+    extern "C-unwind" fn should_terminate_imp(
+        _this: *mut AnyObject,
+        _sel: Sel,
+        _sender: *mut AnyObject,
+    ) -> usize {
+        let Some(h) = HANDLE.get() else {
+            return NS_TERMINATE_NOW;
+        };
+        // The terminate we issue ourselves after the review completes — let it
+        // through.
+        if super::QUITTING.load(Ordering::Acquire) {
+            return NS_TERMINATE_NOW;
+        }
+        let dirty = super::dirty_untitled_labels(h);
+        if dirty.is_empty() {
+            return NS_TERMINATE_NOW;
+        }
+        // Cancel this terminate and review the unsaved windows one at a time
+        // (we're already on the main thread). The review reissues terminate:
+        // once every window is resolved.
+        super::QUITTING.store(true, Ordering::Release);
+        super::review_queue_then_quit(h.clone(), dirty);
+        NS_TERMINATE_CANCEL
     }
 }
 
@@ -181,7 +225,7 @@ pub async fn wait_for_window_ready(
 // when answering `selection` / `content` / `list` / `save` requests, so we
 // don't need a request/response round-trip back to the webview per query.
 
-/// Mirrors `SelectionState` in @do-md/react/editor/type. Field names are
+/// Mirrors `SelectionState` in @do-md/core-react/editor/type. Field names are
 /// snake_case so the JSON shape is identical end-to-end (FE invoke → Rust
 /// state → socket response → AI agent).
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -573,20 +617,42 @@ pub(crate) fn open_or_reuse(app: &AppHandle, path: String) -> OpenOutcome {
 
 #[cfg(target_os = "macos")]
 fn start_native_close_flow(app: AppHandle, label: String, content: String) {
+    start_native_close_flow_with(app, label, content, None);
+}
+
+/// Like `start_native_close_flow`, but runs `then(should_close)` once the user
+/// resolves the save sheet (after the window has been destroyed on Save / Don't
+/// Save, or left untouched on Cancel). Used by the quit flow to review each
+/// untitled-dirty window in turn.
+#[cfg(target_os = "macos")]
+fn start_native_close_flow_with(
+    app: AppHandle,
+    label: String,
+    content: String,
+    then: Option<Box<dyn FnOnce(bool)>>,
+) {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSWindow;
 
+    // If we can't start the native flow (window gone, not on main thread),
+    // treat it as "nothing to confirm" so a quit sequence keeps advancing
+    // rather than stalling.
+    let bail = |then: Option<Box<dyn FnOnce(bool)>>| {
+        if let Some(t) = then {
+            t(true);
+        }
+    };
     let mtm = match MainThreadMarker::new() {
         Some(m) => m,
-        None => return,
+        None => return bail(then),
     };
     let webview_window = match app.get_webview_window(&label) {
         Some(w) => w,
-        None => return,
+        None => return bail(then),
     };
     let ns_window_ptr = match webview_window.ns_window() {
         Ok(p) => p as *mut NSWindow,
-        Err(_) => return,
+        Err(_) => return bail(then),
     };
 
     let suggested = suggest_name_from_content(&content);
@@ -615,6 +681,9 @@ fn start_native_close_flow(app: AppHandle, label: String, content: String) {
             });
 
             if !should_close {
+                if let Some(then) = then {
+                    then(false);
+                }
                 return;
             }
 
@@ -638,6 +707,10 @@ fn start_native_close_flow(app: AppHandle, label: String, content: String) {
             if let Some(win) = app_for_cb.get_webview_window(&label_for_cb) {
                 let _ = win.destroy();
             }
+
+            if let Some(then) = then {
+                then(true);
+            }
         });
 
     doc.begin_close(content.into_bytes(), callback);
@@ -649,6 +722,100 @@ fn start_native_close_flow(app: AppHandle, label: String, content: String) {
         .lock()
         .unwrap()
         .insert(label, untitled_doc::WindowDoc::new(doc));
+}
+
+// ── native (macOS) quit flow ─────────────────────────────────────────────────
+//
+// Dock "Quit" / Cmd+Q route through RunEvent::ExitRequested — they do NOT fire
+// per-window CloseRequested, so without this the untitled "save changes?" sheet
+// is skipped and unsaved windows die silently. We intercept the exit, review
+// each untitled-dirty window through the same NSDocument sheet one at a time,
+// then quit for real once they're all resolved. Cancel aborts the quit.
+
+/// Set while a quit is being orchestrated so the `app.exit(0)` we issue at the
+/// end isn't itself intercepted as a fresh exit to review.
+#[cfg(target_os = "macos")]
+static QUITTING: AtomicBool = AtomicBool::new(false);
+
+/// Really terminate the app. Goes through `NSApp terminate:` (which re-enters
+/// our `applicationShouldTerminate:` — guarded by `QUITTING` so it returns
+/// NSTerminateNow) so the shutdown follows the normal AppKit/tao path.
+#[cfg(target_os = "macos")]
+fn terminate_now(app: &AppHandle) {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
+    match MainThreadMarker::new() {
+        Some(mtm) => {
+            let nsapp = NSApplication::sharedApplication(mtm);
+            nsapp.terminate(None);
+        }
+        None => app.exit(0),
+    }
+}
+
+/// Labels of windows that would prompt on close: untitled (no path) + dirty.
+/// These mirror the per-window CloseRequested gate exactly.
+#[cfg(target_os = "macos")]
+fn dirty_untitled_labels(app: &AppHandle) -> Vec<String> {
+    let files = app.state::<WindowFiles>();
+    let files = files.0.lock().unwrap();
+    let contents = app.state::<WindowContents>();
+    app.webview_windows()
+        .into_keys()
+        .filter(|label| {
+            !files.contains_key(label)
+                && contents.get(label).map_or(false, |c| c.is_dirty)
+        })
+        .collect()
+}
+
+/// Review the remaining `queue` of untitled-dirty windows one at a time, then
+/// `app.exit(0)`. On Cancel, clears `QUITTING` and stops (leaving every
+/// still-open window untouched). Must be called on the main thread.
+#[cfg(target_os = "macos")]
+fn review_queue_then_quit(app: AppHandle, mut queue: Vec<String>) {
+    loop {
+        let Some(label) = queue.pop() else {
+            // All untitled-dirty windows resolved — quit for real. Remaining
+            // windows (saved or clean) close as part of termination.
+            terminate_now(&app);
+            return;
+        };
+        // Skip windows that vanished or were saved/cleaned since the snapshot.
+        let still_pending = {
+            let files = app.state::<WindowFiles>();
+            let untitled = !files.0.lock().unwrap().contains_key(&label);
+            let dirty = app
+                .state::<WindowContents>()
+                .get(&label)
+                .map_or(false, |c| c.is_dirty);
+            untitled && dirty && app.get_webview_window(&label).is_some()
+        };
+        if !still_pending {
+            continue;
+        }
+        let content = app
+            .state::<WindowContents>()
+            .get(&label)
+            .map(|c| c.content)
+            .unwrap_or_default();
+        let _ = app.get_webview_window(&label).map(|w| w.set_focus());
+        let app_for_then = app.clone();
+        start_native_close_flow_with(
+            app.clone(),
+            label,
+            content,
+            Some(Box::new(move |should_close| {
+                if should_close {
+                    review_queue_then_quit(app_for_then, queue);
+                } else {
+                    // User cancelled — abort the whole quit.
+                    QUITTING.store(false, Ordering::SeqCst);
+                }
+            })),
+        );
+        return;
+    }
 }
 
 /// Cheap suggestion: first non-blank line of the markdown, stripped of
@@ -668,9 +835,17 @@ fn suggest_name_from_content(md: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let cli_file: Option<String> = std::env::args()
-        .nth(1)
-        .filter(|a| !a.starts_with('-') && std::path::Path::new(a).exists());
+    let args: Vec<String> = std::env::args().collect();
+    // `--cli-bootstrap` is passed by `domd-cli` when it has to launch the app
+    // to service a `new`/`open` command. In that case the CLI command opens the
+    // window, so `setup()` must NOT also create a default one (that's the
+    // "extra window" bug).
+    let cli_bootstrap = args.iter().any(|a| a == "--cli-bootstrap");
+    let cli_file: Option<String> = args
+        .iter()
+        .skip(1)
+        .find(|a| !a.starts_with('-') && std::path::Path::new(a).exists())
+        .cloned();
 
     let builder = tauri::Builder::default()
         .manage(WindowFiles(Mutex::new(HashMap::new())))
@@ -887,9 +1062,17 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             dock_menu::setup(app.handle());
 
-            // ── CLI arg ──────────────────────────────────────────────────────
+            // ── Initial window ───────────────────────────────────────────────
+            // No window is declared in tauri.conf.json — we create it here so a
+            // CLI-bootstrapped launch can stay window-less and let the incoming
+            // `new`/`open` command open exactly one window.
             if let Some(path) = cli_file {
                 open_or_reuse(app.handle(), path);
+            } else if !cli_bootstrap {
+                // Plain launch (Finder double-click on the app, `open -a`, etc.)
+                // — open one empty editor. A Finder open of a `.md` arrives
+                // later via RunEvent::Opened and reuses this empty window.
+                new_empty_window(app.handle());
             }
 
             // ── CLI server (Unix socket at ~/.domd/cli.sock) ─────────────────
@@ -906,31 +1089,55 @@ pub fn run() {
     // back to the main thread, causing a deadlock that freezes Finder.
     // Spawn onto the async runtime instead (same thread pool as invoke handlers,
     // which we confirmed works via open_test_file).
-    app.run(|handle, event| {
-        if let tauri::RunEvent::Opened { urls } = event {
-            for url in urls {
-                if url.scheme() == "file" {
-                    if let Ok(pb) = url.to_file_path() {
-                        let p = pb.to_string_lossy().to_string();
-                        if p.ends_with(".md") || p.ends_with(".markdown") {
-                            let h = handle.clone();
-                            tauri::async_runtime::spawn(async move {
-                                // RunEvent::Opened can fire before config windows are
-                                // registered in webview_windows(). Poll until ready.
-                                for _ in 0..40 {
-                                    if !h.webview_windows().is_empty() {
-                                        break;
+    app.run(move |handle, event| {
+        match event {
+            tauri::RunEvent::Opened { urls } => {
+                for url in urls {
+                    if url.scheme() == "file" {
+                        if let Ok(pb) = url.to_file_path() {
+                            let p = pb.to_string_lossy().to_string();
+                            if p.ends_with(".md") || p.ends_with(".markdown") {
+                                let h = handle.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    // RunEvent::Opened can fire before the initial
+                                    // window is registered in webview_windows().
+                                    // Poll until ready so open_or_reuse can reuse it.
+                                    for _ in 0..40 {
+                                        if !h.webview_windows().is_empty() {
+                                            break;
+                                        }
+                                        tokio::time::sleep(
+                                            std::time::Duration::from_millis(25),
+                                        ).await;
                                     }
-                                    tokio::time::sleep(
-                                        std::time::Duration::from_millis(25),
-                                    ).await;
-                                }
-                                open_or_reuse(&h, p);
-                            });
+                                    open_or_reuse(&h, p);
+                                });
+                            }
                         }
                     }
                 }
             }
+            // Dock "Quit" / Cmd+Q: review untitled-dirty windows before quitting
+            // (they don't get per-window CloseRequested events).
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::ExitRequested { api, .. } => {
+                // Our own app.exit(0) at the end of the review re-enters here —
+                // let it pass through.
+                if QUITTING.load(Ordering::SeqCst) {
+                    return;
+                }
+                let dirty = dirty_untitled_labels(handle);
+                if dirty.is_empty() {
+                    return; // nothing unsaved — quit normally
+                }
+                api.prevent_exit();
+                QUITTING.store(true, Ordering::SeqCst);
+                let h = handle.clone();
+                let _ = handle.run_on_main_thread(move || {
+                    review_queue_then_quit(h, dirty);
+                });
+            }
+            _ => {}
         }
     });
 }

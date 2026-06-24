@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { DOMD, DOMDProvider } from "@do-md/react";
-import "@do-md/react/style.css";
+import { DOMD, DOMDProvider } from "@do-md/core-react";
+import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
 import { pickByLocale } from "@/common/lib/locale";
-import { useEditorStoreApi } from "@do-md/react";
+import { useEditorStoreApi } from "@do-md/core-react";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 
 // Streams `text` into the surrounding DOMDProvider one chunk at a time,

@@ -141,19 +141,28 @@ fn try_launch_domd() {
         // picking some other app named "DOMD". current_exe() resolves through
         // symlinks (e.g. /usr/local/bin/domd-cli) to the real binary inside
         // Contents/MacOS, so walking up 3 parents lands on the .app.
+        // Pass `--cli-bootstrap` so the freshly-launched app skips creating its
+        // default empty window — the command that triggered this bootstrap
+        // (`new` / `open`) will open exactly the window the user asked for,
+        // avoiding a stray extra window.
         if let Ok(exe) = std::env::current_exe() {
             if let Some(app_path) = exe.parent().and_then(|p| p.parent()).and_then(|p| p.parent()) {
                 if app_path.extension().and_then(|s| s.to_str()) == Some("app") {
-                    let _ = Command::new("open").arg(app_path).spawn();
+                    let _ = Command::new("open")
+                        .arg(app_path)
+                        .args(["--args", "--cli-bootstrap"])
+                        .spawn();
                     return;
                 }
             }
         }
-        let _ = Command::new("open").args(["-b", "com.domd.desktop"]).spawn();
+        let _ = Command::new("open")
+            .args(["-b", "com.domd.desktop", "--args", "--cli-bootstrap"])
+            .spawn();
     }
     #[cfg(target_os = "linux")]
     {
-        let _ = Command::new("domd").spawn();
+        let _ = Command::new("domd").arg("--cli-bootstrap").spawn();
     }
 }
 

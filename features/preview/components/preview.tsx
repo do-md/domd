@@ -6,8 +6,8 @@ import {
     toMarkdown,
     useEditor,
     useRenderData,
-} from "@do-md/react";
-import "@do-md/react/style.css";
+} from "@do-md/core-react";
+import "@do-md/core-react/style.css";
 import {
     getGrammarVersion,
     subscribeGrammarLoad,

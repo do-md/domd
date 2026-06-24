@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useEditorStore, useEditorDom } from "@do-md/react";
+import { useEditorStore, useEditorDom } from "@do-md/core-react";
 
 let styleInjected = false;
 function injectBlinkStyle() {

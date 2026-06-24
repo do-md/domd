@@ -1,1 +1,1 @@
-declare module "@do-md/react/style.css";
+declare module "@do-md/core-react/style.css";

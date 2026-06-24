@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { useEditorStoreApi } from "@do-md/react";
+import { useEditorStoreApi } from "@do-md/core-react";
 import { storeImage, isImagePath } from "@/common/lib/image-storage";
 import { isTauri } from "@/common/lib/platform";
 import { tauriCore, tauriWebview } from "@/common/lib/tauri";

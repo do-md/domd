@@ -6,8 +6,8 @@ import {
     toMarkdown,
     useEditorStoreApi,
     useRenderData,
-} from "@do-md/react";
-import "@do-md/react/style.css";
+} from "@do-md/core-react";
+import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
 import { ChatStreamError, ERROR_GENERIC } from "../lib/stream";
 import type { ChatMessage, StreamSource } from "../lib/types";
