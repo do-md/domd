@@ -1,15 +1,10 @@
+import i18n from "@/common/i18n";
 import type { ChatMessage, Provider, StreamSource } from "./types";
 
 const ENDPOINTS: Record<Provider, string> = {
     openai: "https://api.openai.com/v1/chat/completions",
     openrouter: "https://openrouter.ai/api/v1/chat/completions",
 };
-
-// Short, user-facing error strings (acceptance: keep messages brief).
-export const ERROR_AUTH = "Invalid API key or provider error.";
-export const ERROR_NETWORK = "Network error. Please try again.";
-export const ERROR_GENERIC =
-    "Request failed. Please check your API key or try mock mode.";
 
 export class ChatStreamError extends Error {}
 
@@ -48,14 +43,14 @@ export function realStreamSource(
             });
         } catch {
             // fetch rejects on DNS/offline/CORS — treat as a network failure.
-            throw new ChatStreamError(ERROR_NETWORK);
+            throw new ChatStreamError(i18n.t("chat.errors.network"));
         }
 
         if (res.status === 401 || res.status === 403) {
-            throw new ChatStreamError(ERROR_AUTH);
+            throw new ChatStreamError(i18n.t("chat.errors.auth"));
         }
         if (!res.ok || !res.body) {
-            throw new ChatStreamError(ERROR_GENERIC);
+            throw new ChatStreamError(i18n.t("chat.errors.generic"));
         }
 
         const reader = res.body.getReader();

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 // Mount-only: parent should render this conditionally so each open is a
 // fresh instance. Lets us avoid resetting state in an effect.
@@ -10,6 +11,7 @@ export function UrlModal({
     onClose: () => void;
     onSubmit: (input: string) => void;
 }) {
+    const { t } = useTranslation();
     const [value, setValue] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -45,13 +47,13 @@ export function UrlModal({
                 }}
                 className="bg-base-100 rounded-xl shadow-xl p-6 w-96"
             >
-                <h3 className="text-sm font-semibold mb-3">Open from URL</h3>
+                <h3 className="text-sm font-semibold mb-3">{t("editor.urlModal.title")}</h3>
                 <input
                     ref={inputRef}
                     type="text"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    placeholder="URL or gh:owner/repo"
+                    placeholder={t("editor.urlModal.placeholder")}
                     className="input input-bordered input-sm w-full mb-4"
                 />
                 <div className="flex justify-end gap-2">
@@ -60,14 +62,14 @@ export function UrlModal({
                         onClick={onClose}
                         className="btn btn-sm btn-ghost"
                     >
-                        Cancel
+                        {t("editor.urlModal.cancel")}
                     </button>
                     <button
                         type="submit"
                         disabled={!value.trim()}
                         className="btn btn-sm btn-primary"
                     >
-                        Open
+                        {t("editor.urlModal.open")}
                     </button>
                 </div>
             </form>

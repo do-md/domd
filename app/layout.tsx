@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { I18nProvider } from "@/common/i18n/provider";
 import "./globals.css";
 import "./prism-themes.css";
 
@@ -86,7 +87,7 @@ export default function RootLayout({
                 <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
             </head>
             <body className="h-full bg-base-100 text-base-content">
-                {children}
+                <I18nProvider>{children}</I18nProvider>
                 <Analytics />
             </body>
         </html>

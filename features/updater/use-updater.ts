@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import i18n from "@/common/i18n";
 import { isTauri } from "@/common/lib/platform";
 import {
     tauriDialog,
@@ -75,19 +76,19 @@ export function useUpdater(): UpdaterState {
                 const update = await check();
                 markChecked();
                 if (!update) {
-                    await message("DOMD is up to date.", {
-                        title: "Check for Updates",
+                    await message(i18n.t("updater.upToDate"), {
+                        title: i18n.t("updater.checkTitle"),
                         kind: "info",
                     });
                     return;
                 }
                 const install = await ask(
-                    `A new version (v${update.version}) is available. Download and install now?`,
+                    i18n.t("updater.availableBody", { version: update.version }),
                     {
-                        title: "Update available",
+                        title: i18n.t("updater.availableTitle"),
                         kind: "info",
-                        okLabel: "Install",
-                        cancelLabel: "Later",
+                        okLabel: i18n.t("updater.install"),
+                        cancelLabel: i18n.t("updater.later"),
                     },
                 );
                 if (!install || cancelled) return;
@@ -95,12 +96,12 @@ export function useUpdater(): UpdaterState {
                 if (cancelled) return;
                 setReadyVersion(update.version);
                 const restartNow = await ask(
-                    `v${update.version} installed. Restart DOMD now?`,
+                    i18n.t("updater.restartBody", { version: update.version }),
                     {
-                        title: "Restart required",
+                        title: i18n.t("updater.restartTitle"),
                         kind: "info",
-                        okLabel: "Restart",
-                        cancelLabel: "Later",
+                        okLabel: i18n.t("updater.restart"),
+                        cancelLabel: i18n.t("updater.later"),
                     },
                 );
                 if (restartNow) {
@@ -112,10 +113,10 @@ export function useUpdater(): UpdaterState {
                 try {
                     const { message } = await tauriDialog();
                     await message(
-                        `Could not check for updates: ${
-                            e instanceof Error ? e.message : String(e)
-                        }`,
-                        { title: "Update error", kind: "error" },
+                        i18n.t("updater.errorBody", {
+                            error: e instanceof Error ? e.message : String(e),
+                        }),
+                        { title: i18n.t("updater.errorTitle"), kind: "error" },
                     );
                 } catch {
                     // dialog itself failed — nothing more we can do

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DOMD, DOMDProvider } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
@@ -12,6 +13,7 @@ const COLLAPSED_MAX_PX = 240;
 // User message rendered through DOMD too — same Markdown surface as the input
 // and the assistant output, showing input/output parity.
 export function UserMessage({ message }: { message: ChatMessage }) {
+    const { t } = useTranslation();
     const contentRef = useRef<HTMLDivElement>(null);
     const [expanded, setExpanded] = useState(false);
     const [overflowing, setOverflowing] = useState(false);
@@ -27,7 +29,7 @@ export function UserMessage({ message }: { message: ChatMessage }) {
     return (
         <div className="flex flex-col items-end gap-1.5">
             <span className="text-xs font-semibold text-base-content/70 pr-1">
-                You
+                {t("chat.message.you")}
             </span>
             <div className="max-w-[85%] rounded-xl bg-accent/10 border border-accent px-4 py-2.5">
                 <div
@@ -51,7 +53,7 @@ export function UserMessage({ message }: { message: ChatMessage }) {
                         onClick={() => setExpanded((v) => !v)}
                         className="btn btn-ghost btn-xs mt-1 -mb-1 text-base-content/60 gap-1"
                     >
-                        {expanded ? "Collapse" : "Expand"}
+                        {expanded ? t("chat.message.collapse") : t("chat.message.expand")}
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             viewBox="0 0 24 24"

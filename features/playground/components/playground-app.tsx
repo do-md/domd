@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import { DOMD, DOMDProvider, useEditor, useEditorStoreApi } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
@@ -58,6 +59,7 @@ function EditorInit({ skipSeed }: { skipSeed: boolean }) {
 }
 
 export function PlaygroundApp() {
+    const { t } = useTranslation();
     const [docId, setDocId] = useState(SAMPLE_DOCS[0].id);
     const [chunkBound, setChunkBound] = useState<number>(CHUNK_BOUND_DEFAULT);
     const [minChunk, setMinChunk] = useState<number>(CHUNK_DEFAULT_MIN);
@@ -223,15 +225,15 @@ export function PlaygroundApp() {
                     <Link
                         href="/"
                         className="btn btn-ghost btn-xs"
-                        aria-label="Home"
+                        aria-label={t("common.home")}
                     >
                         ←
                     </Link>
                     <span className="font-semibold text-sm truncate">
-                        DOMD Playground
+                        {t("playground.headerTitle")}
                     </span>
                     <span className="hidden sm:inline text-xs text-base-content/50 truncate">
-                        20 KB core · WYSIWYG Markdown streaming
+                        {t("playground.headerSubtitle")}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -240,13 +242,13 @@ export function PlaygroundApp() {
                         onClick={() => setMobileOpen(true)}
                         className="btn btn-xs btn-neutral md:hidden"
                     >
-                        Settings
+                        {t("playground.settings")}
                     </button>
                     <a
                         href="https://github.com/do-md/domd"
                         target="_blank"
                         rel="noreferrer noopener"
-                        aria-label="GitHub"
+                        aria-label={t("common.github")}
                         className="btn btn-ghost btn-circle"
                     >
                         <svg
@@ -281,7 +283,7 @@ export function PlaygroundApp() {
                     {dragging ? (
                         <div className="absolute inset-0 z-30 flex items-center justify-center bg-accent/90 pointer-events-none">
                             <div className="text-lg font-medium text-accent-content">
-                                Drop to stream this Markdown
+                                {t("playground.dropToStream")}
                             </div>
                         </div>
                     ) : null}
@@ -300,7 +302,7 @@ export function PlaygroundApp() {
                                 key={providerKey}
                                 editable={true}
                                 initMd=""
-                                placeholder="Type here, or start a stream from the panel."
+                                placeholder={t("playground.placeholder")}
                                 codeTokenizer={tokenize}
                             >
                                 <EditorInit skipSeed={runId > 0} />
@@ -336,7 +338,7 @@ export function PlaygroundApp() {
                             className="btn btn-sm btn-ghost"
                             onClick={() => setMobileOpen(false)}
                         >
-                            Close
+                            {t("playground.close")}
                         </button>
                     </div>
                 </div>

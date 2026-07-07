@@ -1,4 +1,5 @@
 "use client";
+import { useTranslation } from "react-i18next";
 import { PROVIDERS, type Provider } from "../lib/types";
 
 // Chat settings modal. Styled after the streaming playground's mobile dialog
@@ -24,30 +25,32 @@ export function ConfigModal({
     model: string;
     onModelChange: (m: string) => void;
 }) {
+    const { t } = useTranslation();
     const isMock = apiKey.trim().length === 0;
 
     return (
         <dialog className={`modal ${open ? "modal-open" : ""}`}>
             <div className="modal-box max-w-md w-[92%]">
                 <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-base">Chat settings</h3>
+                    <h3 className="font-semibold text-base">
+                        {t("chat.config.title")}
+                    </h3>
                     <span
                         className={`badge badge-sm ${
                             isMock ? "badge-warning" : "badge-success"
                         }`}
                     >
-                        {isMock ? "Mock mode" : "Live"}
+                        {isMock ? t("chat.config.mockMode") : t("chat.config.live")}
                     </span>
                 </div>
                 <p className="text-xs text-base-content/50 mb-4">
-                    Leave empty to use mock streaming. Add your own key to
-                    stream from a real model.
+                    {t("chat.config.desc")}
                 </p>
 
                 <div className="flex flex-col gap-3">
                     <label className="flex flex-col gap-1">
                         <span className="text-xs text-base-content/60">
-                            API key
+                            {t("chat.config.apiKey")}
                         </span>
                         <input
                             type="password"
@@ -63,7 +66,7 @@ export function ConfigModal({
                     <div className="flex gap-2">
                         <label className="flex flex-col gap-1 flex-1">
                             <span className="text-xs text-base-content/60">
-                                Provider
+                                {t("chat.config.provider")}
                             </span>
                             <select
                                 value={provider}
@@ -81,7 +84,7 @@ export function ConfigModal({
                         </label>
                         <label className="flex flex-col gap-1 flex-1">
                             <span className="text-xs text-base-content/60">
-                                Model
+                                {t("chat.config.model")}
                             </span>
                             <input
                                 type="text"
@@ -95,8 +98,7 @@ export function ConfigModal({
                 </div>
 
                 <p className="text-[11px] text-base-content/40 mt-4">
-                    Your API key is saved in this browser (localStorage) and
-                    used only here. It is never sent to DOMD servers.
+                    {t("chat.config.keyNote")}
                 </p>
 
                 <div className="modal-action">
@@ -105,7 +107,7 @@ export function ConfigModal({
                         className="btn btn-sm btn-accent"
                         onClick={onClose}
                     >
-                        Done
+                        {t("chat.config.done")}
                     </button>
                 </div>
             </div>
