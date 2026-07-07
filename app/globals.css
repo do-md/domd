@@ -134,3 +134,35 @@ body {
 .dual-range:focus {
     outline: none;
 }
+
+/*
+ * i18n — @do-md/core-react editor chrome (empty-collapsible placeholders).
+ *
+ * The editor is a PUBLISHED npm package with its placeholder text baked into
+ * shipped CSS as ::after `content`. We can't add CSS custom-property hooks
+ * upstream without a package release, so we override `content` at the app level,
+ * keyed on the <html lang> attribute that I18nProvider keeps in sync with the
+ * active locale. English falls through to the package default (no rule).
+ * !important guards against the package rule's specificity.
+ *
+ * SCOPE NOTE: the code-block copy button ("Copy code" / "Copied!") is icon-only
+ * in the shipped package — those labels are dead CSS (nested `:after` resolves
+ * to a descendant of an empty <div>, so nothing renders). Overriding them would
+ * add phantom text that English never shows, so we deliberately DON'T. Only the
+ * genuinely-visible "Toggle" / "Empty toggle" placeholders are localized here.
+ * If @do-md/core-react is republished with visible, var()-driven labels, move
+ * these to `--var` assignments (cleaner, no !important).
+ */
+:root[lang="zh"] .DOMD-Summary:empty:not(:focus)::after {
+    content: "折叠块" !important;
+}
+:root[lang="zh"] .DOMD-EmptyDetailContent:empty:not(:focus)::after {
+    content: "空折叠块" !important;
+}
+
+:root[lang="ja"] .DOMD-Summary:empty:not(:focus)::after {
+    content: "トグル" !important;
+}
+:root[lang="ja"] .DOMD-EmptyDetailContent:empty:not(:focus)::after {
+    content: "空のトグル" !important;
+}
