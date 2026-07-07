@@ -6,6 +6,17 @@
         "close": "閉じる",
         "settings": "設定"
     },
+    "menu": {
+        "about": "DOMD について",
+        "checkUpdates": "アップデートを確認...",
+        "newWindow": "新規ウインドウ",
+        "openUrl": "URL を開く...",
+        "closeWindow": "ウインドウを閉じる",
+        "save": "保存",
+        "installCli": "'domd-cli' コマンドを PATH にインストール",
+        "file": "ファイル",
+        "edit": "編集"
+    },
     "nav": {
         "editor": "エディタ",
         "stream": "ストリーム",

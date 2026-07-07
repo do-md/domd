@@ -10,6 +10,209 @@ mod cli_server;
 #[cfg(target_os = "macos")]
 mod untitled_doc;
 
+// ── Native-menu i18n ─────────────────────────────────────────────────────────
+//
+// The native menu reuses the SAME translation source as the frontend: the very
+// same locales/*.json, embedded at build time via include_str!. One dictionary,
+// two consumers (React `t()` and this Rust `menu_i18n::t`). Only the `menu.*`
+// namespace is read here. System locale is detected via sys-locale.
+mod menu_i18n {
+    use serde_json::Value;
+    use std::sync::OnceLock;
+
+    const EN: &str = include_str!("../../common/i18n/locales/en.json");
+    const ZH: &str = include_str!("../../common/i18n/locales/zh.json");
+    const JA: &str = include_str!("../../common/i18n/locales/ja.json");
+
+    fn dicts() -> &'static [(&'static str, Value)] {
+        static CELL: OnceLock<Vec<(&'static str, Value)>> = OnceLock::new();
+        CELL.get_or_init(|| {
+            vec![
+                ("en", serde_json::from_str(EN).unwrap_or(Value::Null)),
+                ("zh", serde_json::from_str(ZH).unwrap_or(Value::Null)),
+                ("ja", serde_json::from_str(JA).unwrap_or(Value::Null)),
+            ]
+        })
+    }
+
+    /// Map any BCP-47 tag to one of the shipped locales (mirrors the frontend
+    /// `normalizeLocale`): zh-CN -> zh, ja-JP -> ja, everything else -> en.
+    pub fn normalize(tag: &str) -> &'static str {
+        let l = tag.to_ascii_lowercase();
+        if l.starts_with("zh") {
+            "zh"
+        } else if l.starts_with("ja") {
+            "ja"
+        } else {
+            "en"
+        }
+    }
+
+    /// The OS's preferred locale, normalized to a shipped locale (default "en").
+    pub fn system_locale() -> &'static str {
+        sys_locale::get_locale()
+            .map(|tag| normalize(&tag))
+            .unwrap_or("en")
+    }
+
+    /// Look up a dotted key (e.g. "menu.newWindow") for `locale`, falling back
+    /// to English, then to the key itself if truly absent.
+    pub fn t(locale: &str, key: &str) -> String {
+        let find = |loc: &str| dicts().iter().find(|(k, _)| *k == loc).map(|(_, v)| v);
+        let lookup = |root: &Value| -> Option<String> {
+            let mut cur = root;
+            for part in key.split('.') {
+                cur = cur.get(part)?;
+            }
+            cur.as_str().map(|s| s.to_string())
+        };
+        find(locale)
+            .and_then(lookup)
+            .or_else(|| find("en").and_then(lookup))
+            .unwrap_or_else(|| key.to_string())
+    }
+}
+
+// Build the full application menu bar for a given locale. Reused by `setup`
+// (initial build with the system locale) and the `set_locale` command (runtime
+// rebuild when the user changes language in-app). Menu item IDs are stable
+// across locales, so the single `on_menu_event` handler keeps working after a
+// rebuild.
+fn build_app_menu<R: tauri::Runtime, M: tauri::Manager<R>>(
+    manager: &M,
+    locale: &str,
+) -> tauri::Result<Menu<R>> {
+    const APP_ICON_PNG: &[u8] = include_bytes!("../icons/128x128@2x.png");
+    let about_icon = tauri::image::Image::from_bytes(APP_ICON_PNG).ok();
+    let about_metadata = AboutMetadataBuilder::new()
+        .name(Some("DOMD"))
+        .version(Some(env!("CARGO_PKG_VERSION").to_string()))
+        .website(Some("https://github.com/do-md/domd"))
+        .website_label(Some("github.com/do-md/domd"))
+        .icon(about_icon)
+        .build();
+
+    let about_item = PredefinedMenuItem::about(
+        manager,
+        Some(&menu_i18n::t(locale, "menu.about")),
+        Some(about_metadata),
+    )?;
+    let check_updates_item = MenuItem::with_id(
+        manager,
+        "check-updates",
+        menu_i18n::t(locale, "menu.checkUpdates"),
+        true,
+        None::<&str>,
+    )?;
+    // App menu title is the bundle name on macOS (system-controlled), so it
+    // stays "DOMD" regardless of locale.
+    let app_menu = Submenu::with_items(
+        manager,
+        "DOMD",
+        true,
+        &[
+            &about_item,
+            &check_updates_item,
+            &PredefinedMenuItem::separator(manager)?,
+            &PredefinedMenuItem::services(manager, None)?,
+            &PredefinedMenuItem::separator(manager)?,
+            &PredefinedMenuItem::hide(manager, None)?,
+            &PredefinedMenuItem::hide_others(manager, None)?,
+            &PredefinedMenuItem::show_all(manager, None)?,
+            &PredefinedMenuItem::separator(manager)?,
+            &PredefinedMenuItem::quit(manager, None)?,
+        ],
+    )?;
+
+    let new_window_item = MenuItem::with_id(
+        manager,
+        "new-window",
+        menu_i18n::t(locale, "menu.newWindow"),
+        true,
+        Some("Cmd+N"),
+    )?;
+    let open_url_item = MenuItem::with_id(
+        manager,
+        "open-url",
+        menu_i18n::t(locale, "menu.openUrl"),
+        true,
+        Some("Cmd+O"),
+    )?;
+    let close_window_item = MenuItem::with_id(
+        manager,
+        "close-window",
+        menu_i18n::t(locale, "menu.closeWindow"),
+        true,
+        Some("Cmd+W"),
+    )?;
+    let save_item = MenuItem::with_id(
+        manager,
+        "save",
+        menu_i18n::t(locale, "menu.save"),
+        true,
+        Some("Cmd+S"),
+    )?;
+    let install_cli_item = MenuItem::with_id(
+        manager,
+        "install-cli",
+        menu_i18n::t(locale, "menu.installCli"),
+        true,
+        None::<&str>,
+    )?;
+    let file_menu = Submenu::with_items(
+        manager,
+        &menu_i18n::t(locale, "menu.file"),
+        true,
+        &[
+            &new_window_item,
+            &open_url_item,
+            &close_window_item,
+            &PredefinedMenuItem::separator(manager)?,
+            &save_item,
+            &PredefinedMenuItem::separator(manager)?,
+            &install_cli_item,
+        ],
+    )?;
+
+    // Edit menu — required on macOS for Cmd+C/X/V/A to work in WebView. The
+    // Cut/Copy/Paste/… predefined items are auto-localized by macOS.
+    let edit_menu = Submenu::with_items(
+        manager,
+        &menu_i18n::t(locale, "menu.edit"),
+        true,
+        &[
+            &PredefinedMenuItem::undo(manager, None)?,
+            &PredefinedMenuItem::redo(manager, None)?,
+            &PredefinedMenuItem::separator(manager)?,
+            &PredefinedMenuItem::cut(manager, None)?,
+            &PredefinedMenuItem::copy(manager, None)?,
+            &PredefinedMenuItem::paste(manager, None)?,
+            &PredefinedMenuItem::select_all(manager, None)?,
+        ],
+    )?;
+
+    Menu::with_items(manager, &[&app_menu, &file_menu, &edit_menu])
+}
+
+/// The OS's preferred locale, normalized to a shipped locale (en/zh/ja).
+/// The webview reads this at startup (when no explicit choice is stored) so the
+/// initial UI language matches the native menu.
+#[tauri::command]
+fn get_system_locale() -> String {
+    menu_i18n::system_locale().to_string()
+}
+
+/// Rebuild the native menu bar in `locale`, keeping it in sync with the
+/// webview's language. Called from the frontend `setLocale` when running under
+/// Tauri. No-op-safe: unknown tags normalize to a shipped locale.
+#[tauri::command]
+fn set_locale(app: AppHandle, locale: String) -> Result<(), String> {
+    let normalized = menu_i18n::normalize(&locale);
+    let menu = build_app_menu(&app, normalized).map_err(|e| e.to_string())?;
+    app.set_menu(menu).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // ── macOS app icon ───────────────────────────────────────────────────────────
 //
 // In dev (`cargo tauri dev`) and sometimes in fresh installs the bundle's
@@ -866,6 +1069,8 @@ pub fn run() {
             read_file_bytes,
             update_selection,
             update_content,
+            get_system_locale,
+            set_locale,
             benchmark::benchmark_mark_ready,
         ])
         .on_window_event(|window, event| {
@@ -931,98 +1136,21 @@ pub fn run() {
             app.handle().plugin(tauri_plugin_process::init())?;
 
             // ── App icon ─────────────────────────────────────────────────────
-            // Embedded once and reused for both the About panel (via
-            // AboutMetadata) and NSAlert dialogs (via NSApp's
-            // applicationIconImage — `tauri-plugin-dialog`'s ask/message render
-            // on NSAlert, which picks up its icon from there).
-            const APP_ICON_PNG: &[u8] = include_bytes!("../icons/128x128@2x.png");
-            let about_icon = tauri::image::Image::from_bytes(APP_ICON_PNG).ok();
-
+            // Embedded for NSAlert dialogs (via NSApp's applicationIconImage —
+            // `tauri-plugin-dialog`'s ask/message render on NSAlert, which picks
+            // up its icon from there). The About panel gets its own copy inside
+            // build_app_menu.
             #[cfg(target_os = "macos")]
-            set_nsapp_icon(APP_ICON_PNG);
+            {
+                const APP_ICON_PNG: &[u8] = include_bytes!("../icons/128x128@2x.png");
+                set_nsapp_icon(APP_ICON_PNG);
+            }
 
             // ── Menu bar ─────────────────────────────────────────────────────
-            // App menu (DOMD) — owns About + Check for Updates so they land in
-            // the conventional macOS spot (right under the Apple menu).
-            let about_metadata = AboutMetadataBuilder::new()
-                .name(Some("DOMD"))
-                .version(Some(env!("CARGO_PKG_VERSION").to_string()))
-                .website(Some("https://github.com/do-md/domd"))
-                .website_label(Some("github.com/do-md/domd"))
-                .icon(about_icon)
-                .build();
-            let about_item = PredefinedMenuItem::about(
-                app,
-                Some("About DOMD"),
-                Some(about_metadata),
-            )?;
-            let check_updates_item = MenuItem::with_id(
-                app,
-                "check-updates",
-                "Check for Updates...",
-                true,
-                None::<&str>,
-            )?;
-            let app_menu = Submenu::with_items(
-                app,
-                "DOMD",
-                true,
-                &[
-                    &about_item,
-                    &check_updates_item,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::services(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::hide(app, None)?,
-                    &PredefinedMenuItem::hide_others(app, None)?,
-                    &PredefinedMenuItem::show_all(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::quit(app, None)?,
-                ],
-            )?;
-
-            let new_window_item =
-                MenuItem::with_id(app, "new-window", "New Window", true, Some("Cmd+N"))?;
-            let open_url_item =
-                MenuItem::with_id(app, "open-url", "Open URL...", true, Some("Cmd+O"))?;
-            let close_window_item =
-                MenuItem::with_id(app, "close-window", "Close Window", true, Some("Cmd+W"))?;
-            let save_item =
-                MenuItem::with_id(app, "save", "Save", true, Some("Cmd+S"))?;
-            let install_cli_item =
-                MenuItem::with_id(app, "install-cli", "Install 'domd-cli' Command in PATH", true, None::<&str>)?;
-            let file_menu = Submenu::with_items(
-                app,
-                "File",
-                true,
-                &[
-                    &new_window_item,
-                    &open_url_item,
-                    &close_window_item,
-                    &PredefinedMenuItem::separator(app)?,
-                    &save_item,
-                    &PredefinedMenuItem::separator(app)?,
-                    &install_cli_item,
-                ],
-            )?;
-
-            // Edit menu — required on macOS for Cmd+C/X/V/A to work in WebView
-            let edit_menu = Submenu::with_items(
-                app,
-                "Edit",
-                true,
-                &[
-                    &PredefinedMenuItem::undo(app, None)?,
-                    &PredefinedMenuItem::redo(app, None)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    &PredefinedMenuItem::cut(app, None)?,
-                    &PredefinedMenuItem::copy(app, None)?,
-                    &PredefinedMenuItem::paste(app, None)?,
-                    &PredefinedMenuItem::select_all(app, None)?,
-                ],
-            )?;
-
-            let menu = Menu::with_items(app, &[&app_menu, &file_menu, &edit_menu])?;
+            // Built for the OS locale; the webview re-invokes `set_locale` to
+            // rebuild it whenever the in-app language changes. App menu (DOMD)
+            // owns About + Check for Updates (conventional macOS spot).
+            let menu = build_app_menu(app, menu_i18n::system_locale())?;
             app.set_menu(menu)?;
 
             app.on_menu_event(|app, event| {

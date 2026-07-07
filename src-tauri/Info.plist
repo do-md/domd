@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Declares the languages this app bundle supports. macOS uses this list to
+      auto-localize system-provided UI to the user's preferred language:
+        - standard menu items (Edit ▸ Cut/Copy/Paste, About, Services, Hide,
+          Quit) built via Tauri's PredefinedMenuItem
+        - native file open/save dialogs and NSAlert buttons
+          (tauri-plugin-dialog)
+      DOMD's own custom menu labels are localized separately in Rust
+      (build_app_menu + menu_i18n, reusing the same locales/*.json as the
+      frontend). CFBundleAllowMixedLocalizations lets those two mechanisms
+      coexist.
+    -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hans</string>
+        <string>ja</string>
+    </array>
+    <key>CFBundleAllowMixedLocalizations</key>
+    <true/>
+</dict>
+</plist>

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { I18nextProvider } from "react-i18next";
 import i18n from "./index";
 import { resolveInitialLocale } from "./config";
+import { syncNativeLocale } from "./use-locale";
 
 // Wraps the app so every client component can useTranslation(). Server
 // components pass through as `children` (composition) and stay server-rendered.
@@ -19,6 +20,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
             void i18n.changeLanguage(target);
         }
         document.documentElement.lang = target;
+        // Desktop: the native menu was built with the OS locale at launch; align
+        // it with the locale the webview actually resolved to (may differ if the
+        // user previously picked a language). No-op on web.
+        syncNativeLocale(target);
 
         const onChange = (lng: string) => {
             document.documentElement.lang = lng;

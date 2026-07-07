@@ -1,5 +1,7 @@
 "use client";
 import { useCallback, useSyncExternalStore } from "react";
+import { isTauri } from "@/common/lib/platform";
+import { tauriCore } from "@/common/lib/tauri";
 import i18n from "./index";
 import {
     DEFAULT_LOCALE,
@@ -7,6 +9,17 @@ import {
     isLocale,
     type Locale,
 } from "./config";
+
+// Tell the Rust backend to rebuild the native menu in `locale` so the macOS
+// menu bar stays in sync with the webview's language. No-op on web.
+export function syncNativeLocale(locale: Locale): void {
+    if (!isTauri()) return;
+    tauriCore()
+        .then(({ invoke }) => invoke("set_locale", { locale }))
+        .catch(() => {
+            // Older desktop build without the set_locale command — ignore.
+        });
+}
 
 // Subscribe to i18next's current language without pulling in the full
 // useTranslation machinery — handy for the language switcher. i18next is the
@@ -35,8 +48,8 @@ export function useLocale() {
             // persistence is best-effort (private mode / storage disabled)
         }
         void i18n.changeLanguage(next);
-        // Phase 3 hook: when running under Tauri, also invoke('set_locale', {
-        // locale: next }) here so the Rust-side native menu rebuilds in sync.
+        // Keep the Tauri native menu in sync with the webview language.
+        syncNativeLocale(next);
     }, []);
 
     return { locale, setLocale };

@@ -6,6 +6,17 @@
         "close": "Close",
         "settings": "Settings"
     },
+    "menu": {
+        "about": "About DOMD",
+        "checkUpdates": "Check for Updates...",
+        "newWindow": "New Window",
+        "openUrl": "Open URL...",
+        "closeWindow": "Close Window",
+        "save": "Save",
+        "installCli": "Install 'domd-cli' Command in PATH",
+        "file": "File",
+        "edit": "Edit"
+    },
     "nav": {
         "editor": "Editor",
         "stream": "Stream",
