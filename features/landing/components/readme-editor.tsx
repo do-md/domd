@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DOMD, DOMDProvider } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
@@ -33,8 +34,8 @@ function StreamDriver({
         (async () => {
             if (aborted()) return;
             // Seed: empty doc has no cursor, so plain insertText would be a
-            // no-op. resetMD parses an initial slice, then focus() puts the
-            // caret at end-of-doc so aiInsertInCursor has somewhere to land.
+            // no-op. resetMD parses an initial slice so subsequent insertText
+            // calls have a last block to append to.
             const firstSize = 180 + Math.floor(Math.random() * 60); // 180..239
             editorStore.resetMD(text.slice(0, firstSize));
             let i = firstSize;
@@ -89,20 +90,77 @@ const FADE_MS = 350; // duration of the fade-out / fade-in halves
 // blockInput off. iOS dispatches click ~50–300ms after pointerdown; mutating
 // the DOM inside that window will cancel the click.
 const ABORT_RERENDER_DELAY_MS = 400;
+// How long the "nothing is saved" reassurance toast stays up after the reader
+// opts into edit mode.
+const TOAST_MS = 4200;
 
 type Phase = "ssr" | "fading" | "streaming";
 
+function PencilIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+    );
+}
+
+function XIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+        </svg>
+    );
+}
+
 export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
-    // SSR + first-client render: English README (canonical, SEO-friendly).
+    // The landing surface has two jobs that fight on one plane: *reading* the
+    // README (the default — instant, passive, no caret) and *showing off* the
+    // editor (a deliberate flourish). We separate them by default-mode:
     //
-    // Then a small choreographed transition: hold the SSR'd content briefly
-    // so users perceive it, fade it out, swap to the empty interactive
-    // editor, fade that back in, then start streaming the locale-matched
-    // translation in AI-typing style. Streaming is locked via pointer-events
-    // until it finishes; after that the editor unlocks for normal use.
+    //  ssr → fading → streaming: the locale README types itself in AI style
+    //  into a READ-ONLY editor (editable=false; insertText is programmatic so
+    //  streaming still works). When it finishes, the page just sits there as a
+    //  clean reading surface — no caret, text selectable, links clickable.
+    //
+    //  A corner pill invites the reader to opt into editing. Clicking it
+    //  remounts the editor as editable (the `editable` prop is init-only, so a
+    //  fresh instance keyed "edit" is the only way to flip it) seeded with the
+    //  same streamed markdown, and shows a "nothing is saved" reassurance. The
+    //  edit chip carries an × to leave — which drops back to a *static* read
+    //  instance (seeded, no StreamDriver) so exiting never re-runs the stream.
+    const { t } = useTranslation();
     const [phase, setPhase] = useState<Phase>("ssr");
     const [streamText, setStreamText] = useState<string | null>(null);
     const [streamingDone, setStreamingDone] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    // True once the reader has entered edit mode at least once. After that,
+    // read mode renders the seeded static instance instead of re-streaming.
+    const [streamedOnce, setStreamedOnce] = useState(false);
+    const [showToast, setShowToast] = useState(false);
     // Synchronous abort signal for the streaming loop. We flip this in the
     // pointerdown handler without calling setState, so no React render runs
     // between pointerdown and the synthesized click — iOS cancels the click
@@ -139,43 +197,129 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
             document.removeEventListener("pointerdown", onPointerDown, true);
     }, [phase, streamingDone]);
 
+    // Auto-dismiss the reassurance toast a few seconds after entering edit mode.
+    useEffect(() => {
+        if (!showToast) return;
+        const id = setTimeout(() => setShowToast(false), TOAST_MS);
+        return () => clearTimeout(id);
+    }, [showToast]);
+
     const blockInput = phase === "streaming" && !streamingDone;
+    const canEdit = streamText !== null && streamingDone && !editMode;
+
+    const enterEdit = () => {
+        setEditMode(true);
+        setStreamedOnce(true);
+        setShowToast(true);
+    };
+
+    const exitEdit = () => {
+        setEditMode(false);
+        setShowToast(false);
+    };
 
     return (
-        <div
-            suppressHydrationWarning
-            style={{
-                opacity: phase === "fading" ? 0 : 1,
-                transition: `opacity ${FADE_MS}ms ease`,
-                ...(blockInput
-                    ? { pointerEvents: "none", userSelect: "none" }
-                    : null),
-            }}
-        >
-            {streamText === null ? (
-                <DOMDProvider
-                    editable={false}
-                    initMd={streams.en}
-                    codeTokenizer={tokenize}
+        <>
+            <div
+                suppressHydrationWarning
+                style={{
+                    opacity: phase === "fading" ? 0 : 1,
+                    transition: `opacity ${FADE_MS}ms ease`,
+                    ...(blockInput
+                        ? { pointerEvents: "none", userSelect: "none" }
+                        : null),
+                }}
+            >
+                {streamText === null ? (
+                    <DOMDProvider
+                        editable={false}
+                        initMd={streams.en}
+                        codeTokenizer={tokenize}
+                    >
+                        <DOMD />
+                    </DOMDProvider>
+                ) : !editMode && !streamedOnce ? (
+                    // Live read mode: streams into a non-editable editor, then
+                    // rests as a clean reading surface (no caret, selectable,
+                    // links live). Stays mounted after the stream finishes.
+                    <DOMDProvider
+                        key="read-stream"
+                        editable={false}
+                        initMd=""
+                        codeTokenizer={tokenize}
+                    >
+                        <DOMD />
+                        <StreamDriver
+                            text={streamText}
+                            abortRef={abortRef}
+                            onDone={() => setStreamingDone(true)}
+                        />
+                    </DOMDProvider>
+                ) : !editMode ? (
+                    // Static read mode: entered only after an edit session.
+                    // Seeded with the full markdown, no StreamDriver — leaving
+                    // edit mode must never replay the stream.
+                    <DOMDProvider
+                        key="read-static"
+                        editable={false}
+                        initMd={streamText}
+                        codeTokenizer={tokenize}
+                    >
+                        <DOMD />
+                    </DOMDProvider>
+                ) : (
+                    // Edit mode: fresh editable instance seeded with the same
+                    // markdown. Keyed distinctly to force a remount (editable is
+                    // read once at construction).
+                    <DOMDProvider
+                        key="edit"
+                        editable={true}
+                        initMd={streamText}
+                        codeTokenizer={tokenize}
+                    >
+                        <DOMD />
+                        <CustomCursor />
+                    </DOMDProvider>
+                )}
+            </div>
+
+            {canEdit && (
+                <button
+                    type="button"
+                    onClick={enterEdit}
+                    title={t("landing.editHint")}
+                    aria-label={t("landing.editHint")}
+                    className="btn btn-accent btn-sm gap-2 rounded-full shadow-lg fixed bottom-6 right-6 z-40"
                 >
-                    <DOMD />
-                </DOMDProvider>
-            ) : (
-                <DOMDProvider
-                    key="client"
-                    editable={true}
-                    initMd=""
-                    codeTokenizer={tokenize}
-                >
-                    <DOMD />
-                    <CustomCursor />
-                    <StreamDriver
-                        text={streamText}
-                        abortRef={abortRef}
-                        onDone={() => setStreamingDone(true)}
-                    />
-                </DOMDProvider>
+                    <PencilIcon />
+                    {t("landing.editPill")}
+                </button>
             )}
-        </div>
+
+            {editMode && (
+                <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-base-200/90 py-1.5 pl-3 pr-1.5 text-xs text-base-content/70 shadow-sm backdrop-blur">
+                    <span className="inline-block h-2 w-2 rounded-full bg-accent animate-pulse" />
+                    {t("landing.editingChip")}
+                    <button
+                        type="button"
+                        onClick={exitEdit}
+                        aria-label={t("landing.exitEdit")}
+                        title={t("landing.exitEdit")}
+                        className="btn btn-ghost btn-xs btn-circle -mr-0.5"
+                    >
+                        <XIcon />
+                    </button>
+                </div>
+            )}
+
+            {showToast && (
+                <div
+                    role="status"
+                    className="fixed bottom-20 right-6 z-40 max-w-xs rounded-lg bg-neutral px-4 py-3 text-sm text-neutral-content shadow-lg"
+                >
+                    {t("landing.editHint")}
+                </div>
+            )}
+        </>
     );
 }

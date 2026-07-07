@@ -24,7 +24,11 @@
     },
     "landing": {
         "copyright": "© {{year}} DOMD",
-        "tagline": "Markdown を書くための、すっきりとした場所。"
+        "tagline": "Markdown を書くための、すっきりとした場所。",
+        "editPill": "編集",
+        "editHint": "このページはライブエディタです — どこでもクリックして入力できます。保存はされません。",
+        "editingChip": "編集中 · 保存なし",
+        "exitEdit": "編集を終了"
     },
     "editor": {
         "placeholder": "Markdown を書き始める...",

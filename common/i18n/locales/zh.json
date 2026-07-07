@@ -24,7 +24,11 @@
     },
     "landing": {
         "copyright": "© {{year}} DOMD",
-        "tagline": "一个纯粹的 Markdown 写作空间。"
+        "tagline": "一个纯粹的 Markdown 写作空间。",
+        "editPill": "编辑",
+        "editHint": "这是一个实时编辑器 —— 点击任意位置即可输入，内容不会保存。",
+        "editingChip": "编辑中 · 不保存",
+        "exitEdit": "退出编辑"
     },
     "editor": {
         "placeholder": "开始书写 Markdown……",
