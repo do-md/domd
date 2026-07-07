@@ -1,0 +1,155 @@
+{
+    "common": {
+        "language": "语言",
+        "home": "主页",
+        "github": "GitHub",
+        "close": "关闭",
+        "settings": "设置"
+    },
+    "nav": {
+        "editor": "编辑器",
+        "stream": "流式",
+        "input": "输入"
+    },
+    "landing": {
+        "copyright": "© {{year}} DOMD",
+        "tagline": "一个纯粹的 Markdown 写作空间。"
+    },
+    "editor": {
+        "placeholder": "开始书写 Markdown……",
+        "releaseToOpen": "松开以打开",
+        "openUrl": "打开 URL……",
+        "save": "保存",
+        "saving": "保存中……",
+        "saved": "已保存",
+        "urlModal": {
+            "title": "从 URL 打开",
+            "placeholder": "URL 或 gh:owner/repo",
+            "cancel": "取消",
+            "open": "打开"
+        },
+        "saveDialog": {
+            "imagesFolderPrompt": "此文档包含图片。请先选择一个用于保存图片的文件夹，然后再选择 Markdown 文件的保存位置。",
+            "mustSaveInFolder": "Markdown 文件必须保存在图片文件夹“{{folder}}”内（或其子文件夹中），图片链接才能正确解析。\n\n点击“好”以选择其他位置。"
+        }
+    },
+    "updater": {
+        "upToDate": "DOMD 已是最新版本。",
+        "checkTitle": "检查更新",
+        "availableBody": "有新版本（v{{version}}）可用。是否立即下载并安装？",
+        "availableTitle": "有可用更新",
+        "install": "安装",
+        "later": "稍后",
+        "restartBody": "v{{version}} 已安装。现在重启 DOMD 吗？",
+        "restartTitle": "需要重启",
+        "restart": "重启",
+        "errorBody": "无法检查更新：{{error}}",
+        "errorTitle": "更新出错",
+        "bannerReady": "v{{version}} 已就绪"
+    },
+    "chat": {
+        "headerTitle": "DOMD 演练场",
+        "headerSubtitle": "原生 Markdown 的 AI 对话",
+        "settingsAria": "对话设置",
+        "intro": {
+            "title": "原生 Markdown 的对话输入框",
+            "desc": "这里的主角是下方的输入框——一个原生支持 Markdown 的字段，会随你的输入实时渲染。用 WYSIWYG 方式编写提示词：按 Enter 发送，Shift+Enter 换行。"
+        },
+        "empty": {
+            "tryAsking": "试着问问：",
+            "example": "“给我一个 Markdown 表格和一段 TypeScript 代码块。”",
+            "noKey": "无需 API key。默认已启用 Mock 流式输出。",
+            "tryExample": "试试示例"
+        },
+        "input": {
+            "placeholder": "用 Markdown 书写…… Enter 发送，Shift+Enter 换行",
+            "markdown": "Markdown",
+            "expanded": "已展开",
+            "collapseAria": "收起输入框",
+            "expandAria": "展开输入框",
+            "collapseTitle": "收起（Esc）",
+            "expandTitle": "展开",
+            "hintNewline": "换行",
+            "hintSend": "发送",
+            "hintCollapse": "收起",
+            "send": "发送"
+        },
+        "config": {
+            "title": "对话设置",
+            "mockMode": "模拟模式",
+            "live": "实时",
+            "desc": "留空则使用 Mock 流式输出。填入你自己的 key 即可从真实模型流式获取回复。",
+            "apiKey": "API key",
+            "provider": "提供方",
+            "model": "模型",
+            "keyNote": "你的 API key 仅保存在本浏览器中（localStorage），且只在此处使用。绝不会发送到 DOMD 服务器。",
+            "done": "完成"
+        },
+        "examplePrompt": "给我一个 Markdown 表格和一段 TypeScript 代码块。",
+        "message": {
+            "assistant": "助手",
+            "streaming": "生成中……",
+            "mock": "模拟",
+            "error": "错误",
+            "you": "你",
+            "collapse": "收起",
+            "expand": "展开"
+        },
+        "errors": {
+            "auth": "API key 无效或提供方出错。",
+            "network": "网络错误。请重试。",
+            "generic": "请求失败。请检查你的 API key，或改用模拟模式。"
+        }
+    },
+    "playground": {
+        "headerTitle": "DOMD 演练场",
+        "headerSubtitle": "20 KB 核心 · WYSIWYG Markdown 流式渲染",
+        "settings": "设置",
+        "close": "关闭",
+        "dropToStream": "拖放以流式渲染此 Markdown",
+        "placeholder": "在此输入，或从面板启动一段流式渲染。",
+        "panelTitle": "AI 流式渲染演练场",
+        "panelDesc": "模拟 AI 风格的 Markdown 流式渲染写入 WYSIWYG 文档。流式渲染前后均可自由编辑。",
+        "status": "状态",
+        "statusIdle": "空闲",
+        "statusStreaming": "流式渲染中……",
+        "statusDone": "完成",
+        "statusStopped": "已停止",
+        "document": "文档",
+        "dropped": "已拖放",
+        "droppedFile": "已拖放文件 · {{count}} 字符",
+        "tip": "提示：将 Markdown 文件拖放到编辑器上，即可按当前设置流式渲染它。",
+        "chunkSize": "分块大小",
+        "char": "字符",
+        "chars": "字符",
+        "chunkRange": "{{min}}–{{max}} 字符",
+        "chunkSingle": "{{count}} {{unit}}",
+        "aiSuffix": " · AI",
+        "boundEditorAria": "滑块上限",
+        "boundEditorTitle": "点击以更改滑块上限",
+        "snapMin": "将最小值吸附到 {{value}}",
+        "resetAiDefault": "重置为 AI 默认值（{{min}}–{{max}}）",
+        "aiDefault": "AI（{{min}}–{{max}}）",
+        "minChunkAria": "最小分块大小",
+        "maxChunkAria": "最大分块大小",
+        "speed": "速度",
+        "speedLabels": {
+            "fast": "快",
+            "normal": "正常",
+            "slow": "慢",
+            "very-slow": "很慢",
+            "instant": "瞬时"
+        },
+        "noDelay": "无延迟——分块以浏览器绘制的最快速度排队",
+        "delayBetween": "分块间延迟：{{min}}–{{max}} ms",
+        "metrics": "指标",
+        "metricChars": "字符数",
+        "metricChunks": "分块数",
+        "metricElapsed": "耗时",
+        "coreNote": "同一个 20 KB 的原生 Markdown 核心，同时驱动预览、编辑与流式渲染。本页模拟 AI 模型逐 token 送达的 Markdown 流——流式渲染进行时，编辑器会被锁定。",
+        "startStreaming": "开始流式渲染",
+        "restartStreaming": "重新开始流式渲染",
+        "stopStreaming": "停止流式渲染",
+        "clearEditor": "清空编辑器"
+    }
+}

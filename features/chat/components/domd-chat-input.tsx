@@ -7,6 +7,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
     DOMD,
     DOMDProvider,
@@ -30,9 +31,6 @@ type Props = {
     disabled: boolean;
 };
 
-const PLACEHOLDER =
-    "Write with Markdown... Enter to send, Shift+Enter for newline";
-
 // Inner surface — lives *inside* the DOMD provider so it can read the store.
 // Handles seeding/focus, draft sync (for remount preservation), the empty
 // check that disables Send, and the toolbar (expand toggle + Send button).
@@ -53,6 +51,7 @@ function InputInner({
     editorRef: React.MutableRefObject<ReturnType<typeof useEditor>>;
     submitFromStore: (store: EditorStore) => boolean;
 }) {
+    const { t } = useTranslation();
     const store = useEditorStoreApi();
     const editor = useEditor();
     const renderData = useRenderData();
@@ -103,14 +102,22 @@ function InputInner({
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-2 pt-1.5">
                 <span className="text-[11px] text-base-content/40 pl-1 select-none">
-                    {expanded ? "Expanded" : "Markdown"}
+                    {expanded ? t("chat.input.expanded") : t("chat.input.markdown")}
                 </span>
                 <button
                     type="button"
                     onClick={onToggleExpand}
                     className="btn btn-ghost btn-xs btn-circle text-base-content/50"
-                    aria-label={expanded ? "Collapse input" : "Expand input"}
-                    title={expanded ? "Collapse (Esc)" : "Expand"}
+                    aria-label={
+                        expanded
+                            ? t("chat.input.collapseAria")
+                            : t("chat.input.expandAria")
+                    }
+                    title={
+                        expanded
+                            ? t("chat.input.collapseTitle")
+                            : t("chat.input.expandTitle")
+                    }
                 >
                     {expanded ? (
                         // collapse: four arrows pointing inward (toward center)
@@ -157,13 +164,17 @@ function InputInner({
                 <span className="text-[11px] text-base-content/40 select-none truncate">
                     {expanded ? (
                         <>
-                            <kbd className="kbd kbd-xs">Enter</kbd> newline ·{" "}
-                            <kbd className="kbd kbd-xs">Esc</kbd> collapse
+                            <kbd className="kbd kbd-xs">Enter</kbd>{" "}
+                            {t("chat.input.hintNewline")} ·{" "}
+                            <kbd className="kbd kbd-xs">Esc</kbd>{" "}
+                            {t("chat.input.hintCollapse")}
                         </>
                     ) : (
                         <>
-                            <kbd className="kbd kbd-xs">Enter</kbd> send ·{" "}
-                            <kbd className="kbd kbd-xs">⇧ Enter</kbd> newline
+                            <kbd className="kbd kbd-xs">Enter</kbd>{" "}
+                            {t("chat.input.hintSend")} ·{" "}
+                            <kbd className="kbd kbd-xs">⇧ Enter</kbd>{" "}
+                            {t("chat.input.hintNewline")}
                         </>
                     )}
                 </span>
@@ -173,7 +184,7 @@ function InputInner({
                     disabled={sendDisabled}
                     className="btn btn-accent btn-sm"
                 >
-                    Send
+                    {t("chat.input.send")}
                 </button>
             </div>
         </div>
@@ -193,6 +204,7 @@ function InputInner({
  */
 export const DomdChatInput = forwardRef<DomdChatInputHandle, Props>(
     function DomdChatInput({ onSubmit, disabled }, ref) {
+        const { t } = useTranslation();
         const [expanded, setExpanded] = useState(false);
         // initMd is consumed only at provider mount; we snapshot the live draft
         // into it at the moment of an expand/collapse toggle (in the event
@@ -264,7 +276,7 @@ export const DomdChatInput = forwardRef<DomdChatInputHandle, Props>(
                 key={`${expanded ? "expanded" : "compact"}-${gen}`}
                 editable={true}
                 initMd={initialMd}
-                placeholder={PLACEHOLDER}
+                placeholder={t("chat.input.placeholder")}
                 codeTokenizer={tokenize}
                 newlineKey={expanded ? undefined : "Shift+Enter"}
                 onEnter={expanded ? undefined : submitFromStore}

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
     DOMD,
     DOMDProvider,
@@ -9,7 +10,8 @@ import {
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
-import { ChatStreamError, ERROR_GENERIC } from "../lib/stream";
+import i18n from "@/common/i18n";
+import { ChatStreamError } from "../lib/stream";
 import type { ChatMessage, StreamSource } from "../lib/types";
 
 // The bordered content box, rendered inside the provider so it can watch the
@@ -90,7 +92,7 @@ function StreamDriver({
                 const msg =
                     err instanceof ChatStreamError
                         ? err.message
-                        : ERROR_GENERIC;
+                        : i18n.t("chat.errors.generic");
                 if (!seeded) store.resetMD(msg);
                 else store.insertText("\n\n" + msg);
                 onErrorRef.current(store.toMarkdown());
@@ -118,24 +120,29 @@ export function AssistantMessage({
 }) {
     const streaming = message.status === "streaming";
     const error = message.status === "error";
+    const { t } = useTranslation();
 
     return (
         <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2 text-xs">
                 <span className="font-semibold text-base-content/70">
-                    Assistant
+                    {t("chat.message.assistant")}
                 </span>
                 {streaming ? (
                     <span className="inline-flex items-center gap-1 text-base-content/40">
                         <span className="loading loading-dots loading-xs" />
-                        streaming...
+                        {t("chat.message.streaming")}
                     </span>
                 ) : null}
                 {message.isMock ? (
-                    <span className="badge badge-ghost badge-sm">mock</span>
+                    <span className="badge badge-ghost badge-sm">
+                        {t("chat.message.mock")}
+                    </span>
                 ) : null}
                 {error ? (
-                    <span className="badge badge-error badge-sm">error</span>
+                    <span className="badge badge-error badge-sm">
+                        {t("chat.message.error")}
+                    </span>
                 ) : null}
             </div>
 

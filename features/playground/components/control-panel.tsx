@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     CHUNK_BOUND_HARD_MAX,
     CHUNK_DEFAULT_MAX,
@@ -40,6 +41,7 @@ function BoundEditor({
     value: number;
     onChange: (n: number) => void;
 }) {
+    const { t } = useTranslation();
     // `editing` holds the draft string when active, or null when displaying.
     // Keeping the draft inside this state (instead of a separate setState in
     // an effect) means we never need to sync it with `value`.
@@ -66,7 +68,7 @@ function BoundEditor({
                     else if (e.key === "Escape") setEditing(null);
                 }}
                 className="input input-xs h-5 w-16 px-1 text-[10px] font-mono text-right"
-                aria-label="Slider upper bound"
+                aria-label={t("playground.boundEditorAria")}
             />
         );
     }
@@ -76,7 +78,7 @@ function BoundEditor({
             type="button"
             onClick={() => setEditing(String(value))}
             className="link link-hover font-mono"
-            title="Click to change the slider's upper bound"
+            title={t("playground.boundEditorTitle")}
         >
             ≤ {value}
         </button>
@@ -96,6 +98,7 @@ function DualRange({
     valueMax: number;
     onChange: (lo: number, hi: number) => void;
 }) {
+    const { t } = useTranslation();
     const span = max - min || 1;
     const loFrac = (valueMin - min) / span;
     const hiFrac = (valueMax - min) / span;
@@ -114,7 +117,7 @@ function DualRange({
             <input
                 type="range"
                 className="dual-range"
-                aria-label="Min chunk size"
+                aria-label={t("playground.minChunkAria")}
                 min={min}
                 max={max}
                 step={1}
@@ -128,7 +131,7 @@ function DualRange({
             <input
                 type="range"
                 className="dual-range"
-                aria-label="Max chunk size"
+                aria-label={t("playground.maxChunkAria")}
                 min={min}
                 max={max}
                 step={1}
@@ -144,14 +147,15 @@ function DualRange({
 }
 
 function StatusBadge({ status }: { status: StreamStatus }) {
+    const { t } = useTranslation();
     const map: Record<StreamStatus, { label: string; cls: string }> = {
-        idle: { label: "Idle", cls: "badge-ghost" },
+        idle: { label: t("playground.statusIdle"), cls: "badge-ghost" },
         streaming: {
-            label: "Streaming…",
+            label: t("playground.statusStreaming"),
             cls: "badge-accent animate-pulse",
         },
-        done: { label: "Done", cls: "badge-success" },
-        stopped: { label: "Stopped", cls: "badge-warning" },
+        done: { label: t("playground.statusDone"), cls: "badge-success" },
+        stopped: { label: t("playground.statusStopped"), cls: "badge-warning" },
     };
     const { label, cls } = map[status];
     return <span className={`badge badge-sm ${cls}`}>{label}</span>;
@@ -176,11 +180,14 @@ export function ControlPanel({
     onClear,
     onApply,
 }: ControlPanelProps) {
+    const { t } = useTranslation();
     const isStreaming = status === "streaming";
     const isDropped = docId === droppedDocId && droppedDoc !== null;
     const doc = SAMPLE_DOCS.find((d) => d.id === docId) ?? SAMPLE_DOCS[0];
     const docDescription = isDropped
-        ? `Dropped file · ${droppedDoc!.text.length.toLocaleString()} chars`
+        ? t("playground.droppedFile", {
+              count: droppedDoc!.text.length.toLocaleString(),
+          })
         : doc.description;
 
     return (
@@ -188,24 +195,23 @@ export function ControlPanel({
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-5 px-5 pt-5 pb-4">
             <div>
                 <div className="text-base font-semibold mb-1">
-                    AI streaming playground
+                    {t("playground.panelTitle")}
                 </div>
                 <p className="text-xs text-base-content/60 leading-relaxed">
-                    Simulate AI-style Markdown streaming into a WYSIWYG
-                    document. Edit freely before and after streaming.
+                    {t("playground.panelDesc")}
                 </p>
             </div>
 
             <div className="flex items-center justify-between gap-2">
                 <span className="text-xs uppercase tracking-wide text-base-content/50">
-                    Status
+                    {t("playground.status")}
                 </span>
                 <StatusBadge status={status} />
             </div>
 
             <div className="flex flex-col gap-2">
                 <label className="text-xs uppercase tracking-wide text-base-content/50">
-                    Document
+                    {t("playground.document")}
                 </label>
                 <select
                     className="select select-sm select-bordered w-full"
@@ -214,7 +220,7 @@ export function ControlPanel({
                 >
                     {droppedDoc ? (
                         <option value={droppedDocId}>
-                            {droppedDoc.name} (dropped)
+                            {droppedDoc.name} ({t("playground.dropped")})
                         </option>
                     ) : null}
                     {SAMPLE_DOCS.map((d) => (
@@ -228,8 +234,7 @@ export function ControlPanel({
                 </p>
                 {!droppedDoc ? (
                     <p className="text-[11px] text-base-content/50 leading-snug">
-                        Tip: drop a Markdown file onto the editor to stream it
-                        with your current settings.
+                        {t("playground.tip")}
                     </p>
                 ) : null}
             </div>
@@ -237,15 +242,24 @@ export function ControlPanel({
             <div className="flex flex-col gap-2">
                 <div className="flex items-baseline justify-between">
                     <label className="text-xs uppercase tracking-wide text-base-content/50">
-                        Chunk size
+                        {t("playground.chunkSize")}
                     </label>
                     <span className="text-xs font-mono text-base-content/70">
                         {minChunk === maxChunk
-                            ? `${minChunk} ${minChunk === 1 ? "char" : "chars"}`
-                            : `${minChunk}–${maxChunk} chars`}
+                            ? t("playground.chunkSingle", {
+                                  count: minChunk,
+                                  unit:
+                                      minChunk === 1
+                                          ? t("playground.char")
+                                          : t("playground.chars"),
+                              })
+                            : t("playground.chunkRange", {
+                                  min: minChunk,
+                                  max: maxChunk,
+                              })}
                         {minChunk === CHUNK_DEFAULT_MIN &&
                         maxChunk === CHUNK_DEFAULT_MAX
-                            ? " · AI"
+                            ? t("playground.aiSuffix")
                             : ""}
                     </span>
                 </div>
@@ -263,7 +277,7 @@ export function ControlPanel({
                             onChunkRangeChange(CHUNK_MIN_BOUND, maxChunk)
                         }
                         className="link link-hover"
-                        title={`Snap min to ${CHUNK_MIN_BOUND}`}
+                        title={t("playground.snapMin", { value: CHUNK_MIN_BOUND })}
                     >
                         {CHUNK_MIN_BOUND}
                     </button>
@@ -276,9 +290,15 @@ export function ControlPanel({
                             )
                         }
                         className="link link-hover"
-                        title={`Reset to AI default (${CHUNK_DEFAULT_MIN}–${CHUNK_DEFAULT_MAX})`}
+                        title={t("playground.resetAiDefault", {
+                            min: CHUNK_DEFAULT_MIN,
+                            max: CHUNK_DEFAULT_MAX,
+                        })}
                     >
-                        AI ({CHUNK_DEFAULT_MIN}–{CHUNK_DEFAULT_MAX})
+                        {t("playground.aiDefault", {
+                            min: CHUNK_DEFAULT_MIN,
+                            max: CHUNK_DEFAULT_MAX,
+                        })}
                     </button>
                     <BoundEditor
                         value={chunkBound}
@@ -289,7 +309,7 @@ export function ControlPanel({
 
             <div className="flex flex-col gap-2">
                 <label className="text-xs uppercase tracking-wide text-base-content/50">
-                    Speed
+                    {t("playground.speed")}
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
                     {(Object.keys(SPEED_LABEL) as SpeedPreset[]).map(
@@ -308,7 +328,7 @@ export function ControlPanel({
                                     } ${isOddLast ? "col-span-2" : ""}`}
                                 >
                                     {s === "instant" ? "🚀 " : ""}
-                                    {SPEED_LABEL[s]}
+                                    {t(`playground.speedLabels.${s}`)}
                                 </button>
                             );
                         },
@@ -316,19 +336,22 @@ export function ControlPanel({
                 </div>
                 <p className="text-xs text-base-content/60">
                     {SPEED_DELAY[speed][1] === 0
-                        ? "No delay — chunks queue as fast as the browser can paint"
-                        : `Delay between chunks: ${SPEED_DELAY[speed][0]}–${SPEED_DELAY[speed][1]} ms`}
+                        ? t("playground.noDelay")
+                        : t("playground.delayBetween", {
+                              min: SPEED_DELAY[speed][0],
+                              max: SPEED_DELAY[speed][1],
+                          })}
                 </p>
             </div>
 
             <div className="flex flex-col gap-2">
                 <label className="text-xs uppercase tracking-wide text-base-content/50">
-                    Metrics
+                    {t("playground.metrics")}
                 </label>
                 <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="bg-base-200 rounded-md py-2">
                         <div className="text-[10px] text-base-content/50 uppercase">
-                            Chars
+                            {t("playground.metricChars")}
                         </div>
                         <div className="font-mono text-xs">
                             {metrics.chars.toLocaleString()}
@@ -336,7 +359,7 @@ export function ControlPanel({
                     </div>
                     <div className="bg-base-200 rounded-md py-2">
                         <div className="text-[10px] text-base-content/50 uppercase">
-                            Chunks
+                            {t("playground.metricChunks")}
                         </div>
                         <div className="font-mono text-xs">
                             {metrics.chunks.toLocaleString()}
@@ -344,7 +367,7 @@ export function ControlPanel({
                     </div>
                     <div className="bg-base-200 rounded-md py-2">
                         <div className="text-[10px] text-base-content/50 uppercase">
-                            Elapsed
+                            {t("playground.metricElapsed")}
                         </div>
                         <div className="font-mono text-xs">
                             {(metrics.elapsedMs / 1000).toFixed(1)}s
@@ -354,10 +377,7 @@ export function ControlPanel({
             </div>
 
             <div className="text-[11px] text-base-content/50 leading-relaxed border-t border-base-300 pt-3">
-                The same 20 KB Markdown-native core powers preview, edit, and
-                stream. This page simulates a token-by-token Markdown stream
-                arriving from an AI model — the editor is locked while a stream
-                is running.
+                {t("playground.coreNote")}
             </div>
             </div>
 
@@ -371,7 +391,7 @@ export function ControlPanel({
                         }}
                         className="btn btn-sm btn-warning"
                     >
-                        Stop streaming
+                        {t("playground.stopStreaming")}
                     </button>
                 ) : (
                     <button
@@ -383,8 +403,8 @@ export function ControlPanel({
                         className="btn btn-sm btn-neutral"
                     >
                         {status === "done" || status === "stopped"
-                            ? "Restart streaming"
-                            : "Start streaming"}
+                            ? t("playground.restartStreaming")
+                            : t("playground.startStreaming")}
                     </button>
                 )}
                 <button
@@ -393,7 +413,7 @@ export function ControlPanel({
                     disabled={isStreaming}
                     className="btn btn-sm btn-ghost"
                 >
-                    Clear editor
+                    {t("playground.clearEditor")}
                 </button>
             </div>
         </div>

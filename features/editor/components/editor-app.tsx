@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DOMDProvider } from "@do-md/core-react";
+import { useTranslation } from "react-i18next";
 import { track } from "@vercel/analytics";
 import { tokenize } from "@/common/lib/prism";
 import { loadImage } from "@/common/lib/image-storage";
@@ -17,6 +18,7 @@ import { Editor } from "./editor";
 import { UrlModal } from "./url-modal";
 
 export function EditorApp() {
+    const { t } = useTranslation();
     const searchParams = useSearchParams();
 
     // Initial state is always null/null so SSR (`output: "export"`) and the
@@ -125,7 +127,7 @@ export function EditorApp() {
             {dragging ? (
                 <div className="fixed inset-0 z-20 flex items-center justify-center bg-accent/90 pointer-events-none">
                     <div className="text-lg font-medium text-accent-content">
-                        Release to open
+                        {t("editor.releaseToOpen")}
                     </div>
                 </div>
             ) : null}
@@ -133,7 +135,7 @@ export function EditorApp() {
             <DOMDProvider
                 key={version}
                 editable={true}
-                placeholder="Start writing Markdown..."
+                placeholder={t("editor.placeholder")}
                 initMd={content}
                 imageLoader={loadImage}
                 codeTokenizer={tokenize}

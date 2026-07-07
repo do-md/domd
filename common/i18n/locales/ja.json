@@ -1,0 +1,155 @@
+{
+    "common": {
+        "language": "言語",
+        "home": "ホーム",
+        "github": "GitHub",
+        "close": "閉じる",
+        "settings": "設定"
+    },
+    "nav": {
+        "editor": "エディタ",
+        "stream": "ストリーム",
+        "input": "入力"
+    },
+    "landing": {
+        "copyright": "© {{year}} DOMD",
+        "tagline": "Markdown を書くための、すっきりとした場所。"
+    },
+    "editor": {
+        "placeholder": "Markdown を書き始める...",
+        "releaseToOpen": "離すと開きます",
+        "openUrl": "URL を開く...",
+        "save": "保存",
+        "saving": "保存中...",
+        "saved": "保存しました",
+        "urlModal": {
+            "title": "URL から開く",
+            "placeholder": "URL または gh:owner/repo",
+            "cancel": "キャンセル",
+            "open": "開く"
+        },
+        "saveDialog": {
+            "imagesFolderPrompt": "このドキュメントには画像が含まれています。まず、画像を保存するフォルダを選択してください。次に、Markdown ファイルの保存先を選択します。",
+            "mustSaveInFolder": "画像リンクが正しく解決されるように、Markdown ファイルは画像フォルダ「{{folder}}」の中（またはそのサブフォルダ）に保存する必要があります。\n\nOK をクリックして別の場所を選択してください。"
+        }
+    },
+    "updater": {
+        "upToDate": "DOMD は最新です。",
+        "checkTitle": "アップデートを確認",
+        "availableBody": "新しいバージョン（v{{version}}）が利用可能です。今すぐダウンロードしてインストールしますか？",
+        "availableTitle": "アップデートが利用可能",
+        "install": "インストール",
+        "later": "後で",
+        "restartBody": "v{{version}} をインストールしました。今すぐ DOMD を再起動しますか？",
+        "restartTitle": "再起動が必要です",
+        "restart": "再起動",
+        "errorBody": "アップデートを確認できませんでした：{{error}}",
+        "errorTitle": "アップデートエラー",
+        "bannerReady": "v{{version}} 準備完了"
+    },
+    "chat": {
+        "headerTitle": "DOMD プレイグラウンド",
+        "headerSubtitle": "Markdown ネイティブの AI チャット",
+        "settingsAria": "チャット設定",
+        "intro": {
+            "title": "Markdown ネイティブのチャット入力",
+            "desc": "ここでの主役は下の入力ボックスです。入力しながらリアルタイムでレンダリングされる Markdown ネイティブのフィールドです。WYSIWYG 編集でプロンプトを書けます：Enter で送信、Shift+Enter で改行。"
+        },
+        "empty": {
+            "tryAsking": "こんな質問を試してみてください：",
+            "example": "「Markdown の表と TypeScript のコードブロックを見せて。」",
+            "noKey": "API key は不要です。モックストリーミングがデフォルトで有効です。",
+            "tryExample": "例を試す"
+        },
+        "input": {
+            "placeholder": "Markdown で書く... Enter で送信、Shift+Enter で改行",
+            "markdown": "Markdown",
+            "expanded": "拡大表示",
+            "collapseAria": "入力を折りたたむ",
+            "expandAria": "入力を拡大する",
+            "collapseTitle": "折りたたむ（Esc）",
+            "expandTitle": "拡大する",
+            "hintNewline": "改行",
+            "hintSend": "送信",
+            "hintCollapse": "折りたたむ",
+            "send": "送信"
+        },
+        "config": {
+            "title": "チャット設定",
+            "mockMode": "モックモード",
+            "live": "ライブ",
+            "desc": "空欄のままにするとモックストリーミングを使用します。自分の key を追加すると、実際のモデルからストリーミングできます。",
+            "apiKey": "API key",
+            "provider": "プロバイダー",
+            "model": "モデル",
+            "keyNote": "API key はこのブラウザ（localStorage）に保存され、ここでのみ使用されます。DOMD のサーバーに送信されることはありません。",
+            "done": "完了"
+        },
+        "examplePrompt": "Markdown の表と TypeScript のコードブロックを見せて。",
+        "message": {
+            "assistant": "アシスタント",
+            "streaming": "生成中...",
+            "mock": "モック",
+            "error": "エラー",
+            "you": "あなた",
+            "collapse": "折りたたむ",
+            "expand": "展開"
+        },
+        "errors": {
+            "auth": "API key が無効か、プロバイダーのエラーです。",
+            "network": "ネットワークエラーです。もう一度お試しください。",
+            "generic": "リクエストに失敗しました。API key を確認するか、モックモードをお試しください。"
+        }
+    },
+    "playground": {
+        "headerTitle": "DOMD プレイグラウンド",
+        "headerSubtitle": "20 KB のコア · WYSIWYG Markdown ストリーミング",
+        "settings": "設定",
+        "close": "閉じる",
+        "dropToStream": "ドロップしてこの Markdown をストリーミング",
+        "placeholder": "ここに入力するか、パネルからストリームを開始してください。",
+        "panelTitle": "AI ストリーミングプレイグラウンド",
+        "panelDesc": "AI 風の Markdown ストリーミングを WYSIWYG ドキュメントにシミュレートします。ストリーミングの前後で自由に編集できます。",
+        "status": "ステータス",
+        "statusIdle": "待機中",
+        "statusStreaming": "ストリーミング中…",
+        "statusDone": "完了",
+        "statusStopped": "停止しました",
+        "document": "ドキュメント",
+        "dropped": "ドロップ済み",
+        "droppedFile": "ドロップしたファイル · {{count}} 文字",
+        "tip": "ヒント：Markdown ファイルをエディタにドロップすると、現在の設定でストリーミングできます。",
+        "chunkSize": "チャンクサイズ",
+        "char": "文字",
+        "chars": "文字",
+        "chunkRange": "{{min}}〜{{max}} 文字",
+        "chunkSingle": "{{count}} {{unit}}",
+        "aiSuffix": " · AI",
+        "boundEditorAria": "スライダーの上限",
+        "boundEditorTitle": "クリックしてスライダーの上限を変更",
+        "snapMin": "最小値を {{value}} に合わせる",
+        "resetAiDefault": "AI のデフォルトにリセット（{{min}}〜{{max}}）",
+        "aiDefault": "AI（{{min}}〜{{max}}）",
+        "minChunkAria": "最小チャンクサイズ",
+        "maxChunkAria": "最大チャンクサイズ",
+        "speed": "速度",
+        "speedLabels": {
+            "fast": "速い",
+            "normal": "標準",
+            "slow": "遅い",
+            "very-slow": "とても遅い",
+            "instant": "瞬時"
+        },
+        "noDelay": "遅延なし — ブラウザが描画できる限りの速さでチャンクをキューに入れます",
+        "delayBetween": "チャンク間の遅延：{{min}}〜{{max}} ms",
+        "metrics": "メトリクス",
+        "metricChars": "文字数",
+        "metricChunks": "チャンク数",
+        "metricElapsed": "経過時間",
+        "coreNote": "同じ 20 KB の Markdown ネイティブコアが、プレビュー・編集・ストリーミングを動かしています。このページは、AI モデルから届くトークン単位の Markdown ストリームをシミュレートします — ストリーミング実行中はエディタがロックされます。",
+        "startStreaming": "ストリーミングを開始",
+        "restartStreaming": "ストリーミングを再開",
+        "stopStreaming": "ストリーミングを停止",
+        "clearEditor": "エディタをクリア"
+    }
+}

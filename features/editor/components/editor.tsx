@@ -15,6 +15,7 @@ import {
     useEditorStore,
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
+import { useTranslation } from "react-i18next";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
 import { isTauri } from "@/common/lib/platform";
 import { tauriCore } from "@/common/lib/tauri";
@@ -36,6 +37,7 @@ export function Editor({
     onRequestOpenUrl: () => void;
     saveRef: React.MutableRefObject<(() => Promise<boolean>) | null>;
 }) {
+    const { t } = useTranslation();
     const renderData = useRenderData();
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -344,14 +346,14 @@ export function Editor({
                         onClick={onRequestOpenUrl}
                         className="btn btn-xs btn-ghost"
                     >
-                        Open URL...
+                        {t("editor.openUrl")}
                     </button>
                     <button
                         onClick={() => doSave(renderData)}
                         disabled={saving}
                         className="btn btn-xs btn-neutral"
                     >
-                        {saving ? "Saving..." : saved ? "Saved" : "Save"}
+                        {saving ? t("editor.saving") : saved ? t("editor.saved") : t("editor.save")}
                     </button>
                 </div>
             ) : null}

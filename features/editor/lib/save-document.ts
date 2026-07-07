@@ -4,6 +4,7 @@ import {
     scanIdbRefs,
 } from "@/common/lib/image-storage";
 import { tauriCore, tauriDialog } from "@/common/lib/tauri";
+import i18n from "@/common/i18n";
 import type { FileMeta } from "./types";
 
 export type SaveResult =
@@ -99,9 +100,7 @@ async function saveWeb(
     // Step 1: if doc has images and no asset dir yet, ask for a folder.
     // Tell the user this picker is for images.
     if (idbIds.size > 0 && !dirHandle && "showDirectoryPicker" in window) {
-        window.alert(
-            "This document has images. First, choose a folder where the images will be saved. Next, you'll choose where to save the markdown file.",
-        );
+        window.alert(i18n.t("editor.saveDialog.imagesFolderPrompt"));
         dirHandle = await (
             window as unknown as {
                 showDirectoryPicker(opts?: {
@@ -163,7 +162,9 @@ async function saveWeb(
             const components = await dirHandle.resolve(fileHandle);
             if (components) break;
             const retry = window.confirm(
-                `The markdown file must be saved inside the image folder "${dirHandle.name}" (or a sub-folder of it) so image links resolve correctly.\n\nClick OK to choose another location.`,
+                i18n.t("editor.saveDialog.mustSaveInFolder", {
+                    folder: dirHandle.name,
+                }),
             );
             if (!retry) return { ok: false };
             fileHandle = null;

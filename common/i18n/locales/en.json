@@ -1,0 +1,155 @@
+{
+    "common": {
+        "language": "Language",
+        "home": "Home",
+        "github": "GitHub",
+        "close": "Close",
+        "settings": "Settings"
+    },
+    "nav": {
+        "editor": "Editor",
+        "stream": "Stream",
+        "input": "Input"
+    },
+    "landing": {
+        "copyright": "© {{year}} DOMD",
+        "tagline": "A clean place to write Markdown."
+    },
+    "editor": {
+        "placeholder": "Start writing Markdown...",
+        "releaseToOpen": "Release to open",
+        "openUrl": "Open URL...",
+        "save": "Save",
+        "saving": "Saving...",
+        "saved": "Saved",
+        "urlModal": {
+            "title": "Open from URL",
+            "placeholder": "URL or gh:owner/repo",
+            "cancel": "Cancel",
+            "open": "Open"
+        },
+        "saveDialog": {
+            "imagesFolderPrompt": "This document has images. First, choose a folder where the images will be saved. Next, you'll choose where to save the markdown file.",
+            "mustSaveInFolder": "The markdown file must be saved inside the image folder \"{{folder}}\" (or a sub-folder of it) so image links resolve correctly.\n\nClick OK to choose another location."
+        }
+    },
+    "updater": {
+        "upToDate": "DOMD is up to date.",
+        "checkTitle": "Check for Updates",
+        "availableBody": "A new version (v{{version}}) is available. Download and install now?",
+        "availableTitle": "Update available",
+        "install": "Install",
+        "later": "Later",
+        "restartBody": "v{{version}} installed. Restart DOMD now?",
+        "restartTitle": "Restart required",
+        "restart": "Restart",
+        "errorBody": "Could not check for updates: {{error}}",
+        "errorTitle": "Update error",
+        "bannerReady": "v{{version}} ready"
+    },
+    "chat": {
+        "headerTitle": "DOMD Playground",
+        "headerSubtitle": "Markdown-native AI chat",
+        "settingsAria": "Chat settings",
+        "intro": {
+            "title": "A Markdown-native chat input",
+            "desc": "The star here is the input box below — a Markdown-native field that renders live as you type. Write prompts with WYSIWYG editing: press Enter to send, Shift+Enter for a newline."
+        },
+        "empty": {
+            "tryAsking": "Try asking:",
+            "example": "“Show me a Markdown table and a TypeScript code block.”",
+            "noKey": "No API key is required. Mock streaming is enabled by default.",
+            "tryExample": "Try example"
+        },
+        "input": {
+            "placeholder": "Write with Markdown... Enter to send, Shift+Enter for newline",
+            "markdown": "Markdown",
+            "expanded": "Expanded",
+            "collapseAria": "Collapse input",
+            "expandAria": "Expand input",
+            "collapseTitle": "Collapse (Esc)",
+            "expandTitle": "Expand",
+            "hintNewline": "newline",
+            "hintSend": "send",
+            "hintCollapse": "collapse",
+            "send": "Send"
+        },
+        "config": {
+            "title": "Chat settings",
+            "mockMode": "Mock mode",
+            "live": "Live",
+            "desc": "Leave empty to use mock streaming. Add your own key to stream from a real model.",
+            "apiKey": "API key",
+            "provider": "Provider",
+            "model": "Model",
+            "keyNote": "Your API key is saved in this browser (localStorage) and used only here. It is never sent to DOMD servers.",
+            "done": "Done"
+        },
+        "examplePrompt": "Show me a Markdown table and a TypeScript code block.",
+        "message": {
+            "assistant": "Assistant",
+            "streaming": "streaming...",
+            "mock": "mock",
+            "error": "error",
+            "you": "You",
+            "collapse": "Collapse",
+            "expand": "Expand"
+        },
+        "errors": {
+            "auth": "Invalid API key or provider error.",
+            "network": "Network error. Please try again.",
+            "generic": "Request failed. Please check your API key or try mock mode."
+        }
+    },
+    "playground": {
+        "headerTitle": "DOMD Playground",
+        "headerSubtitle": "20 KB core · WYSIWYG Markdown streaming",
+        "settings": "Settings",
+        "close": "Close",
+        "dropToStream": "Drop to stream this Markdown",
+        "placeholder": "Type here, or start a stream from the panel.",
+        "panelTitle": "AI streaming playground",
+        "panelDesc": "Simulate AI-style Markdown streaming into a WYSIWYG document. Edit freely before and after streaming.",
+        "status": "Status",
+        "statusIdle": "Idle",
+        "statusStreaming": "Streaming…",
+        "statusDone": "Done",
+        "statusStopped": "Stopped",
+        "document": "Document",
+        "dropped": "dropped",
+        "droppedFile": "Dropped file · {{count}} chars",
+        "tip": "Tip: drop a Markdown file onto the editor to stream it with your current settings.",
+        "chunkSize": "Chunk size",
+        "char": "char",
+        "chars": "chars",
+        "chunkRange": "{{min}}–{{max}} chars",
+        "chunkSingle": "{{count}} {{unit}}",
+        "aiSuffix": " · AI",
+        "boundEditorAria": "Slider upper bound",
+        "boundEditorTitle": "Click to change the slider's upper bound",
+        "snapMin": "Snap min to {{value}}",
+        "resetAiDefault": "Reset to AI default ({{min}}–{{max}})",
+        "aiDefault": "AI ({{min}}–{{max}})",
+        "minChunkAria": "Min chunk size",
+        "maxChunkAria": "Max chunk size",
+        "speed": "Speed",
+        "speedLabels": {
+            "fast": "Fast",
+            "normal": "Normal",
+            "slow": "Slow",
+            "very-slow": "Very slow",
+            "instant": "Instant"
+        },
+        "noDelay": "No delay — chunks queue as fast as the browser can paint",
+        "delayBetween": "Delay between chunks: {{min}}–{{max}} ms",
+        "metrics": "Metrics",
+        "metricChars": "Chars",
+        "metricChunks": "Chunks",
+        "metricElapsed": "Elapsed",
+        "coreNote": "The same 20 KB Markdown-native core powers preview, edit, and stream. This page simulates a token-by-token Markdown stream arriving from an AI model — the editor is locked while a stream is running.",
+        "startStreaming": "Start streaming",
+        "restartStreaming": "Restart streaming",
+        "stopStreaming": "Stop streaming",
+        "clearEditor": "Clear editor"
+    }
+}

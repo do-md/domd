@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Link from "next/link";
 import { mockStreamSource } from "../lib/mock";
 import { realStreamSource } from "../lib/stream";
@@ -10,8 +11,6 @@ import { ChatIntro, EmptyState } from "./chat-intro";
 import { ConfigModal } from "./config-modal";
 import { DomdChatInput, type DomdChatInputHandle } from "./domd-chat-input";
 import { UserMessage } from "./user-message";
-
-const EXAMPLE_PROMPT = "Show me a Markdown table and a TypeScript code block.";
 
 // BYOK config persisted to localStorage (browser-only; never sent to a server).
 const LS_KEY = "domd-chat:apiKey";
@@ -37,6 +36,7 @@ const newId = () =>
 type ChatEntry = ChatMessage & { source?: StreamSource };
 
 export function ChatApp() {
+    const { t } = useTranslation();
     const [apiKey, setApiKey] = useState("");
     const [provider, setProvider] = useState<Provider>("openai");
     const [model, setModel] = useState(PROVIDERS[0].defaultModel);
@@ -170,8 +170,8 @@ export function ChatApp() {
     }, []);
 
     const tryExample = useCallback(() => {
-        inputRef.current?.setMarkdown(EXAMPLE_PROMPT);
-    }, []);
+        inputRef.current?.setMarkdown(t("chat.examplePrompt"));
+    }, [t]);
 
     // After a send: reserve a viewport-sized block under the new turn, then
     // scroll the user message to the top so the streaming reply has room below.
@@ -231,15 +231,15 @@ export function ChatApp() {
                     <Link
                         href="/"
                         className="btn btn-ghost btn-xs"
-                        aria-label="Home"
+                        aria-label={t("common.home")}
                     >
                         ←
                     </Link>
                     <span className="font-semibold text-sm truncate">
-                        DOMD Playground
+                        {t("chat.headerTitle")}
                     </span>
                     <span className="hidden sm:inline text-xs text-base-content/50 truncate">
-                        Markdown-native AI chat
+                        {t("chat.headerSubtitle")}
                     </span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -247,8 +247,8 @@ export function ChatApp() {
                         type="button"
                         onClick={() => setConfigOpen(true)}
                         className="btn btn-ghost btn-circle"
-                        aria-label="Chat settings"
-                        title="Chat settings"
+                        aria-label={t("chat.settingsAria")}
+                        title={t("chat.settingsAria")}
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -268,7 +268,7 @@ export function ChatApp() {
                         href="https://github.com/do-md/domd"
                         target="_blank"
                         rel="noreferrer noopener"
-                        aria-label="GitHub"
+                        aria-label={t("common.github")}
                         className="btn btn-ghost btn-circle"
                     >
                         <svg
