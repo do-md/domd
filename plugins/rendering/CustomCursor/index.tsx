@@ -83,11 +83,44 @@ export function CustomCursor() {
     const cursorRef = useRef<HTMLDivElement>(null);
     const rafRef = useRef<number>(0);
     const lastPosRef = useRef({ x: -1, y: -1 });
+    // Remembers this container's own inline caret-color before we override it,
+    // so unmounting restores exactly what was there (revealing the native caret).
+    const originalCaretColorRef = useRef<string | null>(null);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         injectBlinkStyle();
     }, []);
+
+    // Suppress the browser's native caret — scoped to THIS editor instance only.
+    //
+    // domd-core renders the native caret by default; mounting a CustomCursor is
+    // what opts a given editor into custom cursor rendering. We therefore hide
+    // the native caret by writing an inline `caret-color: transparent` onto this
+    // instance's own Root element (textAreaDomRef.current). Because it's an inline
+    // style on a specific DOM node — never a global stylesheet — sibling editors
+    // that don't mount a CustomCursor keep their native caret untouched.
+    //
+    // During IME composition we temporarily restore the native caret so the
+    // candidate window anchors to the real insertion point, and on unmount we
+    // restore the original value so the native caret comes back for this editor.
+    useEffect(() => {
+        const container = textAreaDomRef.current;
+        if (!container) return;
+
+        // Capture the pre-existing inline value exactly once ("" = no override).
+        if (originalCaretColorRef.current === null) {
+            originalCaretColorRef.current = container.style.caretColor;
+        }
+
+        container.style.caretColor = duringComposition
+            ? originalCaretColorRef.current
+            : "transparent";
+
+        return () => {
+            container.style.caretColor = originalCaretColorRef.current ?? "";
+        };
+    }, [duringComposition, textAreaDomRef, mounted]);
 
     useEffect(() => {
         if (textAreaDomRef.current) {
@@ -176,16 +209,17 @@ export function CustomCursor() {
         return () => document.removeEventListener("selectionchange", handler);
     }, [scheduleUpdate]);
 
-    // IME
+    // IME: only manage the custom (fake) cursor here. During composition we hide
+    // it and let the native caret show (the caret-suppression effect above handles
+    // revealing it); once composition ends we redraw the custom cursor.
+    // Native caret-color is owned entirely by the caret-suppression effect.
     useEffect(() => {
         const container = textAreaDomRef.current;
         if (!container) return;
 
         if (duringComposition) {
             hide();
-            container.style.caretColor = "";
         } else {
-            container.style.caretColor = "transparent";
             scheduleUpdate();
         }
     }, [duringComposition, textAreaDomRef, scheduleUpdate, hide]);
