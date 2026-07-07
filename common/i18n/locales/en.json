@@ -24,7 +24,11 @@
     },
     "landing": {
         "copyright": "© {{year}} DOMD",
-        "tagline": "A clean place to write Markdown."
+        "tagline": "A clean place to write Markdown.",
+        "editPill": "Edit",
+        "editHint": "This page is a live editor — click anywhere and type. Nothing is saved.",
+        "editingChip": "Editing · not saved",
+        "exitEdit": "Exit editing"
     },
     "editor": {
         "placeholder": "Start writing Markdown...",
