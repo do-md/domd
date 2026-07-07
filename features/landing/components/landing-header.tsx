@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
-import { LanguageSwitcher } from "@/common/components/language-switcher";
 
-// Client header for the landing page: nav links + GitHub + language switcher.
-// Extracted from the (server) page so the nav labels can be translated at
-// runtime via useTranslation while the page itself stays a Server Component.
+// Client header for the landing page: nav links + GitHub. Extracted from the
+// (server) page so the nav labels can be translated (language follows the
+// system locale; there is no in-app switcher) while the page itself stays a
+// Server Component.
 export function LandingHeader() {
     const { t } = useTranslation();
     return (
@@ -53,7 +53,6 @@ export function LandingHeader() {
                     >
                         {t("nav.input")}
                     </Link>
-                    <LanguageSwitcher />
                 </div>
             </nav>
         </header>
