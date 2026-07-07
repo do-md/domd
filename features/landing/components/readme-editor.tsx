@@ -5,8 +5,54 @@ import { DOMD, DOMDProvider } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
 import { pickByLocale } from "@/common/lib/locale";
-import { useEditorStoreApi } from "@do-md/core-react";
+import {
+    useEditorStoreApi,
+    useEditorDom,
+    type EditorStoreApi,
+} from "@do-md/core-react";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
+
+// setEditable landed in @do-md/core-react 0.2.10 but isn't in the package's
+// hand-maintained d.ts yet. Augment the exported store type so we can toggle
+// editability in place instead of remounting a fresh provider.
+declare module "@do-md/core-react" {
+    interface EditorStoreApi {
+        setEditable(editable: boolean): void;
+    }
+}
+
+// Bridges the in-provider editor store out to a parent ref so the overlay
+// controls (which live outside the provider) can call setEditable.
+function StoreBridge({
+    apiRef,
+}: {
+    apiRef: React.MutableRefObject<EditorStoreApi | null>;
+}) {
+    const store = useEditorStoreApi();
+    useEffect(() => {
+        apiRef.current = store;
+        return () => {
+            apiRef.current = null;
+        };
+    }, [store, apiRef]);
+    return null;
+}
+
+// Streaming pacing. The point of the stream is the "AI typing" flourish — but
+// only the part the reader can actually see is worth pacing. So the visible
+// first screen types at a readable cruise speed; the moment the content grows
+// past the fold (further chunks land off-screen), we ramp up — each chunk gets
+// bigger and its delay shorter — so the invisible remainder finishes fast and
+// the reader can start editing sooner.
+const CRUISE_CHUNK_MIN = 50; // chars per chunk while visible
+const CRUISE_CHUNK_MAX = 64;
+const CRUISE_DELAY_MIN = 55; // ms between chunks while visible
+const CRUISE_DELAY_MAX = 85;
+const ACCEL_GROWTH = 1.5; // per off-screen chunk: size ×, delay ÷
+const ACCEL_MAX_CHUNK = 4000; // cap so a single insert can't get pathological
+// Safety net: if the editor DOM can't be measured, ramp up after this many
+// chars anyway so a tall/oddly-laid-out viewport never streams slowly forever.
+const FALLBACK_ACCEL_AT = 2000;
 
 // Streams `text` into the surrounding DOMDProvider one chunk at a time,
 // mimicking an AI token stream. Must sit inside the provider so `useEditor`
@@ -21,6 +67,7 @@ function StreamDriver({
     onDone: () => void;
 }) {
     const editorStore = useEditorStoreApi();
+    const { textAreaDomRef } = useEditorDom();
     const onDoneRef = useRef(onDone);
 
     useEffect(() => {
@@ -29,7 +76,18 @@ function StreamDriver({
 
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
         const rand = (a: number, b: number) => a + Math.random() * (b - a);
+        const randInt = (a: number, b: number) =>
+            a + Math.floor(Math.random() * (b - a + 1));
         const aborted = () => cancelled || abortRef.current;
+
+        // True once the streamed content has filled the viewport, i.e. new
+        // chunks now land below the fold where the stream isn't visible.
+        const pastFold = () => {
+            if (typeof window === "undefined") return false;
+            const el = textAreaDomRef.current;
+            if (!el) return false;
+            return el.getBoundingClientRect().bottom >= window.innerHeight;
+        };
 
         (async () => {
             if (aborted()) return;
@@ -40,23 +98,45 @@ function StreamDriver({
             editorStore.resetMD(text.slice(0, firstSize));
             let i = firstSize;
 
+            // `accel` grows geometrically once we cross the fold, so both the
+            // chunk size and the (shrinking) delay compound — faster and faster.
+            let accelerating = false;
+            let accel = 1;
+
             while (i < text.length) {
                 if (aborted()) return;
-                // Split the inter-chunk wait into ~10ms slices so a tap can
-                // halt insertions within one slice. A single 60–90ms sleep
-                // would let one more insertText slip through after abort and
-                // mutate the DOM during the pointerdown→click window, which
-                // iOS reads as instability and cancels the click.
-                const target = rand(55, 85);
+
+                if (!accelerating && (i >= FALLBACK_ACCEL_AT || pastFold())) {
+                    accelerating = true;
+                }
+
+                let size: number;
+                let delay: number;
+                if (accelerating) {
+                    size = Math.min(
+                        Math.round(CRUISE_CHUNK_MAX * accel),
+                        ACCEL_MAX_CHUNK,
+                    );
+                    delay = CRUISE_DELAY_MIN / accel;
+                    accel *= ACCEL_GROWTH;
+                } else {
+                    size = randInt(CRUISE_CHUNK_MIN, CRUISE_CHUNK_MAX);
+                    delay = rand(CRUISE_DELAY_MIN, CRUISE_DELAY_MAX);
+                }
+
+                // Split the wait into ~10ms slices so a tap can halt insertions
+                // within one slice. A single long sleep would let one more
+                // insertText slip through after abort and mutate the DOM during
+                // the pointerdown→click window, which iOS reads as instability
+                // and cancels the click.
                 let waited = 0;
-                while (waited < target) {
+                while (waited < delay) {
                     if (aborted()) return;
-                    const step = Math.min(target - waited, 10);
+                    const step = Math.min(delay - waited, 10);
                     await sleep(step);
                     waited += step;
                 }
                 if (aborted()) return;
-                const size = 50 + Math.floor(Math.random() * 15); // 50..64
                 editorStore.insertText(text.slice(i, i + size));
                 i += size;
             }
@@ -71,7 +151,7 @@ function StreamDriver({
         return () => {
             cancelled = true;
         };
-    }, [editorStore, text, abortRef]);
+    }, [editorStore, text, abortRef, textAreaDomRef]);
 
     return null;
 }
@@ -146,26 +226,24 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
     //  streaming still works). When it finishes, the page just sits there as a
     //  clean reading surface — no caret, text selectable, links clickable.
     //
-    //  A corner pill invites the reader to opt into editing. Clicking it
-    //  remounts the editor as editable (the `editable` prop is init-only, so a
-    //  fresh instance keyed "edit" is the only way to flip it) seeded with the
-    //  same streamed markdown, and shows a "nothing is saved" reassurance. The
-    //  edit chip carries an × to leave — which drops back to a *static* read
-    //  instance (seeded, no StreamDriver) so exiting never re-runs the stream.
+    //  A corner pill invites the reader to opt into editing. It calls the
+    //  store's setEditable(true) to flip the SAME instance editable in place —
+    //  no remount, no re-seed, and any edits persist when toggling back. The
+    //  edit chip carries an × that calls setEditable(false) to return to
+    //  reading. A "nothing is saved" toast reassures on entry.
     const { t } = useTranslation();
     const [phase, setPhase] = useState<Phase>("ssr");
     const [streamText, setStreamText] = useState<string | null>(null);
     const [streamingDone, setStreamingDone] = useState(false);
     const [editMode, setEditMode] = useState(false);
-    // True once the reader has entered edit mode at least once. After that,
-    // read mode renders the seeded static instance instead of re-streaming.
-    const [streamedOnce, setStreamedOnce] = useState(false);
     const [showToast, setShowToast] = useState(false);
     // Synchronous abort signal for the streaming loop. We flip this in the
     // pointerdown handler without calling setState, so no React render runs
     // between pointerdown and the synthesized click — iOS cancels the click
     // if the DOM mutates in that window.
     const abortRef = useRef(false);
+    // Live editor store, lifted out of the provider by StoreBridge.
+    const storeRef = useRef<EditorStoreApi | null>(null);
 
     useEffect(() => {
         const text = pickStream(streams);
@@ -208,12 +286,13 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
     const canEdit = streamText !== null && streamingDone && !editMode;
 
     const enterEdit = () => {
+        storeRef.current?.setEditable(true);
         setEditMode(true);
-        setStreamedOnce(true);
         setShowToast(true);
     };
 
     const exitEdit = () => {
+        storeRef.current?.setEditable(false);
         setEditMode(false);
         setShowToast(false);
     };
@@ -238,47 +317,25 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
                     >
                         <DOMD />
                     </DOMDProvider>
-                ) : !editMode && !streamedOnce ? (
-                    // Live read mode: streams into a non-editable editor, then
-                    // rests as a clean reading surface (no caret, selectable,
-                    // links live). Stays mounted after the stream finishes.
+                ) : (
+                    // One persistent instance for the whole client lifetime:
+                    // starts read-only, streams in, then setEditable() toggles
+                    // it between reading and editing in place. CustomCursor only
+                    // mounts while editing (custom caret is meaningless in read).
                     <DOMDProvider
-                        key="read-stream"
+                        key="client"
                         editable={false}
                         initMd=""
                         codeTokenizer={tokenize}
                     >
                         <DOMD />
+                        <StoreBridge apiRef={storeRef} />
                         <StreamDriver
                             text={streamText}
                             abortRef={abortRef}
                             onDone={() => setStreamingDone(true)}
                         />
-                    </DOMDProvider>
-                ) : !editMode ? (
-                    // Static read mode: entered only after an edit session.
-                    // Seeded with the full markdown, no StreamDriver — leaving
-                    // edit mode must never replay the stream.
-                    <DOMDProvider
-                        key="read-static"
-                        editable={false}
-                        initMd={streamText}
-                        codeTokenizer={tokenize}
-                    >
-                        <DOMD />
-                    </DOMDProvider>
-                ) : (
-                    // Edit mode: fresh editable instance seeded with the same
-                    // markdown. Keyed distinctly to force a remount (editable is
-                    // read once at construction).
-                    <DOMDProvider
-                        key="edit"
-                        editable={true}
-                        initMd={streamText}
-                        codeTokenizer={tokenize}
-                    >
-                        <DOMD />
-                        <CustomCursor />
+                        {editMode && <CustomCursor />}
                     </DOMDProvider>
                 )}
             </div>
