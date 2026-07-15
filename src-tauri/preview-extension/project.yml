@@ -31,7 +31,7 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: DOMDPreview/DOMDPreview.entitlements
         SKIP_INSTALL: YES
-        MARKETING_VERSION: "0.2.9"
+        MARKETING_VERSION: "0.2.10"
         CURRENT_PROJECT_VERSION: "1"
     dependencies:
       - sdk: QuickLookUI.framework
