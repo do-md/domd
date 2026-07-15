@@ -7,6 +7,7 @@ two extension pipelines plus shared code:
 | ------------ | --------------- | ------------------------------------------------------------------------- | ----------------------------------------- |
 | `rendering/` | Enhanced render | Custom element rendering, decorations, node views — extend the view layer | `Renderer`, `RenderData`, `useRenderData` |
 | `parsing/`   | Enhanced parse  | Extend / override Markdown parsing, custom syntax token → RenderData      | `toMarkdown`, `MarkdownType`              |
+| `toolbar/`   | Editor chrome   | Toolbars / input bars around the editor surface (e.g. mobile quick-input) | `useEditorStoreApi`, `useEditorStore`     |
 | `shared/`    | Shared          | Types, registration logic, utilities shared across plugins                | —                                         |
 
 ## Conventions

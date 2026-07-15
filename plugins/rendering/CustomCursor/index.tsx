@@ -11,6 +11,34 @@ function injectBlinkStyle() {
     document.head.appendChild(style);
 }
 
+/** Starting from node (excluding itself), find the next leaf node within the same root */
+function getNextLeaf(node: Node, root: Node): Node | null {
+    let cur: Node | null = node;
+    while (cur && cur !== root) {
+        if (cur.nextSibling) {
+            let leaf: Node = cur.nextSibling;
+            while (leaf.firstChild) leaf = leaf.firstChild;
+            return leaf;
+        }
+        cur = cur.parentNode;
+    }
+    return null;
+}
+
+/** Measure the left edge of the character at `index` in a text node, used as the cursor rect */
+function measureCharLeft(node: Node, index: number): DOMRect | null {
+    const r = document.createRange();
+    r.setStart(node, index);
+    r.setEnd(node, index + 1);
+    const rects = r.getClientRects();
+    if (!rects.length) return null;
+    // A line-start character may return two rects (a zero-width rect at the end of
+    // the previous line + the character rect on this line); take the last one to
+    // bias toward "next line" — matching how the native caret is drawn at these positions.
+    const rect = rects[rects.length - 1];
+    return new DOMRect(rect.left, rect.top, 0, rect.height);
+}
+
 function getCursorRect(container: HTMLElement) {
     const sel = document.getSelection();
     if (!sel || sel.rangeCount === 0) return null;
@@ -19,10 +47,57 @@ function getCursorRect(container: HTMLElement) {
     let rect = range.getBoundingClientRect();
 
     if (rect.height === 0 && range.collapsed) {
-        const fallbackRange = range.cloneRange();
-        if (range.startOffset > 0) {
-            fallbackRange.setStart(range.startContainer, range.startOffset - 1);
-            fallbackRange.setEnd(range.startContainer, range.startOffset);
+        const node = range.startContainer;
+        const offset = range.startOffset;
+        const text =
+            node.nodeType === Node.TEXT_NODE ? node.textContent || "" : "";
+
+        // 1) Downstream first: measure the left edge of the character after the cursor.
+        //    At a line-start position the previous character is the \n at the end of the
+        //    previous line — using the upstream right edge would draw the cursor on the
+        //    previous line (the real cursor position is at the start of the next line).
+        if (node.nodeType === Node.TEXT_NODE && offset < text.length) {
+            rect = measureCharLeft(node, offset) || rect;
+        } else if (node.nodeType === Node.TEXT_NODE && offset === text.length) {
+            // End of node: downstream content may live in the next leaf (code block
+            // tokens are split into multiple spans, so a "line-start" position often
+            // lands at the end of the previous line's \n node)
+            const leaf = getNextLeaf(node, container);
+            if (leaf && leaf.nodeType === Node.TEXT_NODE) {
+                if ((leaf.textContent || "").length > 0) {
+                    rect = measureCharLeft(leaf, 0) || rect;
+                }
+            } else if (leaf instanceof HTMLElement) {
+                const leafRect = leaf.getBoundingClientRect();
+                if (leafRect.height > 0) {
+                    rect = new DOMRect(
+                        leafRect.left,
+                        leafRect.top,
+                        0,
+                        leafRect.height,
+                    );
+                }
+            }
+        } else if (node instanceof HTMLElement && node.tagName === "BR") {
+            // Empty paragraph: startContainer is the <br> itself
+            const brRect = node.getBoundingClientRect();
+            if (brRect.height > 0) {
+                rect = new DOMRect(brRect.left, brRect.top, 0, brRect.height);
+            }
+        }
+
+        // 2) Upstream fallback: the right edge of the previous character — only when
+        //    that previous character is not a \n (a \n's rect sits at the end of the
+        //    previous line, which would draw the cursor on the previous line)
+        if (
+            rect.height === 0 &&
+            node.nodeType === Node.TEXT_NODE &&
+            offset > 0 &&
+            text[offset - 1] !== "\n"
+        ) {
+            const fallbackRange = range.cloneRange();
+            fallbackRange.setStart(node, offset - 1);
+            fallbackRange.setEnd(node, offset);
             const rects = fallbackRange.getClientRects();
             if (rects.length > 0) {
                 const lastRect = rects[rects.length - 1];
@@ -32,32 +107,6 @@ function getCursorRect(container: HTMLElement) {
                     0,
                     lastRect.height,
                 );
-            }
-        } else {
-            const node = range.startContainer;
-            if (node.textContent && node.textContent.length > 0) {
-                fallbackRange.setStart(node, 0);
-                fallbackRange.setEnd(node, 1);
-                const rects = fallbackRange.getClientRects();
-                if (rects.length > 0) {
-                    rect = new DOMRect(
-                        rects[0].left,
-                        rects[0].top,
-                        0,
-                        rects[0].height,
-                    );
-                }
-            } else if (node instanceof HTMLElement && node.tagName === "BR") {
-                // Empty paragraph: startContainer is the <br> itself
-                const brRect = node.getBoundingClientRect();
-                if (brRect.height > 0) {
-                    rect = new DOMRect(
-                        brRect.left,
-                        brRect.top,
-                        0,
-                        brRect.height,
-                    );
-                }
             }
         }
     }

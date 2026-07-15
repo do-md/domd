@@ -1,10 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { I18nProvider } from "@/common/i18n/provider";
 import "./globals.css";
 import "./prism-themes.css";
 
 const SITE_URL = "https://www.domd.app";
+
+// viewport-fit=cover is required for env(safe-area-inset-*) to be non-zero
+// on notched iPhones — the mobile quick-input bar pads itself above the
+// home indicator with it.
+export const viewport: Viewport = {
+    viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
     metadataBase: new URL(SITE_URL),
