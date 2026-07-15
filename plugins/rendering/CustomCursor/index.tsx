@@ -39,6 +39,48 @@ function measureCharLeft(node: Node, index: number): DOMRect | null {
     return new DOMRect(rect.left, rect.top, 0, rect.height);
 }
 
+/**
+ * The rect of the content just *after* a collapsed cursor — its downstream
+ * position. Used to place the cursor at a line-start (right after a hard \n),
+ * where getBoundingClientRect is unreliable across engines.
+ * Returns null when there is no measurable downstream content.
+ */
+function getDownstreamRect(range: Range, container: HTMLElement): DOMRect | null {
+    const node = range.startContainer;
+    const offset = range.startOffset;
+
+    // Empty paragraph: startContainer is the <br> itself.
+    if (node instanceof HTMLElement && node.tagName === "BR") {
+        const br = node.getBoundingClientRect();
+        return br.height > 0 ? new DOMRect(br.left, br.top, 0, br.height) : null;
+    }
+
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    const text = node.textContent || "";
+
+    // Same node has a following character → its left edge.
+    if (offset < text.length) {
+        return measureCharLeft(node, offset);
+    }
+
+    // End of node: downstream content lives in the next leaf (code-block tokens
+    // are split into multiple spans, so a line-start position lands at the end
+    // of the previous line's \n node).
+    const leaf = getNextLeaf(node, container);
+    if (leaf && leaf.nodeType === Node.TEXT_NODE) {
+        return (leaf.textContent || "").length > 0
+            ? measureCharLeft(leaf, 0)
+            : null;
+    }
+    if (leaf instanceof HTMLElement) {
+        const leafRect = leaf.getBoundingClientRect();
+        return leafRect.height > 0
+            ? new DOMRect(leafRect.left, leafRect.top, 0, leafRect.height)
+            : null;
+    }
+    return null;
+}
+
 function getCursorRect(container: HTMLElement) {
     const sel = document.getSelection();
     if (!sel || sel.rangeCount === 0) return null;
@@ -46,67 +88,55 @@ function getCursorRect(container: HTMLElement) {
     const range = sel.getRangeAt(0);
     let rect = range.getBoundingClientRect();
 
-    if (rect.height === 0 && range.collapsed) {
+    if (range.collapsed) {
         const node = range.startContainer;
         const offset = range.startOffset;
         const text =
             node.nodeType === Node.TEXT_NODE ? node.textContent || "" : "";
 
-        // 1) Downstream first: measure the left edge of the character after the cursor.
-        //    At a line-start position the previous character is the \n at the end of the
-        //    previous line — using the upstream right edge would draw the cursor on the
-        //    previous line (the real cursor position is at the start of the next line).
-        if (node.nodeType === Node.TEXT_NODE && offset < text.length) {
-            rect = measureCharLeft(node, offset) || rect;
-        } else if (node.nodeType === Node.TEXT_NODE && offset === text.length) {
-            // End of node: downstream content may live in the next leaf (code block
-            // tokens are split into multiple spans, so a "line-start" position often
-            // lands at the end of the previous line's \n node)
-            const leaf = getNextLeaf(node, container);
-            if (leaf && leaf.nodeType === Node.TEXT_NODE) {
-                if ((leaf.textContent || "").length > 0) {
-                    rect = measureCharLeft(leaf, 0) || rect;
-                }
-            } else if (leaf instanceof HTMLElement) {
-                const leafRect = leaf.getBoundingClientRect();
-                if (leafRect.height > 0) {
-                    rect = new DOMRect(
-                        leafRect.left,
-                        leafRect.top,
-                        0,
-                        leafRect.height,
-                    );
-                }
-            }
-        } else if (node instanceof HTMLElement && node.tagName === "BR") {
-            // Empty paragraph: startContainer is the <br> itself
-            const brRect = node.getBoundingClientRect();
-            if (brRect.height > 0) {
-                rect = new DOMRect(brRect.left, brRect.top, 0, brRect.height);
+        // Cross-engine line-start fix. When the cursor sits right after a hard \n
+        // (i.e. the start of the next visual line), getBoundingClientRect places
+        // the rect on the PREVIOUS line — Chrome returns a zero-height empty rect,
+        // Safari returns a non-zero rect at the previous line's position. Both are
+        // wrong; use the downstream content's position instead. Only override when
+        // the main rect is empty OR the downstream rect is genuinely on a lower
+        // visual line, so a correct main rect is never disturbed.
+        if (text[offset - 1] === "\n") {
+            const downstream = getDownstreamRect(range, container);
+            if (
+                downstream &&
+                (rect.height === 0 ||
+                    downstream.top > rect.top + rect.height / 2)
+            ) {
+                rect = downstream;
             }
         }
 
-        // 2) Upstream fallback: the right edge of the previous character — only when
-        //    that previous character is not a \n (a \n's rect sits at the end of the
-        //    previous line, which would draw the cursor on the previous line)
-        if (
-            rect.height === 0 &&
-            node.nodeType === Node.TEXT_NODE &&
-            offset > 0 &&
-            text[offset - 1] !== "\n"
-        ) {
-            const fallbackRange = range.cloneRange();
-            fallbackRange.setStart(node, offset - 1);
-            fallbackRange.setEnd(node, offset);
-            const rects = fallbackRange.getClientRects();
-            if (rects.length > 0) {
-                const lastRect = rects[rects.length - 1];
-                rect = new DOMRect(
-                    lastRect.right,
-                    lastRect.top,
-                    0,
-                    lastRect.height,
-                );
+        // Remaining empty-rect boundaries (empty paragraph <br>, other edges):
+        // try downstream content, else fall back to the previous character's
+        // right edge (skip when it's a \n — that rect sits on the previous line).
+        if (rect.height === 0) {
+            const downstream = getDownstreamRect(range, container);
+            if (downstream) {
+                rect = downstream;
+            } else if (
+                node.nodeType === Node.TEXT_NODE &&
+                offset > 0 &&
+                text[offset - 1] !== "\n"
+            ) {
+                const fallbackRange = range.cloneRange();
+                fallbackRange.setStart(node, offset - 1);
+                fallbackRange.setEnd(node, offset);
+                const rects = fallbackRange.getClientRects();
+                if (rects.length > 0) {
+                    const lastRect = rects[rects.length - 1];
+                    rect = new DOMRect(
+                        lastRect.right,
+                        lastRect.top,
+                        0,
+                        lastRect.height,
+                    );
+                }
             }
         }
     }
