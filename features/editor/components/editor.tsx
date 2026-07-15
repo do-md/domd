@@ -25,6 +25,8 @@ import { useTauriEvent } from "../hooks/use-tauri-event";
 import { saveDocument } from "../lib/save-document";
 import type { FileMeta } from "../lib/types";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
+import { QuickInputBar } from "@/plugins/toolbar/quick-input-bar";
+import { useVisualViewportPin } from "@/plugins/shared/use-visual-viewport-pin";
 
 export function Editor({
     meta,
@@ -47,6 +49,35 @@ export function Editor({
 
     const metaRef = useLatest(meta);
     const domdRef = useRef<HTMLDivElement>(null);
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+    // Software-keyboard geometry (iOS/Android). Non-null while the keyboard
+    // is up; the inner layer below pins to it so the quick-input bar sits
+    // exactly on the keyboard's top edge. Null on desktop -> static layout.
+    const keyboardPin = useVisualViewportPin();
+
+    // The keyboard shrinks the content area drastically — whenever the
+    // pinned geometry changes, scroll the caret back into the visible
+    // region. Scroll the INTERNAL container only; scrolling the layout
+    // viewport on iOS introduces offsetTop drift.
+    useEffect(() => {
+        if (!keyboardPin) return;
+        const container = scrollAreaRef.current;
+        if (!container) return;
+        const sel = document.getSelection();
+        if (!sel || sel.rangeCount === 0) return;
+        if (!container.contains(sel.anchorNode)) return;
+        const rect = sel.getRangeAt(0).getBoundingClientRect();
+        // A collapsed caret can report a zero rect (see CustomCursor); skip
+        // rather than scroll to a bogus position.
+        if (rect.width === 0 && rect.height === 0) return;
+        const box = container.getBoundingClientRect();
+        if (rect.bottom > box.bottom - 8) {
+            container.scrollBy({ top: rect.bottom - (box.bottom - 8) + 24 });
+        } else if (rect.top < box.top + 8) {
+            container.scrollBy({ top: rect.top - (box.top + 8) - 24 });
+        }
+    }, [keyboardPin]);
 
     // Auto-focus once when the editor instance materializes. @do-md hands the
     // editor back via a deferred setTimeout in its provider, so the first
@@ -338,39 +369,66 @@ export function Editor({
     const showSaveBar = meta.kind === "web";
 
     return (
-        <div className="fixed inset-0 flex flex-col bg-base-100 overflow-hidden">
-            {showSaveBar ? (
-                <div className="shrink-0 h-9 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
-                    <span className="truncate flex-1">{meta.name}</span>
-                    <button
-                        onClick={onRequestOpenUrl}
-                        className="btn btn-xs btn-ghost"
-                    >
-                        {t("editor.openUrl")}
-                    </button>
-                    <button
-                        onClick={() => doSave(renderData)}
-                        disabled={saving}
-                        className="btn btn-xs btn-neutral"
-                    >
-                        {saving ? t("editor.saving") : saved ? t("editor.saved") : t("editor.save")}
-                    </button>
-                </div>
-            ) : null}
-
+        // Two layers (see plugins/shared/use-visual-viewport-pin.ts): the
+        // outer one stays fullscreen and opaque (iOS can pan the layout
+        // viewport while the keyboard is up — whatever peeks through must be
+        // ourselves); the inner one pins to the visual viewport so the
+        // quick-input bar rides the keyboard's top edge. --kb-safe-bottom
+        // zeroes the safe-area padding while the keyboard covers the home
+        // indicator.
+        <div className="fixed inset-0 bg-base-100 overflow-hidden">
             <div
-                className="flex-1 overflow-y-auto"
-                onClick={(e) => {
-                    if (domdRef.current?.contains(e.target as Node)) return;
-                    editor?.focus();
-                }}
+                className="absolute inset-x-0 flex flex-col"
+                style={
+                    keyboardPin
+                        ? ({
+                              top: keyboardPin.top,
+                              height: keyboardPin.height,
+                              "--kb-safe-bottom": "0px",
+                          } as React.CSSProperties)
+                        : { top: 0, height: "100%" }
+                }
             >
-                <div className="max-w-3xl mx-auto px-6 py-8">
-                    <div ref={domdRef}>
-                        <DOMD />
-                        {isEditable &&  <CustomCursor />}
+                {showSaveBar ? (
+                    <div className="shrink-0 h-9 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
+                        <span className="truncate flex-1">{meta.name}</span>
+                        <button
+                            onClick={onRequestOpenUrl}
+                            className="btn btn-xs btn-ghost"
+                        >
+                            {t("editor.openUrl")}
+                        </button>
+                        <button
+                            onClick={() => doSave(renderData)}
+                            disabled={saving}
+                            className="btn btn-xs btn-neutral"
+                        >
+                            {saving
+                                ? t("editor.saving")
+                                : saved
+                                  ? t("editor.saved")
+                                  : t("editor.save")}
+                        </button>
+                    </div>
+                ) : null}
+
+                <div
+                    ref={scrollAreaRef}
+                    className="flex-1 min-h-0 overflow-y-auto"
+                    onClick={(e) => {
+                        if (domdRef.current?.contains(e.target as Node)) return;
+                        editor?.focus();
+                    }}
+                >
+                    <div className="max-w-3xl mx-auto px-6 py-8">
+                        <div ref={domdRef}>
+                            <DOMD />
+                            {isEditable && <CustomCursor />}
+                        </div>
                     </div>
                 </div>
+
+                <QuickInputBar pin={keyboardPin} />
             </div>
         </div>
     );
