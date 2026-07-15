@@ -13,7 +13,7 @@
         "lint": "eslint"
     },
     "dependencies": {
-        "@do-md/core-react": "^0.2.12",
+        "@do-md/core-react": "^0.2.13",
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/plugin-deep-link": "^2.4.8",
         "@tauri-apps/plugin-dialog": "^2.7.0",
@@ -24,6 +24,7 @@
         "dexie": "^4.0.11",
         "i18next": "^25.10.10",
         "immer": "^11.1.4",
+        "js-beautify": "^2.0.3",
         "nanoid": "^5.1.7",
         "next": "16.2.3",
         "prismjs": "^1.30.0",
@@ -34,6 +35,7 @@
     "devDependencies": {
         "@tailwindcss/postcss": "^4",
         "@tauri-apps/cli": "^2.10.1",
+        "@types/js-beautify": "^1.14.3",
         "@types/node": "^20",
         "@types/prismjs": "^1.26.6",
         "@types/react": "^19",

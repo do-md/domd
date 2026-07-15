@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DOMD, DOMDProvider, useEditor, useEditorStoreApi } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
+import { beautify } from "@/common/lib/beautify";
 import { SAMPLE_DOCS, resolveDocContent } from "../lib/sample-docs";
 import {
     CHUNK_BOUND_DEFAULT,
@@ -304,6 +305,7 @@ export function PlaygroundApp() {
                                 initMd=""
                                 placeholder={t("playground.placeholder")}
                                 codeTokenizer={tokenize}
+                                codeBeautify={beautify}
                             >
                                 <EditorInit skipSeed={runId > 0} />
                                 <DOMD />

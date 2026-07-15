@@ -1,6 +1,14 @@
-import Prism, { type Token } from "prismjs";
+import Prism from "prismjs";
+import type { ComponentProps } from "react";
+import type { DOMDProvider } from "@do-md/core-react";
 
-export type CodeToken = string | Token;
+// Token shape @do-md/core-react expects from the codeTokenizer prop. Prism's
+// own Token type is structurally looser (nested `content` may be a single
+// Token instead of an array), but core walks Prism token streams fine at
+// runtime, so tokenize() casts across that gap in one place here.
+export type CodeToken = ReturnType<
+    NonNullable<ComponentProps<typeof DOMDProvider>["codeTokenizer"]>
+>[number];
 
 // DOMD calls `tokenize` manually per code block. Disable Prism's
 // DOMContentLoaded auto-highlight so it doesn't walk SSR'd markup and trip
@@ -116,7 +124,7 @@ export function tokenize(code: string, lang?: string): CodeToken[] {
     if (!lang) return [];
     const norm = normalize(lang);
     const grammar = Prism.languages[norm];
-    if (grammar) return Prism.tokenize(code, grammar);
+    if (grammar) return Prism.tokenize(code, grammar) as CodeToken[];
     void ensureGrammar(norm);
     return [];
 }

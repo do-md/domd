@@ -18,6 +18,7 @@ import {
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
+import { beautify } from "@/common/lib/beautify";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 
 type EditorStore = NonNullable<ReturnType<typeof useEditorStoreApi>>;
@@ -278,6 +279,7 @@ export const DomdChatInput = forwardRef<DomdChatInputHandle, Props>(
                 initMd={initialMd}
                 placeholder={t("chat.input.placeholder")}
                 codeTokenizer={tokenize}
+                codeBeautify={beautify}
                 newlineKey={expanded ? undefined : "Shift+Enter"}
                 onEnter={expanded ? undefined : submitFromStore}
             >

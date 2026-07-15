@@ -5,6 +5,7 @@ import { DOMDProvider } from "@do-md/core-react";
 import { useTranslation } from "react-i18next";
 import { track } from "@vercel/analytics";
 import { tokenize } from "@/common/lib/prism";
+import { beautify } from "@/common/lib/beautify";
 import { loadImage } from "@/common/lib/image-storage";
 import { isTauri } from "@/common/lib/platform";
 import { tauriApp, tauriCore } from "@/common/lib/tauri";
@@ -139,6 +140,7 @@ export function EditorApp() {
                 initMd={content}
                 imageLoader={loadImage}
                 codeTokenizer={tokenize}
+                codeBeautify={beautify}
             >
                 <ImageDropHandler />
                 <Editor

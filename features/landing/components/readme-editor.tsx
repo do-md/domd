@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { DOMD, DOMDProvider } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
+import { beautify } from "@/common/lib/beautify";
 import { pickByLocale } from "@/common/lib/locale";
 import {
     useEditorStoreApi,
@@ -327,6 +328,7 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
                         editable={false}
                         initMd=""
                         codeTokenizer={tokenize}
+                        codeBeautify={beautify}
                     >
                         <DOMD />
                         <StoreBridge apiRef={storeRef} />

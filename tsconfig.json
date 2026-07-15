@@ -34,6 +34,9 @@
             ],
             "@do-md/zenith/middleware": [
                 "./.packages/@do-md/zenith/middleware"
+            ],
+            "@do-md/core-react": [
+                "./.packages/@do-md/core-react"
             ]
         }
     },
