@@ -40,19 +40,62 @@ function measureCharLeft(node: Node, index: number): DOMRect | null {
 }
 
 /**
+ * Caret-style rect (zero width) derived from a leaf element's own box —
+ * the <br> of an empty paragraph, embeds, etc.
+ */
+function measureLeafElementRect(el: HTMLElement): DOMRect | null {
+    const rect = el.getBoundingClientRect();
+    if (rect.height > 0) {
+        return new DOMRect(rect.left, rect.top, 0, rect.height);
+    }
+    // Some engines report a zero-height box for a bare <br>; selecting the
+    // node with a Range still yields the line box it creates.
+    const r = document.createRange();
+    r.selectNode(el);
+    const rects = r.getClientRects();
+    if (rects.length) {
+        const last = rects[rects.length - 1];
+        if (last.height > 0) {
+            return new DOMRect(last.left, last.top, 0, last.height);
+        }
+    }
+    return null;
+}
+
+/**
  * The rect of the content just *after* a collapsed cursor — its downstream
- * position. Used to place the cursor at a line-start (right after a hard \n),
- * where getBoundingClientRect is unreliable across engines.
- * Returns null when there is no measurable downstream content.
+ * position. Used to place the cursor at a line-start (right after a hard \n)
+ * or in an empty paragraph, where getBoundingClientRect is unreliable across
+ * engines. Returns null when there is no measurable downstream content.
  */
 function getDownstreamRect(range: Range, container: HTMLElement): DOMRect | null {
-    const node = range.startContainer;
-    const offset = range.startOffset;
+    let node: Node = range.startContainer;
+    let offset = range.startOffset;
 
-    // Empty paragraph: startContainer is the <br> itself.
-    if (node instanceof HTMLElement && node.tagName === "BR") {
-        const br = node.getBoundingClientRect();
-        return br.height > 0 ? new DOMRect(br.left, br.top, 0, br.height) : null;
+    // Element-container boundary. Engines report the caret in an empty
+    // paragraph (<p><br></p>) as (p, 0) — the <br> is a CHILD of the boundary
+    // node, so a BR-startContainer check alone never fires there and the
+    // cursor was never drawn. Resolve the boundary down to the concrete leaf
+    // it points at before measuring.
+    if (node.nodeType === Node.ELEMENT_NODE && node.nodeName !== "BR") {
+        let leaf: Node | null =
+            node.childNodes[offset] ?? node.lastChild;
+        while (leaf && leaf.firstChild) leaf = leaf.firstChild;
+        if (!leaf) return null;
+        // Adopting lastChild (offset past the end) is only safe for a <br>:
+        // the caret then sits on the line the <br> itself creates. Any other
+        // leaf there is upstream content, not downstream.
+        if (offset >= node.childNodes.length && leaf.nodeName !== "BR") {
+            return null;
+        }
+        node = leaf;
+        offset = 0;
+    }
+
+    // The caret's reference leaf is an element (empty paragraph's <br>,
+    // embeds): use its own box.
+    if (node instanceof HTMLElement) {
+        return measureLeafElementRect(node);
     }
 
     if (node.nodeType !== Node.TEXT_NODE) return null;
@@ -73,10 +116,7 @@ function getDownstreamRect(range: Range, container: HTMLElement): DOMRect | null
             : null;
     }
     if (leaf instanceof HTMLElement) {
-        const leafRect = leaf.getBoundingClientRect();
-        return leafRect.height > 0
-            ? new DOMRect(leafRect.left, leafRect.top, 0, leafRect.height)
-            : null;
+        return measureLeafElementRect(leaf);
     }
     return null;
 }
@@ -166,6 +206,14 @@ export function CustomCursor() {
     // so unmounting restores exactly what was there (revealing the native caret).
     const originalCaretColorRef = useRef<string | null>(null);
     const [mounted, setMounted] = useState(false);
+    // True while a non-collapsed (range) selection lives inside this editor.
+    // Updated from the selectionchange-driven updatePosition; React bails out
+    // of no-op setStates, so drag-selecting doesn't re-render per frame.
+    const [hasRangeSelection, setHasRangeSelection] = useState(false);
+    // Ref mirror so the synchronous selectionchange fast path reads the
+    // latest composition state without re-binding the listener.
+    const duringCompositionRef = useRef(duringComposition);
+    duringCompositionRef.current = duringComposition;
 
     useEffect(() => {
         injectBlinkStyle();
@@ -183,6 +231,15 @@ export function CustomCursor() {
     // During IME composition we temporarily restore the native caret so the
     // candidate window anchors to the real insertion point, and on unmount we
     // restore the original value so the native caret comes back for this editor.
+    //
+    // Range selections ALSO restore the native caret-color: iOS WebKit derives
+    // the whole selection UI — the highlight tint AND the grab handles — from
+    // the editable element's caret-color. Keeping it transparent while a range
+    // exists paints the handles invisible and degrades the highlight to an
+    // opaque grey block (the long-standing "black selection" bug on iOS,
+    // diagnosed 2026-07-22). The custom cursor never draws for ranges anyway
+    // (updatePosition hides it when !isCollapsed), so handing the selection UI
+    // back to the system costs nothing on any platform.
     useEffect(() => {
         const container = textAreaDomRef.current;
         if (!container) return;
@@ -192,14 +249,15 @@ export function CustomCursor() {
             originalCaretColorRef.current = container.style.caretColor;
         }
 
-        container.style.caretColor = duringComposition
-            ? originalCaretColorRef.current
-            : "transparent";
+        container.style.caretColor =
+            duringComposition || hasRangeSelection
+                ? originalCaretColorRef.current
+                : "transparent";
 
         return () => {
             container.style.caretColor = originalCaretColorRef.current ?? "";
         };
-    }, [duringComposition, textAreaDomRef, mounted]);
+    }, [duringComposition, hasRangeSelection, textAreaDomRef, mounted]);
 
     useEffect(() => {
         if (textAreaDomRef.current) {
@@ -235,6 +293,17 @@ export function CustomCursor() {
         if (!container || !cursor) return;
 
         const sel = document.getSelection();
+
+        // Feed the caret-suppression effect: a live range inside this editor
+        // must hand caret-color (and with it, iOS's selection UI) back to the
+        // system. Collapsed / outside / empty selections re-suppress it.
+        setHasRangeSelection(
+            !!sel &&
+                sel.rangeCount > 0 &&
+                !sel.isCollapsed &&
+                container.contains(sel.anchorNode),
+        );
+
         if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) {
             hide();
             return;
@@ -282,11 +351,39 @@ export function CustomCursor() {
     }, [startCursorInfo, updatePosition, hide]);
 
     // selectionchange
+    //
+    // The caret-color hand-back must ALSO happen synchronously here, not only
+    // via setHasRangeSelection → effect: iOS paints the selection UI (tint +
+    // handles) with whatever caret-color it sees at first paint. The React
+    // round-trip (rAF → setState → effect) lands a couple of frames later —
+    // a double-tap word selection would stay grey until the user taps it
+    // again and forces a repaint. Writing the inline style directly in the
+    // event task beats that first paint; the effect then converges to the
+    // same value (idempotent).
     useEffect(() => {
-        const handler = () => scheduleUpdate();
+        const handler = () => {
+            const container = textAreaDomRef.current;
+            // During IME composition the suppression effect owns caret-color
+            // (it must stay restored for the candidate window) — skip.
+            if (container && !duringCompositionRef.current) {
+                if (originalCaretColorRef.current === null) {
+                    originalCaretColorRef.current = container.style.caretColor;
+                }
+                const sel = document.getSelection();
+                const hasRange =
+                    !!sel &&
+                    sel.rangeCount > 0 &&
+                    !sel.isCollapsed &&
+                    container.contains(sel.anchorNode);
+                container.style.caretColor = hasRange
+                    ? originalCaretColorRef.current
+                    : "transparent";
+            }
+            scheduleUpdate();
+        };
         document.addEventListener("selectionchange", handler);
         return () => document.removeEventListener("selectionchange", handler);
-    }, [scheduleUpdate]);
+    }, [scheduleUpdate, textAreaDomRef]);
 
     // IME: only manage the custom (fake) cursor here. During composition we hide
     // it and let the native caret show (the caret-suppression effect above handles
