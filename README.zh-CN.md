@@ -7,9 +7,10 @@
 * 20 KB Brotli 压缩内核，运行时只依赖 React 和 Immer
 * 20,000 行 Markdown 文档也能顺滑编辑、流式写入
 * 输入和渲染同步完成：光标稳定，无明显延迟、无闪烁
+* 支持段落内细粒度的离线、多端无冲突合并，不是段落级 LWW
 * 提供原生 macOS 应用、Quick Look 预览、本地优先 Web 编辑器，以及面向 agent 的 CLI
 
-[**在线试用**](https://www.domd.app/editor) · [**流式写入 Playground**](https://www.domd.app/playground) · [**输入框 Playground**](https://www.domd.app/chat)
+[**在线试用**](https://www.domd.app/editor) · [**流式写入 Playground**](https://www.domd.app/playground) · [**CRDT 合并 Playground**](https://www.domd.app/playground/crdt) · [**输入框 Playground**](https://www.domd.app/chat)
 
 下载 macOS 版本：[Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
@@ -26,6 +27,16 @@ Markdown 文档本身就是编辑状态的唯一来源。
 DOMD 没有基于 ProseMirror、Slate、Lexical 这类通用富文本框架构建。解析、渲染、编辑、撤销/重做、AI 流式写入、分块文件加载，都会在内核中被建模为确定性的状态变化。
 
 内容变化时，DOMD 只渲染真正发生变化的部分。整套编辑栈经过 Brotli 压缩后只有 20 KB。
+
+---
+
+## 离线无冲突合并
+
+DOMD 支持段落内的细粒度无冲突合并，而不是把整段内容作为一个 LWW 值。两台设备可以离线修改同一段落中的不同位置，之后交换已保存的状态，双方修改都能保留下来。本次升级聚焦个人用户的离线合并，不包含实时多人在线状态和光标协作。
+
+编辑器内核本身无需感知 CRDT。内核只输出常规编辑产生的结构化操作流；可选的 CRDT 插件监听这条操作流，把每次变化转换为嵌套 Yjs shared types 上的 transaction，并维护一个可合并的 `Y.Doc` 副本。Yjs 再把副本编码成可持久化、可传输、可按任意顺序应用的 document updates。由于 CRDT 边界只是操作流外的一层 adapter，业务层和交互层无需围绕 Yjs 重写：功能开发完成后，接入这个轻量插件即可获得段落内细粒度的 CRDT 合并能力。
+
+[**试试双编辑器 CRDT 合并 Playground**](https://www.domd.app/playground/crdt)
 
 ---
 
@@ -73,7 +84,7 @@ DOMD 的 macOS 应用追求轻量、直接、接近系统原生体验。
 
 打开一个渲染后的 `.md` 文件，感觉应该接近系统打开 `.txt` 文件：快、轻、没有额外负担。
 
-DOMD 使用普通 Markdown 文件工作流：没有项目树，没有侧边栏，没有标签页，没有同步服务，也不需要账号。文件始终留在你的设备上。
+DOMD 使用普通 Markdown 文件工作流：没有项目树，没有侧边栏，没有标签页，没有内置云同步服务，也不需要账号。文件始终留在你的设备上。
 
 下载 macOS 版本：[**Apple Silicon**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Intel**](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 

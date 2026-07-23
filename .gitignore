@@ -37,6 +37,7 @@ yarn-error.log*
 AGENTS.md
 CLAUDE.md
 .claude/
+.codex/
 
 # vercel
 .vercel
@@ -44,3 +45,6 @@ CLAUDE.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# offline verify bundles
+plugins/**/verify/out.mjs

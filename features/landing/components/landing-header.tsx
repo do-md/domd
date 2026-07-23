@@ -47,6 +47,13 @@ export function LandingHeader() {
                         {t("nav.stream")}
                     </Link>
                     <Link
+                        href="/playground/crdt"
+                        className="btn btn-link no-underline hover:underline px-2"
+                        style={{ color: "rgb(60, 124, 171)" }}
+                    >
+                        {t("nav.crdt")}
+                    </Link>
+                    <Link
                         href="/chat"
                         className="btn btn-link no-underline hover:underline px-2"
                         style={{ color: "rgb(60, 124, 171)" }}

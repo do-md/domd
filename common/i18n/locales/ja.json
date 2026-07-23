@@ -20,6 +20,7 @@
     "nav": {
         "editor": "エディタ",
         "stream": "ストリーム",
+        "crdt": "CRDT",
         "input": "入力"
     },
     "landing": {
@@ -166,5 +167,27 @@
         "restartStreaming": "ストリーミングを再開",
         "stopStreaming": "ストリーミングを停止",
         "clearEditor": "エディタをクリア"
+    },
+    "crdt": {
+        "headerTitle": "CRDT マージプレイグラウンド",
+        "headerSubtitle": "2 クライアント · 競合なしマージ · ローカル保存",
+        "back": "プレイグラウンドに戻る",
+        "forceSync": "強制同期",
+        "forceSyncTitle": "両方向にマージ —— 両クライアントが収束します",
+        "reset": "リセット",
+        "resetTitle": "ストレージを消去して新しい共有ドキュメントを作成",
+        "client": "クライアント {{id}}",
+        "notSaved": "未保存",
+        "saved": "保存済み {{time}} · {{size}} KB",
+        "merge": "{{id}} からマージ",
+        "mergeTitle": "{{other}} が公開した状態を {{self}} にマージ",
+        "placeholder": "ここに入力…",
+        "toastMerged": "クライアント {{id}} が {{other}} の変更をマージしました",
+        "toastNothing": "マージする内容がまだありません",
+        "toastForced": "強制同期しました —— 両クライアントが収束しました",
+        "toastReset": "ストレージを消去しました —— 新しいドキュメントを作成しました",
+        "seedHeading": "CRDT マージプレイグラウンド",
+        "seedIntro": "両側で編集して、どちらの方向にもマージできます。",
+        "seedTry": "試してみて：両方のクライアントで**同じ**段落に入力してからマージ —— 両側のスパンが文字を失わずに交互に統合されます。"
     }
 }

@@ -20,6 +20,7 @@
     "nav": {
         "editor": "编辑器",
         "stream": "流式",
+        "crdt": "CRDT",
         "input": "输入"
     },
     "landing": {
@@ -166,5 +167,27 @@
         "restartStreaming": "重新开始流式渲染",
         "stopStreaming": "停止流式渲染",
         "clearEditor": "清空编辑器"
+    },
+    "crdt": {
+        "headerTitle": "CRDT 合并演练场",
+        "headerSubtitle": "两个客户端 · 无冲突合并 · 本地保存",
+        "back": "返回演练场",
+        "forceSync": "强制同步",
+        "forceSyncTitle": "双向合并 —— 两个客户端收敛一致",
+        "reset": "重置",
+        "resetTitle": "清空存储并新建一份共享文档",
+        "client": "客户端 {{id}}",
+        "notSaved": "尚未保存",
+        "saved": "已保存 {{time}} · {{size}} KB",
+        "merge": "合并 {{id}}",
+        "mergeTitle": "把 {{other}} 已发布的状态合并进 {{self}}",
+        "placeholder": "在此输入…",
+        "toastMerged": "客户端 {{id}} 已合并 {{other}} 的改动",
+        "toastNothing": "暂无可合并的内容",
+        "toastForced": "已强制同步 —— 两个客户端已收敛",
+        "toastReset": "已清空存储 —— 已新建文档",
+        "seedHeading": "CRDT 合并演练场",
+        "seedIntro": "在两侧分别编辑，然后向任意方向合并。",
+        "seedTry": "试试：在两个客户端的**同一段落**输入，然后合并 —— 两侧的片段会交错融合且不丢字。"
     }
 }

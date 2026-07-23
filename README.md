@@ -9,9 +9,10 @@ Built for fast human editing, huge Markdown files, and real-time AI streaming.
 * 20 KB Brotli-compressed kernel, with only React and Immer as runtime dependencies
 * Smooth editing and streaming through 20,000-line Markdown documents
 * Lockstep input and rendering: stable cursor, no lag, no flicker
+* Conflict-free offline and multi-device merging within a paragraph — not paragraph-level LWW
 * Native macOS app, Quick Look preview, local-first web editor, and agent-friendly CLI
 
-[**Try on Web**](https://www.domd.app/editor) · [**Streaming Playground**](https://www.domd.app/playground) · [**Input Playground**](https://www.domd.app/chat)
+[**Try on Web**](https://www.domd.app/editor) · [**Streaming Playground**](https://www.domd.app/playground) · [**CRDT Merge Playground**](https://www.domd.app/playground/crdt) · [**Input Playground**](https://www.domd.app/chat)
 
 Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
@@ -28,6 +29,16 @@ The Markdown document itself is the editing source of truth.
 It is not built on top of ProseMirror, Slate, Lexical, or any general-purpose rich-text framework. Parsing, rendering, editing, undo/redo, streaming AI injection, and chunked file loading are all modeled as deterministic state changes inside the kernel.
 
 Rendering happens only where changes occur, and the entire editing stack fits in 20 KB Brotli-compressed.
+
+---
+
+## Conflict-free offline merge
+
+DOMD supports conflict-free merging within a paragraph instead of treating each paragraph as a single last-write-wins value. Two devices can edit different parts of the same paragraph offline, exchange their saved states later, and preserve both changes. This release focuses on personal editing and offline merge, not real-time multi-user presence.
+
+The editor kernel itself is CRDT-agnostic. It emits a structured operation stream for ordinary edits; an optional CRDT plugin observes that stream, translates each change into transactions on nested Yjs shared types, and maintains a mergeable `Y.Doc` replica. Yjs encodes that replica as document updates that can be persisted, transferred, and applied in any order. Because the CRDT boundary is an adapter around the operation stream, product and interaction code does not need to be rebuilt around Yjs: a completed editor feature can opt in by attaching the plugin.
+
+[**Try the split-screen CRDT merge playground**](https://www.domd.app/playground/crdt)
 
 ---
 
@@ -67,7 +78,7 @@ In Finder, press space — DOMD's own Quick Look extension takes over rendering.
 
 The Mac app is designed to feel lightweight and native. Loading a rendered `.md` feels close to the system opening a `.txt`.
 
-A plain Markdown file workflow — no project tree, no sidebar, no tabs, no sync, no account. Files stay on your device.
+A plain Markdown file workflow — no project tree, no sidebar, no tabs, no bundled sync service, no account. Files stay on your device.
 
 Download for macOS: [**Apple Silicon**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Intel**](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 

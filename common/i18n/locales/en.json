@@ -20,6 +20,7 @@
     "nav": {
         "editor": "Editor",
         "stream": "Stream",
+        "crdt": "CRDT",
         "input": "Input"
     },
     "landing": {
@@ -166,5 +167,27 @@
         "restartStreaming": "Restart streaming",
         "stopStreaming": "Stop streaming",
         "clearEditor": "Clear editor"
+    },
+    "crdt": {
+        "headerTitle": "CRDT Merge Playground",
+        "headerSubtitle": "Two clients · conflict-free merge · saved locally",
+        "back": "Back to playground",
+        "forceSync": "Force sync",
+        "forceSyncTitle": "Merge both directions — both clients converge",
+        "reset": "Reset",
+        "resetTitle": "Clear storage and start a fresh shared document",
+        "client": "Client {{id}}",
+        "notSaved": "Not saved yet",
+        "saved": "Saved {{time}} · {{size}} KB",
+        "merge": "Merge from {{id}}",
+        "mergeTitle": "Merge {{other}}'s published state into {{self}}",
+        "placeholder": "Type here…",
+        "toastMerged": "Client {{id}} merged {{other}}'s changes",
+        "toastNothing": "Nothing to merge yet",
+        "toastForced": "Force-synced — both clients converged",
+        "toastReset": "Storage cleared — fresh document created",
+        "seedHeading": "CRDT Merge Playground",
+        "seedIntro": "Edit on both sides, then merge in either direction.",
+        "seedTry": "Try: type in the **same** paragraph on both clients, then merge — spans from both sides interleave without losing text."
     }
 }
