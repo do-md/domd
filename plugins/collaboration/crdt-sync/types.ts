@@ -48,6 +48,24 @@ export type RenderDataOp =
       }
     | { op: "replaceRoot"; node: SerializedRenderData };
 
+/** One cursor endpoint: block uuid + in-block offset, plus an optional
+ *  span-level anchor (smallest text leaf). Anchored cursors survive remote
+ *  edits elsewhere in the same block — resolve them through
+ *  `resolveCursorPosition` before DOM positioning. Cores that predate span
+ *  anchoring simply omit the span fields. */
+export interface CursorPosition {
+    uuid: string;
+    offset: number;
+    spanUuid?: string;
+    spanOffset?: number;
+}
+
+/** Local-cursor snapshot (aligned with core's public CursorSnapshot shape). */
+export interface CursorSnapshot {
+    start: CursorPosition | null;
+    end: CursorPosition | null;
+}
+
 /**
  * The minimal store surface the plugin needs (EditorStoreApi is a superset of
  * this interface). Structurally matched — it does not require the nominal
@@ -65,4 +83,22 @@ export interface CrdtCapableStore {
      * cores without this method.
      */
     flushPendingInput?(): void;
+    /**
+     * Realtime hot path: surgically apply a remote op batch (O(change)
+     * rendering). Provided by core >=0.4.0; realtime-sync requires it.
+     */
+    applyExternalRenderDataOps?(ops: RenderDataOp[]): void;
+    /** Local cursor snapshot (awareness OUT direction). core >=0.4.0. */
+    getCursorSnapshot?(): CursorSnapshot;
+    /** Subscribe to local cursor changes. core >=0.4.0. */
+    subscribeCursorChange?(
+        listener: (cursor: CursorSnapshot) => void,
+    ): () => void;
+    /** Resolve a (possibly span-anchored) peer cursor against the CURRENT
+     *  local tree into block-level coordinates for DOM positioning. Null =
+     *  the block is gone, don't draw. Optional — on older cores callers fall
+     *  back to the raw uuid+offset. core >=0.4.2. */
+    resolveCursorPosition?(
+        cursor: CursorPosition,
+    ): { uuid: string; offset: number } | null;
 }

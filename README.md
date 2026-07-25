@@ -1,18 +1,20 @@
-<img width="928" height="720" alt="cf0de0fa6d1db4ab27f3f992bf8c81bb_WC-EditVideo_1_30fps" src="https://github.com/user-attachments/assets/ede74d56-f5a8-4e3a-9b6b-6c71bc4cdd22" />
-
 # DOMD
 
-**A WYSIWYG Markdown editor powered by a 20 KB, from-scratch, Markdown-native engine.**
+[![npm version](https://img.shields.io/npm/v/@do-md/core-react.svg?style=flat-square&labelColor=2f2f2f&color=4493f8)](https://www.npmjs.com/package/@do-md/core-react)
+[![Core size](https://img.shields.io/badge/core%20Brotli-%E2%89%8820%20KB-5E81AC?style=flat-square&labelColor=2f2f2f)](https://www.npmjs.com/package/@do-md/core-react)
 
-Built for fast human editing, huge Markdown files, and real-time AI streaming.
+**A WYSIWYG Markdown editor powered by a from-scratch, Markdown-native engine of about 20 KB.**
 
-* 20 KB Brotli-compressed kernel, with only React and Immer as runtime dependencies
+Built for fast human editing, huge Markdown files, live synchronization, and streaming AI output.
+
+* Roughly 20 KB after Brotli compression, with only React and Immer as runtime dependencies
 * Smooth editing and streaming through 20,000-line Markdown documents
 * Lockstep input and rendering: stable cursor, no lag, no flicker
 * Conflict-free offline and multi-device merging within a paragraph — not paragraph-level LWW
+* Real-time multi-editor synchronization with fine-grained merging and remote cursor presence
 * Native macOS app, Quick Look preview, local-first web editor, and agent-friendly CLI
 
-[**Try on Web**](https://www.domd.app/editor) · [**Streaming Playground**](https://www.domd.app/playground) · [**CRDT Merge Playground**](https://www.domd.app/playground/crdt) · [**Input Playground**](https://www.domd.app/chat)
+[**Try on Web**](https://www.domd.app/editor)
 
 Download for Mac: [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
@@ -28,17 +30,27 @@ The Markdown document itself is the editing source of truth.
 
 It is not built on top of ProseMirror, Slate, Lexical, or any general-purpose rich-text framework. Parsing, rendering, editing, undo/redo, streaming AI injection, and chunked file loading are all modeled as deterministic state changes inside the kernel.
 
-Rendering happens only where changes occur, and the entire editing stack fits in 20 KB Brotli-compressed.
+Rendering happens only where changes occur, and the entire editing stack fits in about 20 KB after Brotli compression.
 
 ---
 
 ## Conflict-free offline merge
 
-DOMD supports conflict-free merging within a paragraph instead of treating each paragraph as a single last-write-wins value. Two devices can edit different parts of the same paragraph offline, exchange their saved states later, and preserve both changes. This release focuses on personal editing and offline merge, not real-time multi-user presence.
+DOMD supports conflict-free merging within a paragraph instead of treating each paragraph as a single last-write-wins value. Two devices can edit different parts of the same paragraph offline, exchange their saved states later, and preserve both changes. Offline state exchange and real-time synchronization share the same CRDT foundation, but can be adopted independently.
 
 The editor kernel itself is CRDT-agnostic. It emits a structured operation stream for ordinary edits; an optional CRDT plugin observes that stream, translates each change into transactions on nested Yjs shared types, and maintains a mergeable `Y.Doc` replica. Yjs encodes that replica as document updates that can be persisted, transferred, and applied in any order. Because the CRDT boundary is an adapter around the operation stream, product and interaction code does not need to be rebuilt around Yjs: a completed editor feature can opt in by attaching the plugin.
 
 [**Try the split-screen CRDT merge playground**](https://www.domd.app/playground/crdt)
+
+---
+
+## Real-time synchronization
+
+DOMD can keep multiple editors on the same Markdown document synchronized as they type. Fine-grained edits flow to other replicas, concurrent changes converge through Yjs, and remote cursor presence can travel alongside the content. Incoming changes are replayed only onto the affected nodes instead of replacing the document, preserving DOMD's localized rendering behavior during live editing.
+
+The kernel exposes three integration points for this path: `subscribeRenderDataOps` emits local editing operations, `applyExternalRenderDataOps` incrementally applies remote operations, and cursor snapshots and subscriptions expose presence data. The optional `realtime-sync` adapter translates between these APIs and nested Yjs shared types, providing a reusable synchronization, convergence, and presence layer. It is independent of business workflows and product state, so different editing products can adopt it without rewriting DOMD's input, history, or rendering systems.
+
+[**Try the real-time sync playground**](https://www.domd.app/playground/live)
 
 ---
 

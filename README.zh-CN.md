@@ -1,16 +1,20 @@
 # DOMD
 
-**DOMD 是一款所见即所得 Markdown 编辑器，基于 20 KB 自研 Markdown 原生内核构建。**
+[![npm version](https://img.shields.io/npm/v/@do-md/core-react.svg?style=flat-square&labelColor=2f2f2f&color=4493f8)](https://www.npmjs.com/package/@do-md/core-react)
+[![Core size](https://img.shields.io/badge/core%20Brotli-%E2%89%8820%20KB-5E81AC?style=flat-square&labelColor=2f2f2f)](https://www.npmjs.com/package/@do-md/core-react)
 
-面向日常写作、大型 Markdown 文档，以及 AI 内容的实时流式写入。
+**DOMD 是一款所见即所得 Markdown 编辑器，基于约 20 KB 的自研 Markdown 原生内核构建。**
 
-* 20 KB Brotli 压缩内核，运行时只依赖 React 和 Immer
+面向日常写作、大型 Markdown 文档、多人实时同步，以及 AI 内容的流式写入。
+
+* Brotli 压缩后约 20 KB，运行时只依赖 React 和 Immer
 * 20,000 行 Markdown 文档也能顺滑编辑、流式写入
 * 输入和渲染同步完成：光标稳定，无明显延迟、无闪烁
 * 支持段落内细粒度的离线、多端无冲突合并，不是段落级 LWW
+* 支持多编辑器实时同步、细粒度无冲突合并和远端光标
 * 提供原生 macOS 应用、Quick Look 预览、本地优先 Web 编辑器，以及面向 agent 的 CLI
 
-[**在线试用**](https://www.domd.app/editor) · [**流式写入 Playground**](https://www.domd.app/playground) · [**CRDT 合并 Playground**](https://www.domd.app/playground/crdt) · [**输入框 Playground**](https://www.domd.app/chat)
+[**在线试用**](https://www.domd.app/editor)
 
 下载 macOS 版本：[Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
@@ -26,17 +30,27 @@ Markdown 文档本身就是编辑状态的唯一来源。
 
 DOMD 没有基于 ProseMirror、Slate、Lexical 这类通用富文本框架构建。解析、渲染、编辑、撤销/重做、AI 流式写入、分块文件加载，都会在内核中被建模为确定性的状态变化。
 
-内容变化时，DOMD 只渲染真正发生变化的部分。整套编辑栈经过 Brotli 压缩后只有 20 KB。
+内容变化时，DOMD 只渲染真正发生变化的部分。整套编辑栈经过 Brotli 压缩后约 20 KB。
 
 ---
 
 ## 离线无冲突合并
 
-DOMD 支持段落内的细粒度无冲突合并，而不是把整段内容作为一个 LWW 值。两台设备可以离线修改同一段落中的不同位置，之后交换已保存的状态，双方修改都能保留下来。本次升级聚焦个人用户的离线合并，不包含实时多人在线状态和光标协作。
+DOMD 支持段落内的细粒度无冲突合并，而不是把整段内容作为一个 LWW 值。两台设备可以离线修改同一段落中的不同位置，之后交换已保存的状态，双方修改都能保留下来。离线状态交换和实时同步共享同一套 CRDT 基础，也可以彼此独立地接入。
 
 编辑器内核本身无需感知 CRDT。内核只输出常规编辑产生的结构化操作流；可选的 CRDT 插件监听这条操作流，把每次变化转换为嵌套 Yjs shared types 上的 transaction，并维护一个可合并的 `Y.Doc` 副本。Yjs 再把副本编码成可持久化、可传输、可按任意顺序应用的 document updates。由于 CRDT 边界只是操作流外的一层 adapter，业务层和交互层无需围绕 Yjs 重写：功能开发完成后，接入这个轻量插件即可获得段落内细粒度的 CRDT 合并能力。
 
 [**试试双编辑器 CRDT 合并 Playground**](https://www.domd.app/playground/crdt)
+
+---
+
+## 实时同步
+
+DOMD 可以让多个编辑器实时同步同一份 Markdown。细粒度编辑会传播到其他副本，并发修改通过 Yjs 自动收敛，远端光标也可以随内容一起同步。收到变化时，DOMD 不会替换整篇文档，而是只在真正受影响的节点上回放操作，因此实时编辑仍然保持局部渲染的性能特征。
+
+内核为这条链路提供三个接入点：`subscribeRenderDataOps` 输出本地编辑操作，`applyExternalRenderDataOps` 增量应用远端操作，光标快照和订阅接口则提供 presence 数据。可选的 `realtime-sync` adapter 会在这些接口与嵌套的 Yjs shared types 之间双向翻译，形成可复用的同步、收敛和 presence 层。它独立于业务流程和产品状态，不同形态的编辑产品都可以接入，而无需重写 DOMD 的输入、历史记录或渲染系统。
+
+[**试试实时同步 Playground**](https://www.domd.app/playground/live)
 
 ---
 

@@ -189,5 +189,22 @@
         "seedHeading": "CRDT 合并演练场",
         "seedIntro": "在两侧分别编辑，然后向任意方向合并。",
         "seedTry": "试试：在两个客户端的**同一段落**输入，然后合并 —— 两侧的片段会交错融合且不丢字。"
+    },
+    "live": {
+        "headerTitle": "实时协同演练场",
+        "headerSubtitle": "op 级实时回放 · 远端光标 · 每开一个新标签页加入一位新协作者",
+        "back": "返回演练场",
+        "reset": "重置",
+        "resetTitle": "清空共享文档并重新开始",
+        "online": "在线：{{names}}",
+        "waiting": "等待其他客户端…",
+        "placeholder": "在此输入…",
+        "unavailable": "实时协同不可用：{{message}}",
+        "upgradeHint": "请升级 @do-md/core-react 并刷新页面。",
+        "seedHeading": "实时协同",
+        "seedIntro": "在任意一侧输入 —— 键入内容会逐片段实时出现在另一侧。",
+        "seedCarets": "留意彩色光标：那就是对方此刻正在输入的位置。",
+        "addPeer": "新增协作者",
+        "addPeerTitle": "新开一个标签页，以一位新协作者的身份加入房间"
     }
 }

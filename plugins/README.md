@@ -8,7 +8,7 @@ two extension pipelines plus shared code:
 | `rendering/`     | Enhanced render | Custom element rendering, decorations, node views — extend the view layer  | `Renderer`, `RenderData`, `useRenderData`                                    |
 | `parsing/`       | Enhanced parse  | Extend / override Markdown parsing, custom syntax token → RenderData       | `toMarkdown`, `MarkdownType`                                                 |
 | `toolbar/`       | Editor chrome   | Toolbars / input bars around the editor surface (e.g. mobile quick-input)  | `useEditorStoreApi`, `useEditorStore`                                        |
-| `collaboration/` | Data sync       | CRDT mirroring / mergeable persistence / multi-device sync (crdt-sync=Yjs) | `subscribeRenderDataOps`, `getRenderDataSnapshot`, `applyExternalRenderData` |
+| `collaboration/` | Data sync       | crdt-sync: offline merge + mergeable persistence; realtime-sync: live multi-user op replay + remote carets (both Yjs) | `subscribeRenderDataOps`, `applyExternalRenderData(Ops)`, `getCursorSnapshot`, `subscribeCursorChange` |
 | `shared/`        | Shared          | Types, registration logic, utilities shared across plugins                 | —                                                                            |
 
 ## Conventions

@@ -1,16 +1,20 @@
 # DOMD
 
-**DOMD は、20 KB の自前 Markdown ネイティブエンジンで動作する WYSIWYG Markdown エディタです。**
+[![npm version](https://img.shields.io/npm/v/@do-md/core-react.svg?style=flat-square&labelColor=2f2f2f&color=4493f8)](https://www.npmjs.com/package/@do-md/core-react)
+[![Core size](https://img.shields.io/badge/core%20Brotli-%E2%89%8820%20KB-5E81AC?style=flat-square&labelColor=2f2f2f)](https://www.npmjs.com/package/@do-md/core-react)
 
-日常的な編集、大きな Markdown ファイル、そして AI によるリアルタイムなストリーミング書き込みのために作られています。
+**DOMD は、約 20 KB の自前 Markdown ネイティブエンジンで動作する WYSIWYG Markdown エディタです。**
 
-* 20 KB Brotli 圧縮カーネル。ランタイム依存は React と Immer のみ
+日常的な編集、大きな Markdown ファイル、ライブ同期、そして AI によるストリーミング出力のために作られています。
+
+* Brotli 圧縮後で約 20 KB。ランタイム依存は React と Immer のみ
 * 20,000 行規模の Markdown 文書でも、編集とストリーミング書き込みをスムーズに処理
 * 入力とレンダリングが同期して動作：カーソルは安定し、遅延やちらつきを抑制
 * 段落単位の LWW ではなく、段落内の細粒度でオフライン・複数デバイス間の競合なしマージに対応
+* 細粒度の競合なしマージとリモートカーソルに対応した、複数エディタ間のリアルタイム同期
 * ネイティブ macOS アプリ、Quick Look プレビュー、ローカル優先の Web エディタ、agent 向け CLI を提供
 
-[**Web で試す**](https://www.domd.app/editor) · [**Streaming Playground**](https://www.domd.app/playground) · [**CRDT Merge Playground**](https://www.domd.app/playground/crdt) · [**Input Playground**](https://www.domd.app/chat)
+[**Web で試す**](https://www.domd.app/editor) 
 
 macOS 版をダウンロード：[Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
 
@@ -26,17 +30,27 @@ Markdown 文書自体が、編集状態の唯一の source of truth です。
 
 DOMD は ProseMirror、Slate、Lexical のような汎用リッチテキストフレームワークの上には構築されていません。パース、レンダリング、編集、undo / redo、AI ストリーミング挿入、チャンク単位のファイル読み込みは、すべてカーネル内の決定的な状態変化として扱われます。
 
-変更が発生したとき、DOMD は実際に変わった部分だけをレンダリングします。編集スタック全体は、Brotli 圧縮後で 20 KB に収まります。
+変更が発生したとき、DOMD は実際に変わった部分だけをレンダリングします。編集スタック全体は、Brotli 圧縮後で約 20 KB に収まります。
 
 ---
 
 ## オフラインで競合なくマージ
 
-DOMD は段落全体を単一の LWW 値として扱うのではなく、段落内の細粒度で競合なくマージできます。2 台のデバイスが同じ段落の異なる部分をオフラインで編集しても、後から保存済みの状態を交換すれば、両方の変更を保持できます。今回のアップグレードは個人ユーザー向けのオフラインマージに焦点を当てており、リアルタイムのプレゼンスや複数人のカーソル共有は対象外です。
+DOMD は段落全体を単一の LWW 値として扱うのではなく、段落内の細粒度で競合なくマージできます。2 台のデバイスが同じ段落の異なる部分をオフラインで編集しても、後から保存済みの状態を交換すれば、両方の変更を保持できます。オフラインの状態交換とリアルタイム同期は同じ CRDT 基盤を共有しながら、それぞれ独立して導入できます。
 
 エディタカーネル自体は CRDT を意識しません。カーネルは通常の編集から構造化された操作ストリームを出力し、オプションの CRDT プラグインがそれを監視します。プラグインは各変更をネストされた Yjs shared types 上の transaction に変換し、マージ可能な `Y.Doc` レプリカを維持します。Yjs はそのレプリカを、永続化・転送でき、任意の順序で適用可能な document updates としてエンコードします。CRDT の境界は操作ストリームを包む adapter に限定されるため、プロダクト層やインタラクション層を Yjs 前提で作り直す必要はありません。通常の機能を完成させた後、この軽量なプラグインを接続するだけで、段落内の細粒度 CRDT マージを追加できます。
 
 [**2 画面の CRDT Merge Playground を試す**](https://www.domd.app/playground/crdt)
+
+---
+
+## リアルタイム同期
+
+DOMD は、複数のエディタで同じ Markdown 文書をリアルタイムに同期できます。細粒度の編集はほかのレプリカへ伝播し、同時変更は Yjs によって収束し、リモートカーソルも内容とともに同期できます。受信した変更は文書全体を置き換えるのではなく、実際に影響を受けたノードだけでリプレイされるため、ライブ編集でも DOMD の局所レンダリング特性が保たれます。
+
+カーネルは、この同期経路のために 3 つの接続点を公開します。`subscribeRenderDataOps` はローカル編集操作を出力し、`applyExternalRenderDataOps` はリモート操作を増分適用し、カーソルのスナップショットと購読 API は presence データを提供します。オプションの `realtime-sync` adapter は、これらの API とネストした Yjs shared types の間を双方向に変換し、再利用可能な同期・収束・presence レイヤーを構成します。業務フローや製品状態から独立しているため、異なる形の編集製品でも DOMD の入力、履歴、レンダリングシステムを書き直すことなく導入できます。
+
+[**Real-time Sync Playground を試す**](https://www.domd.app/playground/live)
 
 ---
 
