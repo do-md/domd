@@ -54,7 +54,15 @@ const CURSOR_THROTTLE_MS = 80;
 
 export interface RealtimeTransport {
     post(message: unknown): void;
+    /** Optional targeted delivery for transports with per-peer links (e.g.
+     *  WebRTC data channels). Falls back to broadcast when absent. */
+    postTo?(peerId: string, message: unknown): void;
     onMessage(handler: (message: unknown) => void): () => void;
+    /** Optional peer-link lifecycle. `peerId` MUST equal the remote side's
+     *  realtime clientId (pass one shared id to both the transport and
+     *  attachRealtimeSync) so targeted replies reach the right link. */
+    onPeerConnect?(handler: (peerId: string) => void): () => void;
+    onPeerDisconnect?(handler: (peerId: string) => void): () => void;
     close(): void;
 }
 
@@ -88,7 +96,11 @@ type WireMessage =
           color: string;
           cursor: CursorSnapshot | null;
       }
-    | { t: "bye"; from: string };
+    | { t: "bye"; from: string }
+    // Room dissolution broadcast (host action). Receivers surface it via the
+    // onRoomClosed option; the plugin itself does not dispose — the caller
+    // decides (e.g. keep editing locally, drop persistence, show a notice).
+    | { t: "close"; from: string };
 
 export interface RealtimePeer {
     clientId: string;
@@ -107,6 +119,17 @@ export interface AttachRealtimeSyncOptions {
     doc?: Y.Doc;
     /** Transport injection (default: BroadcastChannel(room)). */
     transport?: RealtimeTransport;
+    /** Called when a peer broadcasts room dissolution (wire message "close"). */
+    onRoomClosed?: (from: string) => void;
+    /**
+     * Receive-only (viewer) mode. The session applies remote updates and
+     * tracks remote presence but never emits edits ("u") or presence
+     * ("cursor"/"bye") — viewers stay out of every peer list. It still
+     * answers "hello"/peer-connect with "state": serving the doc keeps the
+     * mesh bootstrappable (a stale editor reconnecting against only viewers
+     * must still converge) and state messages never create peer entries.
+     */
+    readonly?: boolean;
 }
 
 export interface RealtimeSyncHandle {
@@ -116,6 +139,9 @@ export interface RealtimeSyncHandle {
     getStateBase64(): string;
     getPeers(): RealtimePeer[];
     subscribePeers(listener: (peers: RealtimePeer[]) => void): () => void;
+    /** Broadcast room dissolution to every peer (host action). Does not
+     *  dispose — call dispose() afterwards. */
+    closeRoom(): void;
     dispose(): void;
 }
 
@@ -134,6 +160,7 @@ export const attachRealtimeSync = (
         );
     }
     const clientId = options.clientId ?? randomId();
+    const readonly = options.readonly === true;
     const name = options.name ?? `user-${clientId.slice(0, 4)}`;
     const color = options.color ?? "#8a7aa8";
     const doc = options.doc ?? new Y.Doc();
@@ -158,12 +185,14 @@ export const attachRealtimeSync = (
         store.applyExternalRenderData(yNodeToJSON(rootNode)); // one-off O(doc) bootstrap
     }
 
-    // ---- Outbound: local ops -> doc ----
-    const unsubscribeOps = store.subscribeRenderDataOps((ops) => {
-        doc.transact(() => {
-            for (const op of ops) applyOpToY(rootNode, op, registry);
-        }, LOCAL_ORIGIN);
-    });
+    // ---- Outbound: local ops -> doc (viewers never edit; skip entirely) ----
+    const unsubscribeOps = readonly
+        ? () => {}
+        : store.subscribeRenderDataOps((ops) => {
+              doc.transact(() => {
+                  for (const op of ops) applyOpToY(rootNode, op, registry);
+              }, LOCAL_ORIGIN);
+          });
 
     // ---- Inbound: remote transactions -> op-level replay (hot path) ----
     const onDeepEvents = (
@@ -184,6 +213,7 @@ export const attachRealtimeSync = (
     // ---- Transport: broadcast locally produced updates ----
     const onDocUpdate = (update: Uint8Array, origin: unknown) => {
         if (origin === REMOTE_ORIGIN) return; // do not echo remote updates back
+        if (readonly) return; // viewers never push edits
         transport.post({ t: "u", from: clientId, u: update } as WireMessage);
     };
     doc.on("update", onDocUpdate);
@@ -206,6 +236,7 @@ export const attachRealtimeSync = (
     let lastCursorPost = 0;
     let cursorTimer: ReturnType<typeof setTimeout> | undefined;
     const postCursor = () => {
+        if (readonly) return; // viewers have no presence
         transport.post({
             t: "cursor",
             from: clientId,
@@ -224,11 +255,12 @@ export const attachRealtimeSync = (
         clearTimeout(cursorTimer);
         cursorTimer = setTimeout(postCursor, wait);
     };
-    const unsubscribeCursor =
-        store.subscribeCursorChange?.((cursor) => {
-            lastCursor = cursor;
-            postCursorThrottled();
-        }) ?? (() => {});
+    const unsubscribeCursor = readonly
+        ? () => {}
+        : (store.subscribeCursorChange?.((cursor) => {
+              lastCursor = cursor;
+              postCursorThrottled();
+          }) ?? (() => {}));
 
     // Heartbeat (also evicts timed-out peers).
     const heartbeat = setInterval(() => {
@@ -279,10 +311,45 @@ export const attachRealtimeSync = (
             case "bye":
                 if (peers.delete(msg.from)) notifyPeers();
                 return;
+            case "close":
+                options.onRoomClosed?.(msg.from);
+                return;
             default:
                 return;
         }
     });
+
+    // ---- Peer-link lifecycle (transports with real per-peer connectivity,
+    // e.g. WebRTC data channels). When a link opens, hand the peer our full
+    // state — both sides do this symmetrically, which covers newcomers AND
+    // reconnects after offline editing in one mechanism (Y.applyUpdate merges
+    // are idempotent and commutative). Without these hooks (BroadcastChannel)
+    // the hello/state handshake below covers the same ground.
+    const postTargeted = (peerId: string, message: WireMessage) => {
+        if (transport.postTo) transport.postTo(peerId, message);
+        else transport.post(message);
+    };
+    const unsubscribePeerConnect =
+        transport.onPeerConnect?.((peerId) => {
+            store.flushPendingInput?.();
+            postTargeted(peerId, {
+                t: "state",
+                from: clientId,
+                u: Y.encodeStateAsUpdate(doc),
+            });
+            if (readonly) return; // no presence announcement
+            postTargeted(peerId, {
+                t: "cursor",
+                from: clientId,
+                name,
+                color,
+                cursor: lastCursor,
+            });
+        }) ?? (() => {});
+    const unsubscribePeerDisconnect =
+        transport.onPeerDisconnect?.((peerId) => {
+            if (peers.delete(peerId)) notifyPeers();
+        }) ?? (() => {});
 
     // Join handshake.
     transport.post({ t: "hello", from: clientId } as WireMessage);
@@ -303,11 +370,19 @@ export const attachRealtimeSync = (
                 peerListeners.delete(listener);
             };
         },
+        closeRoom: () => {
+            transport.post({ t: "close", from: clientId } as WireMessage);
+        },
         dispose: () => {
-            transport.post({ t: "bye", from: clientId } as WireMessage);
+            if (!readonly) {
+                // Viewers never announced themselves — no bye to send.
+                transport.post({ t: "bye", from: clientId } as WireMessage);
+            }
             clearInterval(heartbeat);
             clearTimeout(cursorTimer);
             unsubscribeCursor();
+            unsubscribePeerConnect();
+            unsubscribePeerDisconnect();
             unsubscribeOps();
             rootNode.unobserveDeep(onDeepEvents);
             doc.off("update", onDocUpdate);
@@ -316,3 +391,59 @@ export const attachRealtimeSync = (
         },
     };
 };
+
+// ---------------------------------------------------------------------------
+// Initial-state fetch (no store attached).
+// ---------------------------------------------------------------------------
+
+/**
+ * One-shot full-state fetch over a transport WITHOUT attaching a store. Used
+ * by a first-time joiner that has no local doc yet: obtaining the origin
+ * doc's bytes BEFORE creating the editor preserves the shared-origin
+ * discipline (attaching an empty local store first would mint independent
+ * Yjs item identities and fork the origin).
+ *
+ * Resolves with the first full state received from any peer, or null once
+ * the abort signal fires. The caller owns the transport (it is NOT closed
+ * here — reuse it for attach, or close it and reconnect with a stable id).
+ */
+export const fetchInitialState = (
+    transport: RealtimeTransport,
+    options?: { signal?: AbortSignal },
+): Promise<Uint8Array | null> =>
+    new Promise((resolve) => {
+        const tempId = randomId();
+        let done = false;
+        let unsubMessage = () => {};
+        let unsubPeer = () => {};
+        const finish = (value: Uint8Array | null) => {
+            if (done) return;
+            done = true;
+            unsubMessage();
+            unsubPeer();
+            options?.signal?.removeEventListener("abort", onAbort);
+            resolve(value);
+        };
+        const onAbort = () => finish(null);
+        if (options?.signal?.aborted) {
+            finish(null);
+            return;
+        }
+        options?.signal?.addEventListener("abort", onAbort);
+        unsubMessage = transport.onMessage((raw) => {
+            const msg = raw as WireMessage;
+            if (msg && msg.t === "state" && msg.from !== tempId) {
+                finish(
+                    msg.u instanceof Uint8Array ? msg.u : new Uint8Array(msg.u),
+                );
+            }
+        });
+        // Peers send their state when a link opens (attachRealtimeSync's
+        // onPeerConnect path); the hello below covers transports without peer
+        // events and peers whose links were already open.
+        unsubPeer =
+            transport.onPeerConnect?.(() => {
+                transport.post({ t: "hello", from: tempId } as WireMessage);
+            }) ?? (() => {});
+        transport.post({ t: "hello", from: tempId } as WireMessage);
+    });

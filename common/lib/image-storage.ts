@@ -72,6 +72,44 @@ export async function readWebImage(id: string): Promise<Blob | null> {
     return row?.blob ?? null;
 }
 
+// ── Collaboration blob exchange (features/collaboration) ─────────────────────
+
+export async function hasWebImage(id: string): Promise<boolean> {
+    return (await db().images.get(id)) !== undefined;
+}
+
+export async function readWebImageBytes(
+    id: string,
+): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
+    const row = await db().images.get(id);
+    if (!row) return null;
+    return {
+        bytes: new Uint8Array(await row.blob.arrayBuffer()),
+        mimeType: row.mimeType,
+    };
+}
+
+/**
+ * Store bytes received from a collaboration peer. The id is untrusted input:
+ * the content hash is recomputed and MUST match (same truncated sha256 as
+ * storeImage), otherwise the bytes are rejected — a peer cannot poison a
+ * different image's address. Returns whether the blob is now available.
+ */
+export async function storeWebImageBytes(
+    id: string,
+    bytes: Uint8Array,
+    mimeType: string,
+): Promise<boolean> {
+    const blob = new Blob([bytes as BlobPart], { type: mimeType });
+    const hash = await sha256Hex(blob);
+    if (hash !== id) {
+        console.warn(`[image-storage] hash mismatch for peer blob ${id}`);
+        return false;
+    }
+    await storeWeb(blob, id);
+    return true;
+}
+
 // ── Desktop (Tauri filesystem) ───────────────────────────────────────────────
 
 async function storeDesktop(file: Blob, name: string): Promise<string> {

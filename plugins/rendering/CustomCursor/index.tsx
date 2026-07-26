@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useEditorStore, useEditorDom } from "@do-md/core-react";
+import {
+    useEditorStore,
+    useEditorStoreApi,
+    useEditorDom,
+} from "@do-md/core-react";
 
 let styleInjected = false;
 function injectBlinkStyle() {
@@ -194,6 +198,7 @@ function getCursorRect(container: HTMLElement) {
 
 export function CustomCursor() {
     const { textAreaDomRef } = useEditorDom();
+    const storeApi = useEditorStoreApi();
     const startCursorInfo = useEditorStore((store) => store.startCursorInfo);
     const duringComposition = useEditorStore(
         (store) => store.duringComposition,
@@ -415,6 +420,24 @@ export function CustomCursor() {
             container.removeEventListener("focus", onFocus);
         };
     }, [textAreaDomRef, scheduleUpdate, hide]);
+
+    // Document changes.
+    //
+    // The caret's screen position is a function of BOTH the selection and the
+    // layout. selectionchange only covers the first input: externally driven
+    // document updates — collab bootstrap (applyExternalRenderData replaces the
+    // whole doc on join) and remote op replay (applyExternalRenderDataOps) —
+    // reflow the content around an untouched DOM selection, so no
+    // selectionchange ever fires and the caret would keep stale coordinates
+    // (e.g. a fresh viewer's position-0 caret measured against the pre-sync
+    // empty doc, left floating above the heading that synced in). Re-measure on
+    // every store update — the same discipline RemoteCursors already applies;
+    // scheduleUpdate is rAF-coalesced, so op bursts cost one measurement per
+    // frame.
+    useEffect(() => {
+        if (!storeApi) return;
+        return storeApi.subscribe(scheduleUpdate);
+    }, [storeApi, scheduleUpdate]);
 
     // scroll / resize
     useEffect(() => {

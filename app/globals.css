@@ -13,7 +13,7 @@
     --color-base-200: #f5f6f7;
     --color-base-300: #ebebeb;
     --color-base-content: rgba(20, 20, 20, 1);
-    --color-primary: oklch(49.12% 0.3096 275.75);
+    --color-primary: #1f2937;
     --color-neutral: #e5e7eb;
     --color-neutral-content: #414751;
     --color-info: #2563eb;
@@ -36,7 +36,7 @@
     --color-base-200: #181818;
     --color-base-300: #202020;
     --color-base-content: #bcbec4;
-    --color-primary: oklch(49.12% 0.3096 275.75);
+    --color-primary: #1f2937;
     --color-neutral: #2e3034;
     --color-neutral-content: #aaaaaa;
     --color-info: #2563eb;

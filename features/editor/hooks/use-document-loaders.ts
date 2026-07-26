@@ -22,6 +22,19 @@ export function useDocumentLoaders() {
         setView("editor");
     }, []);
 
+    /** Blank web meta with restored local content (draft / collab doc).
+     *  The name survives (draft mirrors named docs too) but the file handle
+     *  cannot — restored drafts always re-save via the picker. */
+    const applyLocal = useCallback(
+        (localContent: string, name = "Untitled.md") => {
+            setMeta({ kind: "web", name, handle: null });
+            setContent(localContent);
+            setVersion((n) => n + 1);
+            setView("editor");
+        },
+        [],
+    );
+
     const loadTauriPath = useCallback(async (path: string) => {
         const { invoke } = await tauriCore();
         const fileContent = await invoke<string>("read_file", { path }).catch(
@@ -102,6 +115,7 @@ export function useDocumentLoaders() {
         version,
         view,
         applyBlank,
+        applyLocal,
         loadTauriPath,
         claimAndLoadTauriPath,
         loadRemote,

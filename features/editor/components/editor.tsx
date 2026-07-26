@@ -16,11 +16,13 @@ import {
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { useTranslation } from "react-i18next";
+import { BrandMark } from "@/common/components/brand-mark";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
 import { isTauri } from "@/common/lib/platform";
 import { tauriCore } from "@/common/lib/tauri";
 import { useLatest } from "@/common/lib/use-latest";
 import { useAutoSave } from "../hooks/use-auto-save";
+import { useLocalDraft } from "../hooks/use-local-draft";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { saveDocument } from "../lib/save-document";
 import type { FileMeta } from "../lib/types";
@@ -28,16 +30,60 @@ import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 import { QuickInputBar } from "@/plugins/toolbar/quick-input-bar";
 import { useVisualViewportPin } from "@/plugins/shared/use-visual-viewport-pin";
 
+function EllipsisVerticalIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className={className}
+            aria-hidden="true"
+        >
+            <circle cx="12" cy="5" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="12" cy="19" r="1.8" />
+        </svg>
+    );
+}
+
+function UsersIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+            aria-hidden="true"
+        >
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+    );
+}
+
 export function Editor({
     meta,
     onMetaUpdate,
     onRequestOpenUrl,
     saveRef,
+    collabActive = false,
+    collabPeerCount = 0,
+    onRequestShare,
+    onRequestNew,
 }: {
     meta: FileMeta;
     onMetaUpdate: (meta: FileMeta) => void;
     onRequestOpenUrl: () => void;
     saveRef: React.MutableRefObject<(() => Promise<boolean>) | null>;
+    /** Realtime collaboration state (web mode only). */
+    collabActive?: boolean;
+    collabPeerCount?: number;
+    onRequestShare?: () => void;
+    onRequestNew?: () => void;
 }) {
     const { t } = useTranslation();
     const renderData = useRenderData();
@@ -208,6 +254,7 @@ export function Editor({
     renderDataRef.current = renderData;
 
     useAutoSave(meta, renderData, doSave);
+    useLocalDraft(meta, renderData);
 
     useEffect(() => {
         saveRef.current = () => doSaveRef.current(renderDataRef.current);
@@ -352,19 +399,9 @@ export function Editor({
         return () => window.removeEventListener("keydown", handler);
     }, []);
 
-    // Web: warn before unload if there's no file handle yet. Listener attaches
-    // once on mount; reads the latest meta via ref so updates don't rebind it.
-    useEffect(() => {
-        if (isTauri()) return;
-        const handler = (e: BeforeUnloadEvent) => {
-            const m = metaRef.current;
-            if (m.kind === "web" && !m.handle) {
-                e.preventDefault();
-            }
-        };
-        window.addEventListener("beforeunload", handler);
-        return () => window.removeEventListener("beforeunload", handler);
-    }, [metaRef]);
+    // No beforeunload guard: the local draft (use-local-draft) mirrors the
+    // current document continuously, so a reload restores it instead of
+    // losing work — the "Reload site?" prompt would be pure friction.
 
     const showSaveBar = meta.kind === "web";
 
@@ -390,25 +427,81 @@ export function Editor({
                 }
             >
                 {showSaveBar ? (
-                    <div className="shrink-0 h-9 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
-                        <span className="truncate flex-1">{meta.name}</span>
-                        <button
-                            onClick={onRequestOpenUrl}
-                            className="btn btn-xs btn-ghost"
-                        >
-                            {t("editor.openUrl")}
-                        </button>
-                        <button
-                            onClick={() => doSave(renderData)}
-                            disabled={saving}
-                            className="btn btn-xs btn-neutral"
-                        >
-                            {saving
-                                ? t("editor.saving")
-                                : saved
-                                  ? t("editor.saved")
-                                  : t("editor.save")}
-                        </button>
+                    <div className="shrink-0 h-9 flex items-center gap-1.5 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
+                        <BrandMark />
+                        <span className="flex-1" />
+                        {onRequestNew ? (
+                            <button
+                                onClick={onRequestNew}
+                                className="btn btn-xs btn-ghost text-base-content/60"
+                            >
+                                {t("editor.newDoc")}
+                            </button>
+                        ) : null}
+                        {onRequestShare ? (
+                            <button
+                                onClick={onRequestShare}
+                                className={
+                                    collabActive
+                                        ? "btn btn-xs btn-accent gap-1.5 ml-1"
+                                        : "btn btn-xs btn-primary gap-1.5 ml-1"
+                                }
+                            >
+                                {collabActive ? (
+                                    <>
+                                        <span className="inline-block size-1.5 rounded-full bg-current animate-pulse" />
+                                        {t("collab.sharingBadge", {
+                                            count: collabPeerCount,
+                                        })}
+                                    </>
+                                ) : (
+                                    <>
+                                        <UsersIcon className="size-3.5" />
+                                        {t("collab.share")}
+                                    </>
+                                )}
+                            </button>
+                        ) : null}
+                        <div className="dropdown dropdown-end">
+                            <div
+                                tabIndex={0}
+                                role="button"
+                                className="btn btn-xs btn-ghost btn-square text-base-content/60"
+                                aria-label={t("editor.more")}
+                            >
+                                <EllipsisVerticalIcon className="size-4" />
+                            </div>
+                            <ul
+                                tabIndex={0}
+                                className="dropdown-content menu menu-sm z-30 mt-1 w-44 rounded-box border border-base-content/10 bg-base-100 p-1 shadow-md"
+                            >
+                                <li>
+                                    <button
+                                        onClick={(e) => {
+                                            e.currentTarget.blur();
+                                            onRequestOpenUrl();
+                                        }}
+                                    >
+                                        {t("editor.openUrl")}
+                                    </button>
+                                </li>
+                                <li>
+                                    <button
+                                        disabled={saving}
+                                        onClick={(e) => {
+                                            e.currentTarget.blur();
+                                            void doSave(renderData);
+                                        }}
+                                    >
+                                        {saving
+                                            ? t("editor.downloading")
+                                            : saved
+                                              ? t("editor.downloaded")
+                                              : t("editor.download")}
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 ) : null}
 

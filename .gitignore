@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
+# dependencies (any level — app root and services/*)
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -45,6 +45,9 @@ CLAUDE.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# wrangler local dev state (services/signaling)
+.wrangler/
 
 # offline plugin verify harnesses: local-only (import monorepo package
 # source via relative paths that don't exist in a standalone checkout / on

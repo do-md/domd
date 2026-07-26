@@ -1,0 +1,17 @@
+{
+    "name": "domd-signaling",
+    "version": "0.1.0",
+    "private": true,
+    "license": "MIT",
+    "description": "DOMD collaboration signaling — Cloudflare Worker + Durable Object room relay (encrypted SDP/ICE passthrough, no document data)",
+    "scripts": {
+        "dev": "wrangler dev --port 8787",
+        "deploy": "wrangler deploy",
+        "types": "wrangler types"
+    },
+    "devDependencies": {
+        "@cloudflare/workers-types": "^5.20260710.1",
+        "typescript": "^5.6.0",
+        "wrangler": "^4.111.0"
+    }
+}

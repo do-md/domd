@@ -1,0 +1,27 @@
+{
+    // DOMD collaboration signaling. One Durable Object per room; WebSocket
+    // Hibernation keeps idle rooms free. The worker only relays room
+    // membership events and password-encrypted SDP/ICE blobs — it never sees
+    // document content or the room password.
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "domd-signaling",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-07-01",
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "ROOM_DO",
+                "class_name": "SignalRoomDO"
+            }
+        ]
+    },
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": ["SignalRoomDO"]
+        }
+    ],
+    "observability": {
+        "enabled": true
+    }
+}
