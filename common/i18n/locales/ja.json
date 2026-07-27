@@ -51,6 +51,7 @@
         "download": "ダウンロード",
         "downloading": "ダウンロード中…",
         "downloaded": "完了",
+        "exportPdf": "PDF に書き出し",
         "newDoc": "新規",
         "newDocModal": {
             "title": "新しいドキュメントを作成しますか？",

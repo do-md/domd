@@ -51,6 +51,7 @@
         "download": "Download",
         "downloading": "Downloading…",
         "downloaded": "Downloaded",
+        "exportPdf": "Export PDF",
         "newDoc": "New",
         "newDocModal": {
             "title": "Start a new document?",
