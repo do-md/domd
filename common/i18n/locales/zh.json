@@ -51,6 +51,7 @@
         "download": "下载",
         "downloading": "下载中…",
         "downloaded": "已下载",
+        "exportPdf": "导出 PDF",
         "newDoc": "新建",
         "newDocModal": {
             "title": "新建空白文档？",

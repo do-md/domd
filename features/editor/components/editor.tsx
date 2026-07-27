@@ -25,6 +25,7 @@ import { useAutoSave } from "../hooks/use-auto-save";
 import { useLocalDraft } from "../hooks/use-local-draft";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { saveDocument } from "../lib/save-document";
+import { exportToPdf } from "../lib/export-pdf";
 import type { FileMeta } from "../lib/types";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 import { QuickInputBar } from "@/plugins/toolbar/quick-input-bar";
@@ -498,6 +499,19 @@ export function Editor({
                                             : saved
                                               ? t("editor.downloaded")
                                               : t("editor.download")}
+                                    </button>
+                                </li>
+                                <li>
+                                    <button
+                                        onClick={(e) => {
+                                            e.currentTarget.blur();
+                                            exportToPdf(
+                                                domdRef.current,
+                                                getTitle() || meta.name,
+                                            );
+                                        }}
+                                    >
+                                        {t("editor.exportPdf")}
                                     </button>
                                 </li>
                             </ul>
