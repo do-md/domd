@@ -134,7 +134,7 @@ export function Editor({
     useEffect(() => {
         if (!editor || didFocusRef.current) return;
         didFocusRef.current = true;
-        editor.focus?.();
+        // editor.focus?.();
     }, [editor]);
 
     useEffect(() => {

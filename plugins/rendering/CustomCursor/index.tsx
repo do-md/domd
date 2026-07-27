@@ -466,6 +466,7 @@ export function CustomCursor() {
     return createPortal(
         <div
             ref={cursorRef}
+            contentEditable={false}
             style={{
                 position: "absolute",
                 top: 0,
