@@ -13,6 +13,12 @@
  * BroadcastChannel — cross-tab / multi-instance within one browser; swapping
  * in WebSocket/WebRTC only requires implementing the same interface).
  *
+ * Sync handshake is y-protocols-style two-step: "hello" announces the
+ * sender's state vector and the "state" reply carries only the missing diff
+ * (full state when no vector was announced — first-time joiners, legacy
+ * clients). Replies are targeted (postTo when available) so one newcomer's
+ * hello never triggers room-wide state fan-out on mesh transports.
+ *
  * Presence: the local caret is broadcast via core's subscribeCursorChange
  * (uuid+offset addressing); remote peers (caret/name/color/heartbeat) live
  * **only inside this plugin** and are drawn by the RemoteCursors component —
@@ -87,8 +93,12 @@ export const createBroadcastChannelTransport = (
 
 type WireMessage =
     | { t: "u"; from: string; u: Uint8Array } // incremental update
-    | { t: "hello"; from: string } // newcomer: request full state + announce
-    | { t: "state"; from: string; u: Uint8Array } // full-state reply
+    // Sync request. `sv` (encoded state vector) lets the receiver reply with
+    // only the diff the sender is missing (y-protocols two-step style);
+    // absent = request the full state (first-time joiner without a doc, or a
+    // legacy client).
+    | { t: "hello"; from: string; sv?: Uint8Array }
+    | { t: "state"; from: string; u: Uint8Array } // sync reply (sv diff or full state)
     | {
           t: "cursor";
           from: string;
@@ -125,9 +135,10 @@ export interface AttachRealtimeSyncOptions {
      * Receive-only (viewer) mode. The session applies remote updates and
      * tracks remote presence but never emits edits ("u") or presence
      * ("cursor"/"bye") — viewers stay out of every peer list. It still
-     * answers "hello"/peer-connect with "state": serving the doc keeps the
-     * mesh bootstrappable (a stale editor reconnecting against only viewers
-     * must still converge) and state messages never create peer entries.
+     * answers "hello" with "state" (sv diff) and announces its state vector
+     * on peer-connect: serving the doc keeps the mesh bootstrappable (a
+     * stale editor reconnecting against only viewers must still converge)
+     * and hello/state messages never create peer entries.
      */
     readonly?: boolean;
 }
@@ -277,6 +288,12 @@ export const attachRealtimeSync = (
     }, HEARTBEAT_MS);
 
     // ---- Message handling ----
+    const postTargeted = (peerId: string, message: WireMessage) => {
+        if (transport.postTo) transport.postTo(peerId, message);
+        else transport.post(message);
+    };
+    const asUint8 = (value: Uint8Array | number[]): Uint8Array =>
+        value instanceof Uint8Array ? value : new Uint8Array(value);
     const unsubscribeTransport = transport.onMessage((raw) => {
         const msg = raw as WireMessage;
         if (!msg || msg.from === clientId) return;
@@ -286,12 +303,19 @@ export const attachRealtimeSync = (
                 Y.applyUpdate(doc, msg.u, REMOTE_ORIGIN);
                 return;
             case "hello":
-                // Newcomer: hand over the full state and announce ourselves.
-                transport.post({
+                // Sync request: reply with exactly what the sender is missing
+                // (state-vector diff) — or the full state when no vector was
+                // announced. Targeted: a broadcast reply on mesh transports
+                // would fan the payload down EVERY link, turning one
+                // newcomer's hello into O(N^2) room-wide traffic.
+                store.flushPendingInput?.();
+                postTargeted(msg.from, {
                     t: "state",
                     from: clientId,
-                    u: Y.encodeStateAsUpdate(doc),
-                } as WireMessage);
+                    u: msg.sv
+                        ? Y.encodeStateAsUpdate(doc, asUint8(msg.sv))
+                        : Y.encodeStateAsUpdate(doc),
+                });
                 postCursor();
                 return;
             case "state":
@@ -320,22 +344,21 @@ export const attachRealtimeSync = (
     });
 
     // ---- Peer-link lifecycle (transports with real per-peer connectivity,
-    // e.g. WebRTC data channels). When a link opens, hand the peer our full
-    // state — both sides do this symmetrically, which covers newcomers AND
-    // reconnects after offline editing in one mechanism (Y.applyUpdate merges
-    // are idempotent and commutative). Without these hooks (BroadcastChannel)
-    // the hello/state handshake below covers the same ground.
-    const postTargeted = (peerId: string, message: WireMessage) => {
-        if (transport.postTo) transport.postTo(peerId, message);
-        else transport.post(message);
-    };
+    // e.g. WebRTC data channels). When a link opens, both sides announce
+    // their state vector ("hello" with sv) and each replies with exactly the
+    // diff the other is missing — newcomers AND reconnects after offline
+    // editing are covered by one mechanism (Y.applyUpdate merges are
+    // idempotent and commutative), and replies shrink to near-nothing once
+    // the docs already agree (vs. pushing the full state both ways). Without
+    // these hooks (BroadcastChannel) the attach-time hello broadcast below
+    // covers the same ground.
     const unsubscribePeerConnect =
         transport.onPeerConnect?.((peerId) => {
             store.flushPendingInput?.();
             postTargeted(peerId, {
-                t: "state",
+                t: "hello",
                 from: clientId,
-                u: Y.encodeStateAsUpdate(doc),
+                sv: Y.encodeStateVector(doc),
             });
             if (readonly) return; // no presence announcement
             postTargeted(peerId, {
@@ -351,8 +374,12 @@ export const attachRealtimeSync = (
             if (peers.delete(peerId)) notifyPeers();
         }) ?? (() => {});
 
-    // Join handshake.
-    transport.post({ t: "hello", from: clientId } as WireMessage);
+    // Join handshake: announce our state vector so peers reply with diffs.
+    transport.post({
+        t: "hello",
+        from: clientId,
+        sv: Y.encodeStateVector(doc),
+    } as WireMessage);
     postCursor();
 
     return {
@@ -406,13 +433,18 @@ export const attachRealtimeSync = (
  * Resolves with the first full state received from any peer, or null once
  * the abort signal fires. The caller owns the transport (it is NOT closed
  * here — reuse it for attach, or close it and reconnect with a stable id).
+ *
+ * When the transport supports targeted delivery (postTo), pass the SAME
+ * clientId the transport was created with — peers reply to "hello" via
+ * postTo(msg.from), which routes by the transport-level peer id; a mismatched
+ * id would drop the reply.
  */
 export const fetchInitialState = (
     transport: RealtimeTransport,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; clientId?: string },
 ): Promise<Uint8Array | null> =>
     new Promise((resolve) => {
-        const tempId = randomId();
+        const tempId = options?.clientId ?? randomId();
         let done = false;
         let unsubMessage = () => {};
         let unsubPeer = () => {};
