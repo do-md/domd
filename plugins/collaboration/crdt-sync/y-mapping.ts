@@ -73,6 +73,104 @@ export const yNodeToJSON = (yNode: Y.Map<unknown>): SerializedRenderData =>
     yNode.toJSON() as SerializedRenderData;
 
 // ---------------------------------------------------------------------------
+// Tree reconciliation (uuid-keyed, identity-preserving).
+// ---------------------------------------------------------------------------
+
+const jsonEquals = (a: unknown, b: unknown): boolean =>
+    JSON.stringify(a) === JSON.stringify(b);
+
+const reconcileScalars = (
+    yNode: Y.Map<unknown>,
+    json: SerializedRenderData,
+): void => {
+    if (yNode.get("type") !== json.type) yNode.set("type", json.type);
+    if (yNode.get("uuid") !== json.uuid) yNode.set("uuid", json.uuid);
+    if (!jsonEquals(yNode.get("mdSymbols"), json.mdSymbols)) {
+        yNode.set("mdSymbols", [...json.mdSymbols]);
+    }
+    if (!jsonEquals(yNode.get("props"), json.props)) {
+        yNode.set("props", JSON.parse(JSON.stringify(json.props)));
+    }
+    if (json.tagName !== undefined) {
+        if (yNode.get("tagName") !== json.tagName) {
+            yNode.set("tagName", json.tagName);
+        }
+    } else if (yNode.has("tagName")) {
+        yNode.delete("tagName");
+    }
+    if (json.isAutoFill !== undefined) {
+        if (yNode.get("isAutoFill") !== json.isAutoFill) {
+            yNode.set("isAutoFill", json.isAutoFill);
+        }
+    } else if (yNode.has("isAutoFill")) {
+        yNode.delete("isAutoFill");
+    }
+};
+
+/**
+ * Surgically transform an attached Y node (typically the ROOT_KEY map) into
+ * the given snapshot, touching only what differs. Unchanged subtrees keep
+ * their Yjs item identities — so concurrent remote edits against untouched
+ * spans still merge, and side-channel maps keyed by uuid (e.g. authorship)
+ * stay valid. Re-created nodes (moves, re-introduced content) reuse the
+ * snapshot's uuids, so uuid-keyed metadata survives even recreation.
+ *
+ * Callers wrap this in their own doc.transact with an appropriate origin.
+ * Used by version restore; also the primitive for any future
+ * "external truth -> Y tree" reconciliation.
+ */
+export const reconcileYTree = (
+    yNode: Y.Map<unknown>,
+    json: SerializedRenderData,
+): void => {
+    reconcileScalars(yNode, json);
+    if (json.children) {
+        if (yNode.has("text")) yNode.delete("text");
+        let existing = yNode.get("children") as
+            | Y.Array<Y.Map<unknown>>
+            | undefined;
+        if (!existing) {
+            existing = new Y.Array<Y.Map<unknown>>();
+            yNode.set("children", existing);
+        }
+        const yChildren = existing;
+        // Pass 1: drop children that do not survive into the target.
+        const targetUuids = new Set(json.children.map((c) => c.uuid));
+        for (let i = yChildren.length - 1; i >= 0; i -= 1) {
+            const uuid = yChildren.get(i).get("uuid") as string;
+            if (!targetUuids.has(uuid)) yChildren.delete(i, 1);
+        }
+        // Pass 2: align positions. A kept child at the right slot is
+        // reconciled in place; a missing one is inserted; a mispositioned
+        // one is re-created at the right slot (Yjs types cannot be
+        // re-inserted, so moves lose item identity but keep their uuid).
+        json.children.forEach((childJson, i) => {
+            const current = i < yChildren.length ? yChildren.get(i) : null;
+            if (current && current.get("uuid") === childJson.uuid) {
+                reconcileYTree(current, childJson);
+                return;
+            }
+            for (let k = i + 1; k < yChildren.length; k += 1) {
+                if (yChildren.get(k).get("uuid") === childJson.uuid) {
+                    yChildren.delete(k, 1);
+                    break;
+                }
+            }
+            yChildren.insert(i, [toYNode(childJson)]);
+        });
+        // Safety: trailing extras cannot normally remain, but never leave
+        // the array longer than the target.
+        while (yChildren.length > json.children.length) {
+            yChildren.delete(yChildren.length - 1, 1);
+        }
+    } else {
+        if (yNode.has("children")) yNode.delete("children");
+        const text = json.text || "";
+        if (yNode.get("text") !== text) yNode.set("text", text);
+    }
+};
+
+// ---------------------------------------------------------------------------
 // uuid -> Y.Map registry.
 // ---------------------------------------------------------------------------
 

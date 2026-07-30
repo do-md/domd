@@ -24,13 +24,15 @@
  * on every peer-link open). Opening the EDIT link in a browser that joined
  * as viewer upgrades it through the regular join form.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
+import * as Y from "yjs";
 import {
     DOMD,
     DOMDProvider,
+    deserializeRenderData,
     toMarkdown,
     useEditor,
     useEditorStore,
@@ -52,6 +54,11 @@ import {
     createWebRtcTransport,
     type WebRtcTransportStatus,
 } from "@/plugins/collaboration/realtime-sync/webrtc-transport";
+import type { VersioningHandle } from "@/plugins/collaboration/versioning";
+import {
+    AuthorHighlights,
+    type HighlightTarget,
+} from "@/plugins/collaboration/versioning/author-highlights";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 import { QuickInputBar } from "@/plugins/toolbar/quick-input-bar";
 import {
@@ -76,9 +83,14 @@ import {
     deriveRoomKey,
     generateClientId,
 } from "../lib/crypto";
+import {
+    ROOT_KEY,
+    yNodeToJSON,
+} from "@/plugins/collaboration/crdt-sync/y-mapping";
 import { isInviteExpired, parseInvite, type InviteParams } from "../lib/invite";
 import type { RoomRecord } from "../lib/types";
 import { CollabBridge, LocalCollabBridge } from "./collab-bridge";
+import { HistoryIcon, VersioningPanel } from "./versioning-panel";
 
 type Phase =
     | { kind: "loading" }
@@ -225,6 +237,12 @@ export function CollabApp() {
     const [joining, setJoining] = useState(false);
     const [peers, setPeers] = useState<RealtimePeer[]>([]);
     const [status, setStatus] = useState<WebRtcTransportStatus | null>(null);
+    const [versioningHandle, setVersioningHandle] =
+        useState<VersioningHandle | null>(null);
+    const [showVersioning, setShowVersioning] = useState(false);
+    const [highlightTargets, setHighlightTargets] = useState<
+        HighlightTarget[]
+    >([]);
     // null = room open. Otherwise the room is dead ("dissolved" by the host
     // or "expired" past its link lifetime — the banner wording differs) and
     // `restored` says how the editor got its content: false = it went dead
@@ -378,6 +396,26 @@ export function CollabApp() {
         },
         [invite, joining, formName, formPassword, t],
     );
+
+    // First-paint content for the live phase: the persisted doc bytes are
+    // already in hand, so render THEM as the initial markdown instead of an
+    // empty document + placeholder. CollabBridge attaches only after a
+    // network round-trip (TURN credentials); that window used to flash a
+    // blank editor on refresh. The attach then flushes the Y tree back in —
+    // same content, so the swap is invisible (host-side twin of the
+    // draft-first-paint fix in features/editor).
+    const initialMd = useMemo(() => {
+        if (phase.kind !== "live") return "";
+        try {
+            const doc = new Y.Doc();
+            Y.applyUpdate(doc, phase.bytes);
+            const root = doc.getMap<unknown>(ROOT_KEY);
+            if (root.size === 0) return "";
+            return toMarkdown(deserializeRenderData(yNodeToJSON(root))) ?? "";
+        } catch {
+            return ""; // corrupt bytes -> empty first paint, attach recovers
+        }
+    }, [phase]);
 
     const handleRoomClosed = useCallback(() => {
         setClosedState({ reason: "dissolved", restored: false });
@@ -541,23 +579,27 @@ export function CollabApp() {
             <header className="shrink-0 h-10 flex items-center justify-between gap-2 px-3 bg-base-200 border-b border-base-300 select-none">
                 <BrandMark />
                 <div className="flex items-center gap-2 min-w-0">
+                    {versioningHandle && !roomClosed ? (
+                        <button
+                            onClick={() => setShowVersioning((v) => !v)}
+                            className="btn btn-xs btn-ghost gap-1 text-base-content/60 shrink-0"
+                            title={t("versioning.title")}
+                        >
+                            <HistoryIcon className="size-3.5" />
+                            {`${t("versioning.button")} · ${peers.length + 1}`}
+                        </button>
+                    ) : null}
                     {roomClosed ? (
                         <span className="badge badge-sm badge-warning badge-soft">
                             {t("collab.closedBadge")}
                         </span>
-                    ) : (
+                    ) : status?.signaling !== "open" ? (
+                        // Who is online lives in the collaboration panel;
+                        // the header only surfaces connectivity trouble.
                         <span className="text-xs text-base-content/50 truncate">
-                            {peers.length
-                                ? t("collab.onlineWith", {
-                                      names: peers
-                                          .map((p) => p.name)
-                                          .join(" · "),
-                                  })
-                                : status?.signaling === "open"
-                                  ? t("collab.aloneOnline")
-                                  : t("collab.reconnecting")}
+                            {t("collab.reconnecting")}
                         </span>
-                    )}
+                    ) : null}
                     {isViewer ? (
                         <span className="badge badge-sm badge-soft shrink-0">
                             {t("collab.viewerBadge")}
@@ -596,7 +638,7 @@ export function CollabApp() {
 
             <DOMDProvider
                 editable={!isViewer}
-                initMd=""
+                initMd={initialMd}
                 placeholder={t("editor.placeholder")}
                 imageLoader={collabImageLoader}
                 codeTokenizer={tokenize}
@@ -610,6 +652,7 @@ export function CollabApp() {
                         onPeers={setPeers}
                         onStatus={setStatus}
                         onRoomClosed={handleRoomClosed}
+                        onVersioning={setVersioningHandle}
                     />
                 ) : (
                     // Dead room (dissolved or expired): no network, but keep
@@ -626,8 +669,25 @@ export function CollabApp() {
                 )}
                 <GuestEditorSurface keyboardPin={keyboardPin} />
                 <RemoteCursors peers={roomClosed ? [] : peers} />
+                {highlightTargets.length ? (
+                    <AuthorHighlights targets={highlightTargets} />
+                ) : null}
                 {!isViewer ? <QuickInputBar pin={keyboardPin} /> : null}
             </DOMDProvider>
+
+            {showVersioning && versioningHandle ? (
+                <VersioningPanel
+                    handle={versioningHandle}
+                    selfClientId={room.clientId}
+                    onlineClientIds={peers.map((p) => p.clientId)}
+                    topClassName="top-10"
+                    onClose={() => {
+                        setShowVersioning(false);
+                        setHighlightTargets([]);
+                    }}
+                    onHighlightsChange={setHighlightTargets}
+                />
+            ) : null}
             </div>
         </div>
     );

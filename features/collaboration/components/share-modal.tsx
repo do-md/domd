@@ -1,19 +1,22 @@
 "use client";
 /**
- * Host-side sharing UI (web /editor). Two views:
+ * Host-side sharing UI (web /editor). Scope: STARTING a collaboration and
+ * managing its invite links — nothing else. Presence and history (who is
+ * online, who edited what) live in the collaboration panel
+ * (versioning-panel), keeping the two entry points semantically distinct.
+ * Two views:
  *  - create: optional password + expiry -> derives the room key (PBKDF2) and
  *    hands the RoomRecord up; the parent mounts CollabBridge to go live.
- *  - manage: TWO invite links (collaboration + read-only), online peers,
- *    one-click stop sharing. The read-only link (`v=1`) admits silent
- *    viewers: they receive every push but cannot edit, emit nothing, and
- *    never appear in the collaborator list.
+ *  - manage: TWO invite links (collaboration + read-only), one-click stop
+ *    sharing. The read-only link (`v=1`) admits silent viewers: they receive
+ *    every push but cannot edit, emit nothing, and never appear in the
+ *    collaborator list.
  *
  * The password is shown once right after creation (kept only in component
  * state) — it is never persisted, only the derived non-extractable key is.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { RealtimePeer } from "@/plugins/collaboration/realtime-sync";
 import { getShareOrigin, HOST_COLOR } from "../lib/config";
 import {
     deriveKeyCheck,
@@ -72,13 +75,11 @@ const EXPIRY_SECONDS: Record<ExpiryChoice, number> = {
 
 export function ShareModal({
     room,
-    peers,
     onClose,
     onCreated,
     onStop,
 }: {
     room: RoomRecord | null;
-    peers: RealtimePeer[];
     onClose: () => void;
     onCreated: (room: RoomRecord) => void;
     onStop: () => void;
@@ -269,37 +270,6 @@ export function ShareModal({
                                 {t("collab.passwordSetHint")}
                             </p>
                         )}
-                        <label className="block text-xs font-medium mb-1">
-                            {t("collab.peersLabel")}
-                        </label>
-                        <div className="mb-4 min-h-8 rounded-lg border border-base-content/10 bg-base-200/40 px-3 py-2">
-                            {peers.length === 0 ? (
-                                <span className="text-xs text-base-content/40">
-                                    {t("collab.noPeers")}
-                                </span>
-                            ) : (
-                                <div className="flex flex-wrap gap-1.5">
-                                    {peers.map((peer) => (
-                                        <span
-                                            key={peer.clientId}
-                                            className="badge badge-sm border-0 gap-1.5 font-medium"
-                                            style={{
-                                                color: peer.color,
-                                                background: `color-mix(in srgb, ${peer.color} 12%, transparent)`,
-                                            }}
-                                        >
-                                            <span
-                                                className="inline-block size-1.5 rounded-full"
-                                                style={{
-                                                    background: peer.color,
-                                                }}
-                                            />
-                                            {peer.name}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
                         <div className="flex justify-between items-center">
                             <button
                                 type="button"

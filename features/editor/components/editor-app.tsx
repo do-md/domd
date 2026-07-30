@@ -11,9 +11,15 @@ import { isTauri } from "@/common/lib/platform";
 import { tauriApp, tauriCore } from "@/common/lib/tauri";
 import type { RealtimePeer } from "@/plugins/collaboration/realtime-sync";
 import { RemoteCursors } from "@/plugins/collaboration/realtime-sync/remote-cursors";
+import type { VersioningHandle } from "@/plugins/collaboration/versioning";
+import {
+    AuthorHighlights,
+    type HighlightTarget,
+} from "@/plugins/collaboration/versioning/author-highlights";
 import {
     CollabBridge,
     ShareModal,
+    VersioningPanel,
     clearDraft,
     collabImageLoader,
     deleteRoomData,
@@ -62,6 +68,12 @@ export function EditorApp() {
     const [collabPeers, setCollabPeers] = useState<RealtimePeer[]>([]);
     const [showShareModal, setShowShareModal] = useState(false);
     const [showNewDocModal, setShowNewDocModal] = useState(false);
+    const [versioningHandle, setVersioningHandle] =
+        useState<VersioningHandle | null>(null);
+    const [showVersioning, setShowVersioning] = useState(false);
+    const [highlightTargets, setHighlightTargets] = useState<
+        HighlightTarget[]
+    >([]);
     const collabControlRef = useRef<CollabControl | null>(null);
     const collabRoomRef = useRef(collabRoom);
     collabRoomRef.current = collabRoom;
@@ -75,6 +87,8 @@ export function EditorApp() {
         setCollabRoom(null);
         setCollabBytes(null);
         setCollabPeers([]);
+        setShowVersioning(false);
+        setHighlightTargets([]);
         await deleteRoomData(room.id);
     }, []);
 
@@ -241,6 +255,7 @@ export function EditorApp() {
                         initialDocBytes={collabBytes}
                         controlRef={collabControlRef}
                         onPeers={setCollabPeers}
+                        onVersioning={setVersioningHandle}
                         onError={(message) =>
                             console.warn("[collab] attach failed:", message)
                         }
@@ -259,9 +274,31 @@ export function EditorApp() {
                     onRequestNew={
                         isWeb ? () => setShowNewDocModal(true) : undefined
                     }
+                    onRequestVersioning={
+                        versioningHandle
+                            ? () => setShowVersioning((v) => !v)
+                            : undefined
+                    }
                 />
                 {collabRoom ? <RemoteCursors peers={collabPeers} /> : null}
+                {highlightTargets.length ? (
+                    <AuthorHighlights targets={highlightTargets} />
+                ) : null}
             </DOMDProvider>
+
+            {showVersioning && versioningHandle && collabRoom ? (
+                <VersioningPanel
+                    handle={versioningHandle}
+                    selfClientId={collabRoom.clientId}
+                    onlineClientIds={collabPeers.map((p) => p.clientId)}
+                    topClassName="top-9"
+                    onClose={() => {
+                        setShowVersioning(false);
+                        setHighlightTargets([]);
+                    }}
+                    onHighlightsChange={setHighlightTargets}
+                />
+            ) : null}
 
             {showUrlModal ? (
                 <UrlModal
@@ -284,7 +321,6 @@ export function EditorApp() {
             {showShareModal ? (
                 <ShareModal
                     room={collabRoom}
-                    peers={collabPeers}
                     onClose={() => setShowShareModal(false)}
                     onCreated={(room) => {
                         setCollabBytes(null);

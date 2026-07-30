@@ -222,7 +222,7 @@
     },
     "collab": {
         "share": "协作",
-        "sharingBadge": "协作中 · {{count}}",
+        "sharingBadge": "协作中",
         "createTitle": "邀请协作编辑",
         "createSubtitle": "基于 WebRTC 点对点同步——文档只在浏览器之间直接传输，不经过任何服务器。",
         "passwordLabel": "访问密码",
@@ -236,7 +236,7 @@
         "cancel": "取消",
         "create": "生成邀请链接",
         "creating": "生成中…",
-        "manageTitle": "协作管理",
+        "manageTitle": "邀请链接",
         "expiresAt": "链接有效期至：{{when}}",
         "editLink": "协作链接（可编辑）",
         "readonlyLink": "只读链接",
@@ -246,8 +246,6 @@
         "passwordOnce": "密码：{{password}}——不会被保存，关闭后无法再次查看，请另行告知对方。",
         "linkOnlyHint": "持有此链接的人均可加入（访问密钥已包含在链接中）。",
         "passwordSetHint": "加入需要你设置的密码，密码不会被保存。",
-        "peersLabel": "在线协作者",
-        "noPeers": "暂无其他人在线",
         "stopSharing": "关闭分享",
         "done": "完成",
         "guestHeader": "协作文档",
@@ -257,8 +255,6 @@
         "closedBannerViewer": "主持人已结束协作。文档仍可查看，但不再接收更新。",
         "expiredBanner": "协作链接已过期。你仍可继续编辑本地副本，但内容不再同步。",
         "expiredBannerViewer": "协作链接已过期。文档仍可查看，但不再接收更新。",
-        "onlineWith": "在线：{{names}}",
-        "aloneOnline": "暂无其他协作者在线——对方上线后将自动同步",
         "reconnecting": "重新连接中…",
         "join": {
             "title": "加入协作编辑",
@@ -284,5 +280,25 @@
             "backEditor": "打开编辑器",
             "connectingPeer": "已发现参与者，正在建立点对点连接…长时间无进展可能是网络防火墙限制了 WebRTC。"
         }
+    },
+    "versioning": {
+        "button": "协作管理",
+        "title": "协作管理",
+        "collaborators": "协作者",
+        "noCollaborators": "还没有编辑记录",
+        "you": "我",
+        "colorHint": "选中协作者，文档中会高亮显示其编写的文本。",
+        "versions": "版本",
+        "noVersions": "停止编辑片刻后会自动记录版本。",
+        "initialVersion": "初始文档",
+        "added": "新增 {{count}}",
+        "edited": "修改 {{count}}",
+        "removed": "删除 {{count}}",
+        "noTextChanges": "无文本变化",
+        "restore": "恢复",
+        "restoreConfirm": "恢复到此版本？当前内容会先保存为一个版本。",
+        "restoredBadge": "已恢复",
+        "online": "在线",
+        "offline": "离线"
     }
 }

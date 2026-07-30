@@ -39,6 +39,10 @@ import {
     createWebRtcTransport,
     type WebRtcTransportStatus,
 } from "@/plugins/collaboration/realtime-sync/webrtc-transport";
+import {
+    attachVersioning,
+    type VersioningHandle,
+} from "@/plugins/collaboration/versioning";
 import { getIceServers, getSignalingUrl } from "../lib/config";
 import { saveRoomDocBytes } from "../lib/collab-db";
 import {
@@ -62,6 +66,7 @@ export function CollabBridge({
     onStatus,
     onRoomClosed,
     onError,
+    onVersioning,
 }: {
     room: RoomRecord;
     initialDocBytes: Uint8Array | null;
@@ -70,6 +75,9 @@ export function CollabBridge({
     onStatus?: (status: WebRtcTransportStatus) => void;
     onRoomClosed?: (from: string) => void;
     onError?: (message: string) => void;
+    /** Receives the versioning handle once the session attaches (null again
+     *  on teardown). Drives the version-history panel. */
+    onVersioning?: (handle: VersioningHandle | null) => void;
 }) {
     const store = useEditorStoreApi();
     const attachedRef = useRef(false);
@@ -89,6 +97,8 @@ export function CollabBridge({
     onRoomClosedRef.current = onRoomClosed;
     const onErrorRef = useRef(onError);
     onErrorRef.current = onError;
+    const onVersioningRef = useRef(onVersioning);
+    onVersioningRef.current = onVersioning;
 
     useEffect(() => {
         if (!store || attachedRef.current) return;
@@ -97,6 +107,7 @@ export function CollabBridge({
         let cancelled = false;
         let transport: ReturnType<typeof createWebRtcTransport> | null = null;
         let handle: RealtimeSyncHandle | null = null;
+        let versioning: VersioningHandle | null = null;
         let blobSync: BlobSyncHandle | null = null;
         let persistTimer: ReturnType<typeof setTimeout> | undefined;
         let unsubPeers = () => {};
@@ -152,6 +163,18 @@ export function CollabBridge({
                 unsubPeers = handle.subscribePeers(
                     (peers) => onPeersRef.current?.(peers),
                 );
+                // Versioning side-channel (authorship + collaborator
+                // registry + version timeline) rides the same doc, so it
+                // syncs and persists through the existing pipeline. Viewers
+                // observe without leaving any trace.
+                versioning = attachVersioning(store as never, {
+                    doc: handle.doc,
+                    clientId: room.clientId,
+                    name: room.displayName,
+                    color: room.color,
+                    observeOnly: room.role === "viewer",
+                });
+                onVersioningRef.current?.(versioning);
                 // Image blob exchange over the dedicated per-peer blob
                 // channel: serve local blobs and pull missing ones on demand
                 // (see collab-image-loader).
@@ -189,8 +212,18 @@ export function CollabBridge({
             if (controlRef) controlRef.current = null;
             setCollabBlobFetcher(null);
             blobSync?.dispose();
+            if (versioning) {
+                onVersioningRef.current?.(null);
+                // Flushes the trailing edit burst into a final version —
+                // must precede the persist below so the bytes carry it.
+                versioning.dispose();
+            }
             if (handle) {
                 handle.doc.off("update", persistDebounced);
+                // The versioning flush above may have re-armed the debounce
+                // timer via the doc update; the synchronous persist below
+                // supersedes it.
+                clearTimeout(persistTimer);
                 persist();
                 unsubPeers();
                 handle.dispose(); // also closes the transport

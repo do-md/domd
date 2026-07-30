@@ -46,6 +46,25 @@ function EllipsisVerticalIcon({ className }: { className?: string }) {
     );
 }
 
+function HistoryIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+            aria-hidden="true"
+        >
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M12 7v5l3 3" />
+        </svg>
+    );
+}
+
 function UsersIcon({ className }: { className?: string }) {
     return (
         <svg
@@ -75,6 +94,7 @@ export function Editor({
     collabPeerCount = 0,
     onRequestShare,
     onRequestNew,
+    onRequestVersioning,
 }: {
     meta: FileMeta;
     onMetaUpdate: (meta: FileMeta) => void;
@@ -85,6 +105,9 @@ export function Editor({
     collabPeerCount?: number;
     onRequestShare?: () => void;
     onRequestNew?: () => void;
+    /** Toggle the version-history panel (present only while a collab
+     *  session is attached — versioning data lives in the shared doc). */
+    onRequestVersioning?: () => void;
 }) {
     const { t } = useTranslation();
     const renderData = useRenderData();
@@ -439,6 +462,19 @@ export function Editor({
                                 {t("editor.newDoc")}
                             </button>
                         ) : null}
+                        {collabActive && onRequestVersioning ? (
+                            <button
+                                onClick={onRequestVersioning}
+                                className="btn btn-xs btn-ghost gap-1 text-base-content/60"
+                                title={t("versioning.title")}
+                            >
+                                <HistoryIcon className="size-3.5" />
+                                {/* Online headcount (peers + self) lives here:
+                                    the panel this opens is where people are
+                                    listed. The share button only breathes. */}
+                                {`${t("versioning.button")} · ${collabPeerCount + 1}`}
+                            </button>
+                        ) : null}
                         {onRequestShare ? (
                             <button
                                 onClick={onRequestShare}
@@ -451,9 +487,7 @@ export function Editor({
                                 {collabActive ? (
                                     <>
                                         <span className="inline-block size-1.5 rounded-full bg-current animate-pulse" />
-                                        {t("collab.sharingBadge", {
-                                            count: collabPeerCount,
-                                        })}
+                                        {t("collab.sharingBadge")}
                                     </>
                                 ) : (
                                     <>

@@ -222,7 +222,7 @@
     },
     "collab": {
         "share": "共同編集",
-        "sharingBadge": "共同編集中 · {{count}}",
+        "sharingBadge": "共同編集中",
         "createTitle": "共同編集に招待",
         "createSubtitle": "WebRTC によるピアツーピア同期——ドキュメントはブラウザ間で直接やり取りされ、サーバーを経由しません。",
         "passwordLabel": "アクセスパスワード",
@@ -236,7 +236,7 @@
         "cancel": "キャンセル",
         "create": "招待リンクを作成",
         "creating": "作成中…",
-        "manageTitle": "共同編集の管理",
+        "manageTitle": "招待リンク",
         "expiresAt": "リンク有効期限：{{when}}",
         "editLink": "共同編集リンク（編集可）",
         "readonlyLink": "閲覧専用リンク",
@@ -246,8 +246,6 @@
         "passwordOnce": "パスワード：{{password}}——保存されないため、再表示はできません。別途伝えてください。",
         "linkOnlyHint": "このリンクを持つ人は誰でも参加できます（アクセスキーはリンクに含まれています）。",
         "passwordSetHint": "参加には設定したパスワードが必要です。パスワードは保存されません。",
-        "peersLabel": "オンラインの共同編集者",
-        "noPeers": "まだ誰もオンラインではありません",
         "stopSharing": "共有を停止",
         "done": "完了",
         "guestHeader": "共同編集ドキュメント",
@@ -257,8 +255,6 @@
         "closedBannerViewer": "ホストが共同編集を終了しました。ドキュメントは引き続き閲覧できますが、更新は届きません。",
         "expiredBanner": "招待リンクの有効期限が切れました。ローカルのコピーは編集できますが、同期は行われません。",
         "expiredBannerViewer": "招待リンクの有効期限が切れました。ドキュメントは引き続き閲覧できますが、更新は届きません。",
-        "onlineWith": "オンライン：{{names}}",
-        "aloneOnline": "他の参加者はオフラインです——再接続時に自動で同期されます",
         "reconnecting": "再接続中…",
         "join": {
             "title": "共同編集に参加",
@@ -284,5 +280,25 @@
             "backEditor": "エディタを開く",
             "connectingPeer": "参加者が見つかりました——ピアツーピア接続を確立しています…時間がかかる場合はファイアウォールが WebRTC を遮断している可能性があります。"
         }
+    },
+    "versioning": {
+        "button": "コラボ管理",
+        "title": "コラボ管理",
+        "collaborators": "共同編集者",
+        "noCollaborators": "まだ編集記録がありません",
+        "you": "自分",
+        "colorHint": "共同編集者を選択すると、その人が書いたテキストがドキュメント内でハイライトされます。",
+        "versions": "バージョン",
+        "noVersions": "編集が一段落すると自動的にバージョンが記録されます。",
+        "initialVersion": "初期ドキュメント",
+        "added": "追加 {{count}}",
+        "edited": "変更 {{count}}",
+        "removed": "削除 {{count}}",
+        "noTextChanges": "テキストの変更なし",
+        "restore": "復元",
+        "restoreConfirm": "このバージョンに復元しますか？現在の内容はまずバージョンとして保存されます。",
+        "restoredBadge": "復元済み",
+        "online": "オンライン",
+        "offline": "オフライン"
     }
 }

@@ -222,7 +222,7 @@
     },
     "collab": {
         "share": "Collaborate",
-        "sharingBadge": "Live · {{count}}",
+        "sharingBadge": "Live",
         "createTitle": "Invite to edit",
         "createSubtitle": "Peer-to-peer over WebRTC — the document syncs directly between browsers and never touches a server.",
         "passwordLabel": "Access password",
@@ -236,7 +236,7 @@
         "cancel": "Cancel",
         "create": "Create invite link",
         "creating": "Creating…",
-        "manageTitle": "Collaboration",
+        "manageTitle": "Invite links",
         "expiresAt": "Invite valid until: {{when}}",
         "editLink": "Collaboration link (can edit)",
         "readonlyLink": "Read-only link",
@@ -246,8 +246,6 @@
         "passwordOnce": "Password: {{password}} — it is not stored and cannot be shown again. Share it separately.",
         "linkOnlyHint": "Anyone with this link can join (the access secret is embedded in it).",
         "passwordSetHint": "Joining requires the password you set. It is not stored here.",
-        "peersLabel": "Online collaborators",
-        "noPeers": "No one else is online yet",
         "stopSharing": "Stop sharing",
         "done": "Done",
         "guestHeader": "Collaborative document",
@@ -257,8 +255,6 @@
         "closedBannerViewer": "The host ended this session. The document stays visible, but it no longer receives updates.",
         "expiredBanner": "This invite link has expired. Your local copy stays editable, but changes no longer sync.",
         "expiredBannerViewer": "This invite link has expired. The document stays visible, but it no longer receives updates.",
-        "onlineWith": "Online: {{names}}",
-        "aloneOnline": "No other participant online — edits sync when someone reconnects",
         "reconnecting": "Reconnecting…",
         "join": {
             "title": "Join collaborative editing",
@@ -284,5 +280,25 @@
             "backEditor": "Open editor",
             "connectingPeer": "Found a participant — establishing the peer-to-peer connection… If this takes long, a firewall may be blocking WebRTC."
         }
+    },
+    "versioning": {
+        "button": "Collaboration",
+        "title": "Collaboration",
+        "collaborators": "Collaborators",
+        "noCollaborators": "No edits recorded yet",
+        "you": "you",
+        "colorHint": "Select people to highlight the text they wrote in the document.",
+        "versions": "Versions",
+        "noVersions": "Versions are captured automatically shortly after edits pause.",
+        "initialVersion": "Initial document",
+        "added": "{{count}} added",
+        "edited": "{{count}} edited",
+        "removed": "{{count}} removed",
+        "noTextChanges": "No text changes",
+        "restore": "Restore",
+        "restoreConfirm": "Restore this version? The current content is saved as a version first.",
+        "restoredBadge": "restored",
+        "online": "online",
+        "offline": "offline"
     }
 }

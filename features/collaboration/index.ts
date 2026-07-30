@@ -1,6 +1,7 @@
 export { CollabBridge, type CollabControl } from "./components/collab-bridge";
 export { collabImageLoader } from "./lib/collab-image-loader";
 export { ShareModal } from "./components/share-modal";
+export { VersioningPanel } from "./components/versioning-panel";
 export { CollabApp } from "./components/collab-app";
 export {
     clearDraft,
