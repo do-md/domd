@@ -339,12 +339,16 @@ export function CollabApp() {
         void (async () => {
             const iceServers = await getIceServers();
             if (controller.signal.aborted) return;
+            // Temporary identity for the bootstrap connection; the durable
+            // clientId is used once the editor session attaches. The SAME id
+            // must go to both the transport and fetchInitialState — peers
+            // answer "hello" via postTo(msg.from), which routes by the
+            // transport-level peer id.
+            const bootstrapId = generateClientId();
             transport = createWebRtcTransport({
                 signalingUrl: getSignalingUrl(),
                 roomId: room.id,
-                // Temporary identity for the bootstrap connection; the
-                // durable clientId is used once the editor session attaches.
-                clientId: generateClientId(),
+                clientId: bootstrapId,
                 key: room.key,
                 exp: room.exp,
                 iceServers,
@@ -352,6 +356,7 @@ export function CollabApp() {
             });
             const bytes = await fetchInitialState(transport, {
                 signal: controller.signal,
+                clientId: bootstrapId,
             });
             transport.close();
             if (!bytes || controller.signal.aborted) return;
