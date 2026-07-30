@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { DOMD, DOMDProvider, useEditorStoreApi } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
+import { appInlineRules } from "@/common/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
 import { docFromBase64 } from "@/plugins/collaboration/crdt-sync";
 import {
@@ -247,6 +248,7 @@ function LivePane({
                     initMd={config.isOriginOwner ? initialMd : ""}
                     placeholder={t("live.placeholder")}
                     codeTokenizer={tokenize}
+                    inlineRules={appInlineRules}
                     codeBeautify={beautify}
                 >
                     <LiveBridge

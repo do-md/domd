@@ -18,6 +18,7 @@ import {
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
+import { appInlineRules } from "@/common/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 
@@ -279,6 +280,7 @@ export const DomdChatInput = forwardRef<DomdChatInputHandle, Props>(
                 initMd={initialMd}
                 placeholder={t("chat.input.placeholder")}
                 codeTokenizer={tokenize}
+                inlineRules={appInlineRules}
                 codeBeautify={beautify}
                 newlineKey={expanded ? undefined : "Shift+Enter"}
                 onEnter={expanded ? undefined : submitFromStore}

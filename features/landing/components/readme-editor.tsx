@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { DOMD, DOMDProvider } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
+import { appInlineRules } from "@/common/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
 import { pickByLocale } from "@/common/lib/locale";
 import {
@@ -315,6 +316,7 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
                         editable={false}
                         initMd={streams.en}
                         codeTokenizer={tokenize}
+                        inlineRules={appInlineRules}
                     >
                         <DOMD />
                     </DOMDProvider>
@@ -328,6 +330,7 @@ export function ReadmeEditor({ streams }: { streams: ReadmeStreams }) {
                         editable={false}
                         initMd=""
                         codeTokenizer={tokenize}
+                        inlineRules={appInlineRules}
                         codeBeautify={beautify}
                     >
                         <DOMD />
