@@ -151,11 +151,11 @@ npm run tauri dev
 
 DOMD は product-first なプロジェクトです。
 
-macOS アプリ、Web アプリ、補助ライブラリを含むアプリケーション層は、それぞれのライセンスに基づいてオープンソースとして公開されています。学習、個人利用、コントリビューション、透明性のためのものです。
+macOS アプリ、Web アプリ、補助ライブラリ、DOMD カーネルプラグインを含むアプリケーション層は、すべて MIT License のもとでオープンソースとして公開されています。学習、個人利用、コントリビューション、透明性のためのものです。
 
-コア編集エンジンである `@do-md/dist` は別ライセンスで提供され、事前ビルド済みの成果物として配布されます。ライセンスは PolyForm Noncommercial 1.0.0 です。`@do-md/dist` には DOMD の Markdown 編集機能とレンダリング機能が含まれます。
+コア編集エンジンは、独立した npm パッケージ [`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react) として公開されています。このパッケージには PolyForm Noncommercial 1.0.0 ライセンスが個別に適用され、DOMD の Markdown 編集機能とレンダリング機能が含まれます。
 
-`@do-md/dist` は、以下の用途で利用できます。
+`@do-md/core-react` は、以下の用途で利用できます。
 
 * 評価と試用
 * 個人プロジェクト
