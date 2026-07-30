@@ -149,11 +149,11 @@ npm run tauri dev
 
 DOMD 是一个产品优先的项目。
 
-应用层代码，包括 macOS 应用、Web 应用和辅助库，会根据各自许可证开源，方便学习、个人使用、贡献和审查。
+应用层代码，包括 macOS 应用、Web 应用、辅助库和 DOMD 内核插件，均以 MIT License 开源，方便学习、个人使用、贡献和审查。
 
-核心编辑器引擎 `@do-md/dist` 单独授权，并以预构建产物形式发布，使用 PolyForm Noncommercial 1.0.0 许可证。它包含 DOMD 的 Markdown 编辑和渲染能力。
+核心编辑器内核以独立 npm 包 [`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react) 发布，并单独使用 PolyForm Noncommercial 1.0.0 许可证授权。该包提供 DOMD 的 Markdown 编辑和渲染能力。
 
-你可以在以下场景中使用 `@do-md/dist`：
+你可以在以下场景中使用 `@do-md/core-react`：
 
 * 评估和试用
 * 个人项目

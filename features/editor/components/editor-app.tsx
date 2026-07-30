@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { track } from "@vercel/analytics";
 import { BrandMark } from "@/common/components/brand-mark";
 import { tokenize } from "@/common/lib/prism";
+import { appInlineRules } from "@/common/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
 import { isTauri } from "@/common/lib/platform";
 import { tauriApp, tauriCore } from "@/common/lib/tauri";
@@ -245,6 +246,7 @@ export function EditorApp() {
                 initMd={content}
                 imageLoader={collabImageLoader}
                 codeTokenizer={tokenize}
+                inlineRules={appInlineRules}
                 codeBeautify={beautify}
             >
                 <ImageDropHandler />

@@ -166,3 +166,17 @@ body {
 :root[lang="ja"] .DOMD-EmptyDetailContent:empty:not(:focus)::after {
     content: "空のトグル" !important;
 }
+
+/* ---------------------------------------------------------------------------
+ * Extended inline syntax (common/lib/inline-rules.ts).
+ * Colored highlight (`=={color}text==`) is INLINE STYLE via the rule's
+ * capture — no per-color classes needed. Only the base hook remains; colored
+ * marks carry their own background, so text color stays readable.
+ * ------------------------------------------------------------------------- */
+.custom-highlight {
+    border-radius: 0.2em;
+    padding: 0 0.15em;
+}
+mark.custom-highlight[style] {
+    color: inherit;
+}

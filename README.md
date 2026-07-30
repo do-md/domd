@@ -137,11 +137,11 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for full setup and contribution notes.
 
 ## Licensing
 
-DOMD is a product-first project. The application layer, including the macOS app, web app, and helper libraries, is open-source under their respective licenses for learning, personal use, contribution, and transparency.
+DOMD is a product-first project. The application layer, including the macOS app, web app, helper libraries, and DOMD kernel plugins, is open-source under the MIT License for learning, personal use, contribution, and transparency.
 
-The core editor engine, `@do-md/dist`, is separately licensed and distributed as a prebuilt build artifact under the PolyForm Noncommercial 1.0.0 license. It includes DOMD's Markdown editing and rendering capabilities.
+The core editor engine is independently published on npm as [`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react) and separately licensed under the PolyForm Noncommercial 1.0.0 license. The package provides DOMD's Markdown editing and rendering capabilities.
 
-You may use `@do-md/dist` for evaluation, personal projects, non-commercial projects, including non-commercial open-source projects, experiments, and prototypes.
+You may use `@do-md/core-react` for evaluation, personal projects, non-commercial projects, including non-commercial open-source projects, experiments, and prototypes.
 
 Commercial use requires prior written authorization. This includes commercial embedding, SaaS/product integration, redistribution, or offering DOMD as part of a paid product, SDK, editor component, or hosted service.
 
