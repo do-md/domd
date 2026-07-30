@@ -31,42 +31,42 @@ export const appInlineRules: InlineRule[] = [
     // color-mix handles named colors and hex alike and adds translucency so
     // text stays readable on light and dark themes.
     // Supersedes the kernel default `==` rule (same char+length).
-    // {
-    //     char: "=",
-    //     length: 2,
-    //     capture: {
-    //         to: "style",
-    //         template:
-    //             "background-color: color-mix(in srgb, {} 80%, transparent)",
-    //     },
-    //     tagName: "mark",
-    //     className: "custom-highlight",
-    // },
+    {
+        char: "=",
+        length: 2,
+        capture: {
+            to: "style",
+            template:
+                "background-color: color-mix(in srgb, {} 80%, transparent)",
+        },
+        tagName: "mark",
+        className: "custom-highlight",
+    },
     // `^text^` — superscript. Exact single delimiter, no spaces (so casual
     // carets in prose don't trigger it).
-    // {
-    //     char: "^",
-    //     length: 1,
-    //     exactLen: true,
-    //     allowSpace: false,
-    //     tagName: "sup",
-    // },
+    {
+        char: "^",
+        length: 1,
+        exactLen: true,
+        allowSpace: false,
+        tagName: "sup",
+    },
     // `~text~` — subscript. Single `~` only; `~~` stays strikethrough.
-    // {
-    //     char: "~",
-    //     length: 1,
-    //     exactLen: true,
-    //     allowSpace: false,
-    //     tagName: "sub",
-    // },
+    {
+        char: "~",
+        length: 1,
+        exactLen: true,
+        allowSpace: false,
+        tagName: "sub",
+    },
     // `!!{cls}text!!` — custom span carrying arbitrary classes.
     // (`char` is the single delimiter character; `length: 2` makes it `!!`.)
-    // {
-    //     char: "!",
-    //     length: 2,
-    //     exactLen: true,
-    //     capture: { to: "class" },
-    //     tagName: "span",
-    //     className: "custom-span",
-    // },
+    {
+        char: "!",
+        length: 2,
+        exactLen: true,
+        capture: { to: "class" },
+        tagName: "span",
+        className: "custom-span",
+    },
 ];
