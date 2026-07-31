@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { DOMD, DOMDProvider } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
-import { appInlineRules } from "@/common/lib/inline-rules";
+import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import type { ChatMessage } from "../lib/types";
 
 // Collapsed user bubbles cap at this height; taller content gets an Expand

@@ -168,15 +168,70 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
- * Extended inline syntax (common/lib/inline-rules.ts).
- * Colored highlight (`=={color}text==`) is INLINE STYLE via the rule's
- * capture — no per-color classes needed. Only the base hook remains; colored
- * marks carry their own background, so text color stays readable.
+ * inlineRules v2 demo styling (features/editor/lib/inline-rules.tsx).
+ * Rule spans carry data-inline-rule / data-inline-variant attributes, and
+ * every `.word` in a `{…}` param block lands as a class — both are targetable
+ * from plain CSS (the "unregistered variant degrades to a class" path).
  * ------------------------------------------------------------------------- */
-.custom-highlight {
-    border-radius: 0.2em;
-    padding: 0 0.15em;
+
+/* [[wikilink]] */
+.wikilink {
+    color: oklch(55% 0.18 260);
+    border-bottom: 1px dashed oklch(55% 0.18 260 / 0.6);
+    cursor: pointer;
 }
-mark.custom-highlight[style] {
-    color: inherit;
+
+/* <{.mention id=1}Name> — component channel pill */
+.mention {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.15em;
+    padding: 0 0.35em;
+    border-radius: 0.6em;
+    background: oklch(55% 0.18 260 / 0.12);
+    color: oklch(45% 0.16 260);
+    cursor: pointer;
+}
+.mention:hover {
+    background: oklch(55% 0.18 260 / 0.22);
+}
+.mention-badge {
+    font-size: 0.8em;
+    opacity: 0.65;
+    user-select: none;
+}
+
+/* =={.comment}text== — registered variant (renders as <q>) */
+.inline-comment {
+    quotes: none;
+    background: oklch(85% 0.08 90 / 0.35);
+    border-bottom: 2px dotted oklch(70% 0.12 90);
+    cursor: help;
+}
+
+/* =={.warn}text== — NOT a registered variant: `.warn` arrives purely as a
+ * class (graceful degrade), styled here to prove the path works. */
+.warn {
+    text-decoration: underline wavy oklch(65% 0.18 40);
+    text-underline-offset: 3px;
+}
+
+/* 💬 badge inside the component-rendered comment variant */
+.comment-badge {
+    font-size: 0.75em;
+    margin-left: 0.15em;
+    user-select: none;
+    opacity: 0.8;
+}
+
+/* <{…}…> generic parameterized span (no variant matched) */
+.angle-span {
+    border-bottom: 1px dotted currentColor;
+    opacity: 0.9;
+}
+
+/* Comment span while its popover is open */
+.comment-active {
+    background: oklch(85% 0.08 90 / 0.6);
+    border-bottom-style: solid;
 }

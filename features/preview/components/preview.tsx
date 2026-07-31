@@ -13,7 +13,7 @@ import {
     subscribeGrammarLoad,
     tokenize,
 } from "@/common/lib/prism";
-import { appInlineRules } from "@/common/lib/inline-rules";
+import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import { loadImage } from "@/common/lib/image-storage";
 import { useLatest } from "@/common/lib/use-latest";
 

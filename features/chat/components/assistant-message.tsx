@@ -10,7 +10,7 @@ import {
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
-import { appInlineRules } from "@/common/lib/inline-rules";
+import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import i18n from "@/common/i18n";
 import { ChatStreamError } from "../lib/stream";
 import type { ChatMessage, StreamSource } from "../lib/types";

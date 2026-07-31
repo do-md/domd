@@ -41,7 +41,7 @@ import {
 import "@do-md/core-react/style.css";
 import { BrandMark } from "@/common/components/brand-mark";
 import { tokenize } from "@/common/lib/prism";
-import { appInlineRules } from "@/common/lib/inline-rules";
+import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
 // Direct module import (not the features/editor barrel) to avoid a cycle:
 // editor's barrel imports from features/collaboration.
