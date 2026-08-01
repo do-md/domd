@@ -13,7 +13,7 @@
         "lint": "eslint"
     },
     "dependencies": {
-        "@do-md/core-react": "^0.6.0",
+        "@do-md/core-react": "^0.7.0",
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/plugin-deep-link": "^2.4.8",
         "@tauri-apps/plugin-dialog": "^2.7.0",
@@ -22,6 +22,7 @@
         "@vercel/analytics": "^2.0.1",
         "daisyui": "^5.5.19",
         "dexie": "^4.0.11",
+        "diff-match-patch": "^1.0.5",
         "i18next": "^25.10.10",
         "immer": "^11.1.4",
         "js-beautify": "^2.0.3",
@@ -36,6 +37,7 @@
     "devDependencies": {
         "@tailwindcss/postcss": "^4",
         "@tauri-apps/cli": "^2.10.1",
+        "@types/diff-match-patch": "^1.0.36",
         "@types/js-beautify": "^1.14.3",
         "@types/node": "20.19.43",
         "@types/prismjs": "^1.26.6",

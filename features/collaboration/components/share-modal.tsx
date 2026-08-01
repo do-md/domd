@@ -26,7 +26,8 @@ import {
     generateRoomId,
 } from "../lib/crypto";
 import { buildInviteUrl } from "../lib/invite";
-import { putRoom } from "../lib/collab-db";
+import { putRoom } from "../lib/collab-store";
+import { isTauri } from "@/common/lib/platform";
 import type { RoomRecord } from "../lib/types";
 
 type ExpiryChoice = "1h" | "24h" | "7d" | "never";
@@ -133,8 +134,10 @@ export function ShareModal({
             const trimmed = password.trim();
             const linkSecret = trimmed ? null : generateLinkSecret();
             const secret = trimmed || linkSecret!;
+            // Desktop keys must be extractable: the SQLite backend stores
+            // raw key bytes (IndexedDB structured-clone is unavailable).
             const [key, keyCheck] = await Promise.all([
-                deriveRoomKey(secret, roomId, exp),
+                deriveRoomKey(secret, roomId, exp, isTauri()),
                 deriveKeyCheck(secret, roomId, exp),
             ]);
             const now = Date.now();

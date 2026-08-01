@@ -5,6 +5,8 @@ import {
 } from "@/common/lib/image-storage";
 import { tauriCore, tauriDialog } from "@/common/lib/tauri";
 import i18n from "@/common/i18n";
+import { isKnownDiskContent, markKnownDiskContent } from "./disk-sync";
+import { buildFrontmatterBlock, withFrontmatter } from "./frontmatter";
 import type { FileMeta } from "./types";
 
 export type SaveResult =
@@ -37,7 +39,23 @@ async function saveTauri(
 ): Promise<SaveResult> {
     const { invoke } = await tauriCore();
     if (currentMeta.path) {
-        await invoke("write_file", { path: currentMeta.path, content: md });
+        // Re-attach the frontmatter block stripped at load time — the disk
+        // file keeps its identity even though the editor never saw it.
+        const full = withFrontmatter(currentMeta.frontmatter, md);
+        // Skip byte-identical writes: after a reconcile pulled an external
+        // edit in, the merged state usually equals the disk file exactly —
+        // rewriting it would only bump mtime and trip other editors'
+        // conflict detection (Typora's "changed by another application").
+        if (isKnownDiskContent(currentMeta.path, full)) {
+            return { ok: true, meta: currentMeta };
+        }
+        // Registered BEFORE the write so the file watcher's change event
+        // for our own save is recognized as an echo (disk-reconciler).
+        markKnownDiskContent(currentMeta.path, full);
+        await invoke("write_file", {
+            path: currentMeta.path,
+            content: full,
+        });
         return { ok: true, meta: currentMeta };
     }
     const suggested = await resolveSuggestedName(invoke, getTitle);
@@ -47,10 +65,22 @@ async function saveTauri(
         filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
     });
     if (!selectedPath) return { ok: false };
-    await invoke("write_file", { path: selectedPath, content: md });
+    // First save of a new document: mint its identity here so the file lands
+    // on disk with a frontmatter domd-id from the very first byte.
+    const docId = currentMeta.docId ?? crypto.randomUUID();
+    const frontmatter = currentMeta.frontmatter ?? buildFrontmatterBlock(docId);
+    const full = withFrontmatter(frontmatter, md);
+    markKnownDiskContent(selectedPath, full);
+    await invoke("write_file", {
+        path: selectedPath,
+        content: full,
+    });
     await invoke("set_window_path", { path: selectedPath });
     const name = selectedPath.split("/").pop() ?? selectedPath;
-    return { ok: true, meta: { kind: "tauri", path: selectedPath, name } };
+    return {
+        ok: true,
+        meta: { kind: "tauri", path: selectedPath, name, docId, frontmatter },
+    };
 }
 
 async function resolveSuggestedName(

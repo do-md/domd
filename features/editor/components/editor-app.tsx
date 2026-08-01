@@ -21,15 +21,18 @@ import {
     CollabBridge,
     ShareModal,
     VersioningPanel,
+    clearCollabDocId,
     clearDraft,
     collabImageLoader,
     deleteRoomData,
     getActiveHostRoom,
     loadDraft,
     loadRoomDocBytes,
+    setCollabDocId,
     type CollabControl,
     type RoomRecord,
 } from "@/features/collaboration";
+import { DiskReconciler, ScratchStoreBinder } from "./disk-reconciler";
 import { NewDocModal } from "./new-doc-modal";
 import { ImageDropHandler } from "../hooks/use-image-drop";
 import { useDocumentLoaders } from "../hooks/use-document-loaders";
@@ -71,6 +74,9 @@ export function EditorApp() {
     const [showNewDocModal, setShowNewDocModal] = useState(false);
     const [versioningHandle, setVersioningHandle] =
         useState<VersioningHandle | null>(null);
+    /** Monotonic counter, bumped when a collab session finishes attaching —
+     *  the disk reconciler calibrates the shared doc against the file. */
+    const [collabEpoch, setCollabEpoch] = useState(0);
     const [showVersioning, setShowVersioning] = useState(false);
     const [highlightTargets, setHighlightTargets] = useState<
         HighlightTarget[]
@@ -79,19 +85,27 @@ export function EditorApp() {
     const collabRoomRef = useRef(collabRoom);
     collabRoomRef.current = collabRoom;
 
+    /** Drop the live session state WITHOUT deleting the room record — used
+     *  on desktop when another document loads into this window: the room
+     *  stays in `.domd/collab.db` bound to its doc id and resumes when that
+     *  file is reopened. */
+    const detachSharing = useCallback(() => {
+        setCollabRoom(null);
+        setCollabBytes(null);
+        setCollabPeers([]);
+        setShowVersioning(false);
+        setHighlightTargets([]);
+    }, []);
+
     /** Broadcast dissolution to peers (if live) and drop the room locally.
      *  The document itself stays in the editor and in the local draft. */
     const dissolveSharing = useCallback(async () => {
         const room = collabRoomRef.current;
         if (!room) return;
         collabControlRef.current?.closeRoom();
-        setCollabRoom(null);
-        setCollabBytes(null);
-        setCollabPeers([]);
-        setShowVersioning(false);
-        setHighlightTargets([]);
+        detachSharing();
         await deleteRoomData(room.id);
-    }, []);
+    }, [detachSharing]);
 
     /** New document: dissolve any live room, drop the draft, start blank. */
     const handleNewDoc = useCallback(async () => {
@@ -186,15 +200,73 @@ export function EditorApp() {
     }, []);
 
     // Tauri: listen for open-file events (fired when Rust reuses this window
-    // for a file double-clicked elsewhere).
+    // for a file double-clicked elsewhere). Detach (not dissolve) any live
+    // session first — the room stays bound to its document in SQLite.
     useTauriEvent<string>("open-file", (path) => {
+        detachSharing();
         loadTauriPath(path);
     });
 
     // Tauri: menu → "Open URL..." opens the same modal as the web button.
     useTauriEvent("menu-open-url", () => setShowUrlModal(true));
 
-    const tauriDragging = useTauriDragDrop(claimAndLoadTauriPath);
+    // ---- Desktop collaboration (Tauri mode, host side) ----
+
+    // Keep the storage backend keyed to the open document's frontmatter
+    // domd-id (rooms live in the machine-global ~/.domd/collab.db — whether
+    // the file is saved to disk is irrelevant). Also resume a previously
+    // hosted session for this document (bytes are the shared origin — the
+    // attach flushes them over the current editor content).
+    const tauriDocId = meta?.kind === "tauri" ? (meta.docId ?? null) : null;
+    useEffect(() => {
+        if (!isTauri()) return;
+        if (!tauriDocId) {
+            clearCollabDocId();
+            return;
+        }
+        setCollabDocId(tauriDocId);
+        if (collabRoomRef.current) return;
+        let cancelled = false;
+        void (async () => {
+            const room = await getActiveHostRoom();
+            if (!room || cancelled) return;
+            const bytes = await loadRoomDocBytes(room.id);
+            if (cancelled) return;
+            setCollabBytes(bytes ?? null);
+            setCollabRoom(room);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [tauriDocId]);
+
+    // Native titlebar "share" button — same modal as the web entry point.
+    // Works on unsaved documents too: the doc id exists from creation.
+    useTauriEvent("titlebar-share", () => setShowShareModal(true));
+
+    // Native titlebar "manage" button — same panel as the web entry point.
+    const versioningHandleRef = useRef(versioningHandle);
+    versioningHandleRef.current = versioningHandle;
+    useTauriEvent("titlebar-versioning", () => {
+        if (versioningHandleRef.current) setShowVersioning((v) => !v);
+    });
+
+    // Mirror session state to Rust so the titlebar buttons can reflect it
+    // (share button tint + manage button visibility).
+    useEffect(() => {
+        if (!isTauri()) return;
+        tauriCore().then(({ invoke }) => {
+            invoke("set_collab_state", {
+                active: collabRoom !== null,
+                peers: collabPeers.length,
+            }).catch(() => {});
+        });
+    }, [collabRoom, collabPeers]);
+
+    const tauriDragging = useTauriDragDrop((path) => {
+        detachSharing();
+        void claimAndLoadTauriPath(path);
+    });
     const { dragging: webDragging, dragHandlers } = useWebDragDrop(
         ({ file, handle }) => {
             // Loading a different document dissolves the hosted room first.
@@ -258,9 +330,17 @@ export function EditorApp() {
                         controlRef={collabControlRef}
                         onPeers={setCollabPeers}
                         onVersioning={setVersioningHandle}
+                        onAttached={() => setCollabEpoch((n) => n + 1)}
                         onError={(message) =>
                             console.warn("[collab] attach failed:", message)
                         }
+                    />
+                ) : null}
+                {!isWeb ? (
+                    <DiskReconciler
+                        meta={meta}
+                        onMetaUpdate={setMeta}
+                        collabEpoch={collabEpoch}
                     />
                 ) : null}
                 <Editor
@@ -288,12 +368,30 @@ export function EditorApp() {
                 ) : null}
             </DOMDProvider>
 
+            {/* Hidden scratch provider (store only — no <DOMD/> surface, so
+                no editor DOM): canonicalizes external markdown for the disk
+                reconciler with the same parsing options as the live editor. */}
+            {!isWeb ? (
+                <DOMDProvider
+                    editable={false}
+                    initMd=""
+                    placeholder=""
+                    codeTokenizer={tokenize}
+                    inlineRules={appInlineRules}
+                    codeBeautify={beautify}
+                >
+                    <ScratchStoreBinder />
+                </DOMDProvider>
+            ) : null}
+
             {showVersioning && versioningHandle && collabRoom ? (
                 <VersioningPanel
                     handle={versioningHandle}
                     selfClientId={collabRoom.clientId}
                     onlineClientIds={collabPeers.map((p) => p.clientId)}
-                    topClassName="top-9"
+                    // Web: below the 36px web top bar. Desktop: the native
+                    // titlebar sits above the webview, so flush to the top.
+                    topClassName={isWeb ? "top-9" : "top-0"}
                     onClose={() => {
                         setShowVersioning(false);
                         setHighlightTargets([]);

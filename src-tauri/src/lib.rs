@@ -7,6 +7,10 @@ use tauri::menu::{AboutMetadataBuilder, Menu, MenuItem, PredefinedMenuItem, Subm
 
 mod benchmark;
 mod cli_server;
+mod collab_db;
+mod file_watch;
+#[cfg(target_os = "macos")]
+mod titlebar;
 #[cfg(target_os = "macos")]
 mod untitled_doc;
 
@@ -567,6 +571,16 @@ fn force_close_window(window: Window) {
     let _ = window.destroy();
 }
 
+/// FE mirrors the collaboration session state (active + online peer count)
+/// so the native titlebar buttons can reflect it. No-op off macOS.
+#[tauri::command]
+fn set_collab_state(window: Window, active: bool, peers: u32) {
+    #[cfg(target_os = "macos")]
+    titlebar::set_state(&window, active, peers);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, active, peers);
+}
+
 fn domd_assets_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let home = app.path().home_dir().map_err(|e| e.to_string())?;
     let dir = home.join(".domd").join("assets");
@@ -621,6 +635,8 @@ pub(crate) fn new_empty_window(app: &AppHandle) -> String {
         .resizable(true)
         .build();
     if let Ok(win) = result {
+        #[cfg(target_os = "macos")]
+        titlebar::install(&win);
         let _ = win.set_focus();
     }
     label
@@ -648,6 +664,8 @@ pub(crate) fn open_file_window(app: &AppHandle, path: String) -> String {
         .build();
 
     if let Ok(win) = result {
+        #[cfg(target_os = "macos")]
+        titlebar::install(&win);
         let _ = win.set_focus();
     }
     label
@@ -1071,6 +1089,14 @@ pub fn run() {
             update_content,
             get_system_locale,
             set_locale,
+            set_collab_state,
+            collab_db::collab_put_room,
+            collab_db::collab_get_room,
+            collab_db::collab_active_host_room,
+            collab_db::collab_deactivate_room,
+            collab_db::collab_delete_room,
+            collab_db::collab_save_doc_bytes,
+            collab_db::collab_load_doc_bytes,
             benchmark::benchmark_mark_ready,
         ])
         .on_window_event(|window, event| {
@@ -1118,6 +1144,7 @@ pub fn run() {
                     #[cfg(target_os = "macos")]
                     {
                         app.state::<WindowDocs>().0.lock().unwrap().remove(&label);
+                        titlebar::forget(&label);
                     }
                 }
                 _ => {}
@@ -1190,6 +1217,11 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             dock_menu::setup(app.handle());
 
+            // ── Titlebar collaboration buttons (macOS) ───────────────────────
+            // Selector registration must precede the first window install.
+            #[cfg(target_os = "macos")]
+            titlebar::setup(app.handle());
+
             // ── Initial window ───────────────────────────────────────────────
             // No window is declared in tauri.conf.json — we create it here so a
             // CLI-bootstrapped launch can stay window-less and let the incoming
@@ -1205,6 +1237,9 @@ pub fn run() {
 
             // ── CLI server (Unix socket at ~/.domd/cli.sock) ─────────────────
             tauri::async_runtime::spawn(cli_server::run(app.handle().clone()));
+
+            // ── External file-change watcher ─────────────────────────────────
+            tauri::async_runtime::spawn(file_watch::run(app.handle().clone()));
 
             Ok(())
         })

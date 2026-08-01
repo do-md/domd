@@ -1,3 +1,5 @@
+import { isTauri } from "@/common/lib/platform";
+
 const DEPLOYED_SIGNALING_URL =
     "wss://domd-signaling.wangjintaoapp.workers.dev";
 
@@ -5,11 +7,25 @@ const DEPLOYED_SIGNALING_URL =
  *  app from (https://www.domd.app in prod, a proxied dev domain like
  *  https://home3000.domd.app:1113 in dev) — guests open the same deployment
  *  the host is on. NOT hardcoded; NEXT_PUBLIC_SHARE_ORIGIN overrides when
- *  links should point at a different canonical host. */
+ *  links should point at a different canonical host.
+ *
+ *  Desktop wrinkle: a packaged Tauri app serves from tauri://localhost
+ *  (macOS/Linux) or http://tauri.localhost (Windows) — neither is a
+ *  joinable guest origin, so packaged desktop builds ALWAYS emit the
+ *  canonical https://www.domd.app. The only desktop exception is `tauri
+ *  dev`, whose webview loads the local dev server (localhost/127.0.0.1) —
+ *  that IS joinable for same-machine testing and is kept. */
 export const getShareOrigin = (): string => {
     const fromEnv = process.env.NEXT_PUBLIC_SHARE_ORIGIN;
     if (fromEnv) return fromEnv.replace(/\/$/, "");
-    if (typeof window !== "undefined") return window.location.origin;
+    if (typeof window !== "undefined") {
+        const { protocol, hostname, origin } = window.location;
+        const isLocalDevServer =
+            protocol === "http:" &&
+            (hostname === "localhost" || hostname === "127.0.0.1");
+        if (!isTauri()) return origin;
+        if (isLocalDevServer) return origin;
+    }
     return "https://www.domd.app";
 };
 

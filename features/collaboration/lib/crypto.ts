@@ -38,11 +38,15 @@ const importSecret = (secret: string): Promise<CryptoKey> =>
 const saltFor = (purpose: string, roomId: string, exp: number): Uint8Array =>
     new TextEncoder().encode(`domd-${purpose}:${roomId}:${exp}`);
 
-/** Non-extractable AES-GCM room key (safe to persist via structured clone). */
+/** AES-GCM room key. Non-extractable by default (safe to persist via
+ *  structured clone into IndexedDB). The desktop backend passes
+ *  `extractable: true` — SQLite cannot structured-clone a CryptoKey, so the
+ *  raw key bytes are exported and stored on the local disk instead. */
 export const deriveRoomKey = async (
     secret: string,
     roomId: string,
     exp: number,
+    extractable = false,
 ): Promise<CryptoKey> => {
     const base = await importSecret(secret);
     return crypto.subtle.deriveKey(
@@ -54,7 +58,7 @@ export const deriveRoomKey = async (
         },
         base,
         { name: "AES-GCM", length: 256 },
-        false,
+        extractable,
         ["encrypt", "decrypt"],
     );
 };

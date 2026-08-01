@@ -44,7 +44,7 @@ import {
     type VersioningHandle,
 } from "@/plugins/collaboration/versioning";
 import { getIceServers, getSignalingUrl } from "../lib/config";
-import { saveRoomDocBytes } from "../lib/collab-db";
+import { saveRoomDocBytes } from "../lib/collab-store";
 import {
     markCollabBlobFetcherExpected,
     setCollabBlobFetcher,
@@ -67,6 +67,7 @@ export function CollabBridge({
     onRoomClosed,
     onError,
     onVersioning,
+    onAttached,
 }: {
     room: RoomRecord;
     initialDocBytes: Uint8Array | null;
@@ -78,6 +79,10 @@ export function CollabBridge({
     /** Receives the versioning handle once the session attaches (null again
      *  on teardown). Drives the version-history panel. */
     onVersioning?: (handle: VersioningHandle | null) => void;
+    /** Fires once the realtime session is attached and the shared doc has
+     *  been flushed into the store (desktop uses it to calibrate against
+     *  the disk file). */
+    onAttached?: () => void;
 }) {
     const store = useEditorStoreApi();
     const attachedRef = useRef(false);
@@ -99,6 +104,8 @@ export function CollabBridge({
     onErrorRef.current = onError;
     const onVersioningRef = useRef(onVersioning);
     onVersioningRef.current = onVersioning;
+    const onAttachedRef = useRef(onAttached);
+    onAttachedRef.current = onAttached;
 
     useEffect(() => {
         if (!store || attachedRef.current) return;
@@ -197,6 +204,7 @@ export function CollabBridge({
                         closeRoom: () => handle?.closeRoom(),
                     };
                 }
+                onAttachedRef.current?.();
             } catch (e) {
                 transport.close();
                 transport = null;

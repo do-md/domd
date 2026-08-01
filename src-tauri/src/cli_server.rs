@@ -32,9 +32,13 @@ enum Request {
     Content {
         window_id: Option<String>,
     },
-    /// Open / focus / reuse a window for an existing file path.
+    /// Open / focus / reuse a window for an existing file path. With
+    /// `share=true` the share modal (invite to edit) opens right after the
+    /// window is ready — used by companion integrations (e.g. the Obsidian
+    /// plugin) whose entry point IS collaboration.
     OpenFile {
         path: String,
+        share: Option<bool>,
     },
     /// Save current window content to disk. If `path` is supplied, performs a
     /// save-as (and updates the window's tracked path + title).
@@ -202,7 +206,9 @@ async fn dispatch(app: &AppHandle, req: Request) -> Response {
         Request::ListWindows => handle_list(app),
         Request::Selection { window_id } => handle_selection(app, window_id).await,
         Request::Content { window_id } => handle_content(app, window_id).await,
-        Request::OpenFile { path } => handle_open_file(app, path).await,
+        Request::OpenFile { path, share } => {
+            handle_open_file(app, path, share.unwrap_or(false)).await
+        }
         Request::Save { window_id, path } => handle_save(app, window_id, path).await,
         Request::Close { window_id, force } => handle_close(app, window_id, force).await,
         Request::Focus { window_id } => handle_focus(app, window_id),
@@ -322,7 +328,7 @@ async fn handle_content(app: &AppHandle, window_id: Option<String>) -> Response 
     }
 }
 
-async fn handle_open_file(app: &AppHandle, path: String) -> Response {
+async fn handle_open_file(app: &AppHandle, path: String, share: bool) -> Response {
     let abs = match std::fs::canonicalize(&path) {
         Ok(p) => p.to_string_lossy().into_owned(),
         Err(_) => {
@@ -341,6 +347,15 @@ async fn handle_open_file(app: &AppHandle, path: String) -> Response {
             error: Some("window did not become ready in time".into()),
             ..Default::default()
         };
+    }
+    if share {
+        // Same event the native titlebar button emits — the frontend opens
+        // the share modal (create view, or manage view if already live).
+        // Ready fires two rAFs after first paint; the listener registers in
+        // the same commit, but its async IPC registration can lag slightly
+        // on a cold open — a short grace period closes that race.
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let _ = app.emit_to(outcome.window_id.as_str(), "titlebar-share", ());
     }
     Response {
         ok: true,
