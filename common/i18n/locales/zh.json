@@ -60,7 +60,21 @@
             "cancel": "取消",
             "confirm": "新建"
         },
-        "more": "更多操作"
+        "more": "更多操作",
+        "table": {
+            "addColumn": "在右侧新增列",
+            "addRow": "在下方新增行",
+            "insertColumnRight": "在右侧插入列",
+            "deleteColumn": "删除此列",
+            "insertRowBelow": "在下方插入行",
+            "deleteRow": "删除此行",
+            "columnMenu": "列选项",
+            "rowMenu": "行选项"
+        },
+        "insert": {
+            "table": "插入表格",
+            "checklist": "插入清单"
+        }
     },
     "updater": {
         "upToDate": "DOMD 已是最新版本。",

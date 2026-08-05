@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { DOMDProvider } from "@do-md/core-react";
+import { DOMDProvider, useEditorStoreApi } from "@do-md/core-react";
+import type { EditorStoreWithInserts } from "@/common/lib/editor-store-compat";
 import { useTranslation } from "react-i18next";
 import { track } from "@vercel/analytics";
 import { BrandMark } from "@/common/components/brand-mark";
@@ -42,6 +43,21 @@ import { useWebDragDrop } from "../hooks/use-web-drag-drop";
 import { UpdateBanner } from "@/features/updater/update-banner";
 import { Editor } from "./editor";
 import { UrlModal } from "./url-modal";
+import { CustomRender } from "../lib/custome-render";
+
+/**
+ * Bridges the native macOS titlebar insert buttons to the editor store.
+ * Rendered only on desktop, and only inside the DOMDProvider so it can reach
+ * the store. Mirrors the web InsertToolbar's actions 1:1.
+ */
+function TitlebarInsertBridge() {
+    const storeApi = useEditorStoreApi() as EditorStoreWithInserts | null;
+    useTauriEvent("titlebar-insert-table", () => storeApi?.insertTable());
+    useTauriEvent("titlebar-insert-checklist", () =>
+        storeApi?.insertCheckList(),
+    );
+    return null;
+}
 
 export function EditorApp() {
     const { t } = useTranslation();
@@ -320,8 +336,14 @@ export function EditorApp() {
                 codeTokenizer={tokenize}
                 inlineRules={appInlineRules}
                 codeBeautify={beautify}
+                renderComponent={CustomRender}
             >
                 <ImageDropHandler />
+                {/* Desktop has no web top bar; the native titlebar's
+                    table/checklist buttons emit these events (see
+                    src-tauri/src/titlebar.rs). This bridge lives inside the
+                    provider so it can reach the editor store. */}
+                {!isWeb ? <TitlebarInsertBridge /> : null}
                 {collabRoom ? (
                     <CollabBridge
                         key={collabRoom.id}

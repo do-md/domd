@@ -17,6 +17,7 @@ import {
 import "@do-md/core-react/style.css";
 import { useTranslation } from "react-i18next";
 import { BrandMark } from "@/common/components/brand-mark";
+import { InsertToolbar } from "@/common/components/insert-toolbar";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
 import { isTauri } from "@/common/lib/platform";
 import { tauriCore } from "@/common/lib/tauri";
@@ -166,6 +167,12 @@ export function Editor({
         window.toMarkdown = () => {
             return toMarkdown(renderData);
         };
+        // Debug/automation hook (same family as window.insertText below):
+        // exposes the store so headless drivers can reach state and actions
+        // that the rAF-debounced DOM selection sync never delivers in a
+        // hidden tab (e.g. setCursorInfo_ to place the caret).
+        // @ts-expect-error
+        window.__domdStore = store;
     }, [store, renderData]);
 
     useEffect(() => {
@@ -451,8 +458,12 @@ export function Editor({
                 }
             >
                 {showSaveBar ? (
-                    <div className="shrink-0 h-9 flex items-center gap-1.5 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
+                    <div className="relative shrink-0 h-9 flex items-center gap-1.5 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
                         <BrandMark />
+                        {/* macOS Notes-style centered insert entries: absolute
+                            so left brand / right actions never shove them off
+                            center. */}
+                        <InsertToolbar className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
                         <span className="flex-1" />
                         {onRequestNew ? (
                             <button

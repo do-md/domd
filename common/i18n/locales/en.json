@@ -60,7 +60,21 @@
             "cancel": "Cancel",
             "confirm": "Create new"
         },
-        "more": "More actions"
+        "more": "More actions",
+        "table": {
+            "addColumn": "Add column to the right",
+            "addRow": "Add row below",
+            "insertColumnRight": "Insert column right",
+            "deleteColumn": "Delete column",
+            "insertRowBelow": "Insert row below",
+            "deleteRow": "Delete row",
+            "columnMenu": "Column options",
+            "rowMenu": "Row options"
+        },
+        "insert": {
+            "table": "Insert table",
+            "checklist": "Insert checklist"
+        }
     },
     "updater": {
         "upToDate": "DOMD is up to date.",

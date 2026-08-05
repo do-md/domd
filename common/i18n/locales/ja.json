@@ -60,7 +60,21 @@
             "cancel": "キャンセル",
             "confirm": "作成"
         },
-        "more": "その他の操作"
+        "more": "その他の操作",
+        "table": {
+            "addColumn": "右に列を追加",
+            "addRow": "下に行を追加",
+            "insertColumnRight": "右に列を挿入",
+            "deleteColumn": "列を削除",
+            "insertRowBelow": "下に行を挿入",
+            "deleteRow": "行を削除",
+            "columnMenu": "列オプション",
+            "rowMenu": "行オプション"
+        },
+        "insert": {
+            "table": "表を挿入",
+            "checklist": "チェックリストを挿入"
+        }
     },
     "updater": {
         "upToDate": "DOMD は最新です。",

@@ -40,6 +40,7 @@ import {
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { BrandMark } from "@/common/components/brand-mark";
+import { InsertToolbar } from "@/common/components/insert-toolbar";
 import { tokenize } from "@/common/lib/prism";
 import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
@@ -92,6 +93,7 @@ import { isInviteExpired, parseInvite, type InviteParams } from "../lib/invite";
 import type { RoomRecord } from "../lib/types";
 import { CollabBridge, LocalCollabBridge } from "./collab-bridge";
 import { HistoryIcon, VersioningPanel } from "./versioning-panel";
+import { CustomRender } from "@/features/editor/lib/custome-render";
 
 type Phase =
     | { kind: "loading" }
@@ -582,66 +584,9 @@ export function CollabApp() {
                         : { top: 0, height: "100%" }
                 }
             >
-            <header className="shrink-0 h-10 flex items-center justify-between gap-2 px-3 bg-base-200 border-b border-base-300 select-none">
-                <BrandMark />
-                <div className="flex items-center gap-2 min-w-0">
-                    {versioningHandle && !roomClosed ? (
-                        <button
-                            onClick={() => setShowVersioning((v) => !v)}
-                            className="btn btn-xs btn-ghost gap-1 text-base-content/60 shrink-0"
-                            title={t("versioning.title")}
-                        >
-                            <HistoryIcon className="size-3.5" />
-                            {`${t("versioning.button")} · ${peers.length + 1}`}
-                        </button>
-                    ) : null}
-                    {roomClosed ? (
-                        <span className="badge badge-sm badge-warning badge-soft">
-                            {t("collab.closedBadge")}
-                        </span>
-                    ) : status?.signaling !== "open" ? (
-                        // Who is online lives in the collaboration panel;
-                        // the header only surfaces connectivity trouble.
-                        <span className="text-xs text-base-content/50 truncate">
-                            {t("collab.reconnecting")}
-                        </span>
-                    ) : null}
-                    {isViewer ? (
-                        <span className="badge badge-sm badge-soft shrink-0">
-                            {t("collab.viewerBadge")}
-                        </span>
-                    ) : (
-                        <span
-                            className="badge badge-sm border-0 gap-1.5 font-medium shrink-0"
-                            style={{
-                                color: room.color,
-                                background: `color-mix(in srgb, ${room.color} 12%, transparent)`,
-                            }}
-                        >
-                            <span
-                                className="inline-block size-1.5 rounded-full"
-                                style={{ background: room.color }}
-                            />
-                            {room.displayName}
-                        </span>
-                    )}
-                </div>
-            </header>
-
-            {closedState ? (
-                <div className="shrink-0 px-3 py-1.5 text-xs bg-warning text-warning-content border-b border-warning/20">
-                    {t(
-                        closedState.reason === "expired"
-                            ? isViewer
-                                ? "collab.expiredBannerViewer"
-                                : "collab.expiredBanner"
-                            : isViewer
-                              ? "collab.closedBannerViewer"
-                              : "collab.closedBanner",
-                    )}
-                </div>
-            ) : null}
-
+            {/* Header lives INSIDE the provider (which renders no DOM of its
+                own — pure context) so its centered InsertToolbar can reach the
+                editor store via useEditorStoreApi. */}
             <DOMDProvider
                 editable={!isViewer}
                 initMd={initialMd}
@@ -650,7 +595,73 @@ export function CollabApp() {
                 codeTokenizer={tokenize}
                 inlineRules={appInlineRules}
                 codeBeautify={beautify}
+                renderComponent={CustomRender}
             >
+                <header className="relative shrink-0 h-10 flex items-center justify-between gap-2 px-3 bg-base-200 border-b border-base-300 select-none">
+                    <BrandMark />
+                    {/* macOS Notes-style centered insert entries. Viewers are
+                        read-only, so they get none. */}
+                    {!isViewer ? (
+                        <InsertToolbar className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+                    ) : null}
+                    <div className="flex items-center gap-2 min-w-0">
+                        {versioningHandle && !roomClosed ? (
+                            <button
+                                onClick={() => setShowVersioning((v) => !v)}
+                                className="btn btn-xs btn-ghost gap-1 text-base-content/60 shrink-0"
+                                title={t("versioning.title")}
+                            >
+                                <HistoryIcon className="size-3.5" />
+                                {`${t("versioning.button")} · ${peers.length + 1}`}
+                            </button>
+                        ) : null}
+                        {roomClosed ? (
+                            <span className="badge badge-sm badge-warning badge-soft">
+                                {t("collab.closedBadge")}
+                            </span>
+                        ) : status?.signaling !== "open" ? (
+                            // Who is online lives in the collaboration panel;
+                            // the header only surfaces connectivity trouble.
+                            <span className="text-xs text-base-content/50 truncate">
+                                {t("collab.reconnecting")}
+                            </span>
+                        ) : null}
+                        {isViewer ? (
+                            <span className="badge badge-sm badge-soft shrink-0">
+                                {t("collab.viewerBadge")}
+                            </span>
+                        ) : (
+                            <span
+                                className="badge badge-sm border-0 gap-1.5 font-medium shrink-0"
+                                style={{
+                                    color: room.color,
+                                    background: `color-mix(in srgb, ${room.color} 12%, transparent)`,
+                                }}
+                            >
+                                <span
+                                    className="inline-block size-1.5 rounded-full"
+                                    style={{ background: room.color }}
+                                />
+                                {room.displayName}
+                            </span>
+                        )}
+                    </div>
+                </header>
+
+                {closedState ? (
+                    <div className="shrink-0 px-3 py-1.5 text-xs bg-warning text-warning-content border-b border-warning/20">
+                        {t(
+                            closedState.reason === "expired"
+                                ? isViewer
+                                    ? "collab.expiredBannerViewer"
+                                    : "collab.expiredBanner"
+                                : isViewer
+                                  ? "collab.closedBannerViewer"
+                                  : "collab.closedBanner",
+                        )}
+                    </div>
+                ) : null}
+
                 {!isViewer ? <ImageDropHandler /> : null}
                 {!roomClosed ? (
                     <CollabBridge

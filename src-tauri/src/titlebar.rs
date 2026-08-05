@@ -1,11 +1,18 @@
-//! Native macOS titlebar collaboration buttons.
+//! Native macOS titlebar buttons (insert entries + collaboration).
 //!
 //! Every editor window gets an NSTitlebarAccessoryViewController pinned to
-//! the trailing edge of the title bar with two SF-symbol buttons:
+//! the trailing edge of the title bar with four SF-symbol buttons:
 //!
-//!  - share  (person.2)                 -> emits `titlebar-share`
-//!  - manage (clock.arrow.circlepath)   -> emits `titlebar-versioning`,
+//!  - table     (tablecells)             -> emits `titlebar-insert-table`
+//!  - checklist (checklist)              -> emits `titlebar-insert-checklist`
+//!  - manage    (clock.arrow.circlepath) -> emits `titlebar-versioning`,
 //!    hidden until a collaboration session is active
+//!  - share     (person.2)               -> emits `titlebar-share`
+//!
+//! The two insert buttons mirror the web top bar's InsertToolbar (which the
+//! desktop app doesn't render — the native titlebar IS its top bar). The
+//! frontend handles the emitted events by calling the editor store
+//! (see features/editor/components/editor-app.tsx TitlebarInsertBridge).
 //!
 //! Click handling follows the dock-menu pattern: action selectors are added
 //! to the existing app delegate class at runtime, and the handler resolves
@@ -37,6 +44,30 @@ static BUTTONS: Mutex<Option<HashMap<String, (usize, usize)>>> = Mutex::new(None
 fn buttons_map(f: impl FnOnce(&mut HashMap<String, (usize, usize)>)) {
     let mut guard = BUTTONS.lock().unwrap();
     f(guard.get_or_insert_with(HashMap::new));
+}
+
+// Button grid: 28pt buttons on a 30pt step, 4pt leading pad. The manage
+// button only exists while a collaboration session is active — when idle it
+// is hidden AND the layout collapses (share slides left, container narrows)
+// so the titlebar shows no dead gap. `set_state` re-applies the layout on
+// every session-state change.
+const BTN_SIZE: NSSize = NSSize {
+    width: 28.0,
+    height: 20.0,
+};
+const BTN_STEP: f64 = 30.0;
+const BTN_PAD: f64 = 4.0;
+const BTN_Y: f64 = 3.0;
+
+fn slot_rect(slot: usize) -> NSRect {
+    NSRect::new(
+        NSPoint::new(BTN_PAD + BTN_STEP * slot as f64, BTN_Y),
+        BTN_SIZE,
+    )
+}
+
+fn container_size(slots: usize) -> NSSize {
+    NSSize::new(BTN_PAD * 2.0 + BTN_STEP * slots as f64 - 2.0, 26.0)
 }
 
 /// Register the click selectors on the app delegate. Call once at setup,
@@ -73,6 +104,24 @@ pub fn setup(handle: &AppHandle) {
                 extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject),
                 unsafe extern "C-unwind" fn(),
             >(manage_clicked),
+            c"v@:@".as_ptr(),
+        );
+        objc2::ffi::class_addMethod(
+            cls_ptr,
+            sel!(domdTitlebarInsertTable:),
+            std::mem::transmute::<
+                extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject),
+                unsafe extern "C-unwind" fn(),
+            >(insert_table_clicked),
+            c"v@:@".as_ptr(),
+        );
+        objc2::ffi::class_addMethod(
+            cls_ptr,
+            sel!(domdTitlebarInsertChecklist:),
+            std::mem::transmute::<
+                extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject),
+                unsafe extern "C-unwind" fn(),
+            >(insert_checklist_clicked),
             c"v@:@".as_ptr(),
         );
     }
@@ -151,9 +200,30 @@ fn install_on_main(win: &tauri::WebviewWindow, label: String) {
         let ns_window: &objc2_app_kit::NSWindow =
             &*(ns_window_ptr as *const objc2_app_kit::NSWindow);
 
+        // Layout (trailing edge, left→right): insert group [table, checklist]
+        // then collaboration group [manage?, share]. Initial state is the
+        // COLLAPSED (no session) layout: manage hidden and taking no slot.
         let container = NSView::initWithFrame(
             NSView::alloc(mtm),
-            NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(66.0, 26.0)),
+            NSRect::new(NSPoint::new(0.0, 0.0), container_size(3)),
+        );
+
+        let table = symbol_button(
+            mtm,
+            "tablecells",
+            "T",
+            sel!(domdTitlebarInsertTable:),
+            slot_rect(0),
+            &menu_i18n::t(locale, "editor.insert.table"),
+        );
+
+        let checklist = symbol_button(
+            mtm,
+            "checklist",
+            "C",
+            sel!(domdTitlebarInsertChecklist:),
+            slot_rect(1),
+            &menu_i18n::t(locale, "editor.insert.checklist"),
         );
 
         let manage = symbol_button(
@@ -161,7 +231,7 @@ fn install_on_main(win: &tauri::WebviewWindow, label: String) {
             "clock.arrow.circlepath",
             "H",
             sel!(domdTitlebarManage:),
-            NSRect::new(NSPoint::new(4.0, 3.0), NSSize::new(28.0, 20.0)),
+            slot_rect(2),
             &menu_i18n::t(locale, "versioning.title"),
         );
         manage.setHidden(true);
@@ -171,10 +241,12 @@ fn install_on_main(win: &tauri::WebviewWindow, label: String) {
             "person.2",
             "S",
             sel!(domdTitlebarShare:),
-            NSRect::new(NSPoint::new(34.0, 3.0), NSSize::new(28.0, 20.0)),
+            slot_rect(2),
             &menu_i18n::t(locale, "collab.share"),
         );
 
+        container.addSubview(&table);
+        container.addSubview(&checklist);
         container.addSubview(&manage);
         container.addSubview(&share);
 
@@ -219,7 +291,15 @@ pub fn set_state(window: &Window, active: bool, peers: u32) {
         unsafe {
             let share: &NSButton = &*(share_ptr as *const NSButton);
             let manage: &NSButton = &*(manage_ptr as *const NSButton);
+            // Reflow, not just hide: with no session the manage slot is
+            // removed entirely (share slides left, container narrows) so the
+            // titlebar never shows a dead gap.
             manage.setHidden(!active);
+            let share_slot = if active { 3 } else { 2 };
+            share.setFrame(slot_rect(share_slot));
+            if let Some(container) = share.superview() {
+                container.setFrameSize(container_size(share_slot + 1));
+            }
             if active {
                 share.setContentTintColor(Some(&NSColor::controlAccentColor()));
             } else {
@@ -267,4 +347,16 @@ extern "C-unwind" fn share_clicked(_this: *mut AnyObject, _sel: Sel, sender: *mu
 
 extern "C-unwind" fn manage_clicked(_this: *mut AnyObject, _sel: Sel, sender: *mut AnyObject) {
     emit_for_sender(sender, "titlebar-versioning");
+}
+
+extern "C-unwind" fn insert_table_clicked(_this: *mut AnyObject, _sel: Sel, sender: *mut AnyObject) {
+    emit_for_sender(sender, "titlebar-insert-table");
+}
+
+extern "C-unwind" fn insert_checklist_clicked(
+    _this: *mut AnyObject,
+    _sel: Sel,
+    sender: *mut AnyObject,
+) {
+    emit_for_sender(sender, "titlebar-insert-checklist");
 }
