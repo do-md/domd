@@ -56,7 +56,7 @@
     }
 
     pre[class*="language-"] {
-        margin: 0.5em 0;
+        margin-bottom: 1rem;
         overflow: auto;
     }
 
@@ -163,7 +163,7 @@
     }
 
     pre[class*="language-"] {
-        margin: 0.5em 0;
+        margin-bottom: 1rem;
         overflow: auto;
     }
 
