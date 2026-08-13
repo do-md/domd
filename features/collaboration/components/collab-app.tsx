@@ -36,11 +36,15 @@ import {
     toMarkdown,
     useEditor,
     useEditorStore,
+    useEditorStoreApi,
     useRenderData,
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { BrandMark } from "@/common/components/brand-mark";
+import { FormatDropdown } from "@/common/components/format-dropdown";
+import { FormatShortcuts } from "@/common/components/format-shortcuts";
 import { InsertToolbar } from "@/common/components/insert-toolbar";
+import { useApplePlatform } from "@/common/hooks/use-apple-platform";
 import {
     SidePanelHost,
     SidePanelProvider,
@@ -51,9 +55,17 @@ import {
 import { tokenize } from "@/common/lib/prism";
 import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
-// Direct module import (not the features/editor barrel) to avoid a cycle:
+// Direct module imports (not the features/editor barrel) to avoid a cycle:
 // editor's barrel imports from features/collaboration.
 import { ImageDropHandler } from "@/features/editor/hooks/use-image-drop";
+import { ModeController } from "@/features/editor/components/mode-controller";
+import {
+    MODE_TOGGLE_SHORTCUT,
+    toggleEditorMode,
+} from "@/features/editor/lib/editor-mode";
+import { exportToPdf } from "@/features/editor/lib/export-pdf";
+import { saveDocument } from "@/features/editor/lib/save-document";
+import type { FileMeta } from "@/features/editor/lib/types";
 import {
     fetchInitialState,
     type RealtimePeer,
@@ -112,15 +124,161 @@ type Phase =
     | { kind: "fetching"; room: RoomRecord }
     | { kind: "live"; room: RoomRecord; bytes: Uint8Array };
 
+function EllipsisVerticalIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className={className}
+            aria-hidden="true"
+        >
+            <circle cx="12" cy="5" r="1.8" />
+            <circle cx="12" cy="12" r="1.8" />
+            <circle cx="12" cy="19" r="1.8" />
+        </svg>
+    );
+}
+
+/** How long the "Downloaded" confirmation label lingers on the menu entry. */
+const SAVED_LABEL_MS = 2000;
+
+/**
+ * The "more" (⋯) menu, mirroring the host editor's entries that apply to a
+ * collaboration room: display-mode toggle, Download, Export PDF. "Open URL"
+ * is deliberately absent — a room has no document-loading path; the shared
+ * doc IS the document. Must render inside the DOMDProvider (store hooks).
+ */
+function CollabMoreMenu({
+    contentRef,
+}: {
+    contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
+    const { t } = useTranslation();
+    const store = useEditorStoreApi();
+    const mode = useEditorStore((s) => s.mode);
+    const renderData = useRenderData();
+    const mac = useApplePlatform();
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Web save target for "Download": starts handle-less (picker / anchor
+    // download), then keeps the handle a save minted so repeat downloads
+    // overwrite the same file — the host editor's web-save behavior.
+    const webMetaRef = useRef<Extract<FileMeta, { kind: "web" }>>({
+        kind: "web",
+        name: "Untitled.md",
+        handle: null,
+    });
+    useEffect(
+        () => () => {
+            if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        },
+        [],
+    );
+
+    const getTitle = useCallback(() => store?.getTitle() ?? "", [store]);
+
+    const handleDownload = useCallback(async () => {
+        if (saving) return;
+        setSaving(true);
+        try {
+            const md = toMarkdown(renderData) ?? "";
+            const result = await saveDocument(webMetaRef.current, md, getTitle);
+            if (result.ok && result.meta.kind === "web") {
+                webMetaRef.current = result.meta;
+                setSaved(true);
+                if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+                savedTimerRef.current = setTimeout(() => {
+                    setSaved(false);
+                    savedTimerRef.current = null;
+                }, SAVED_LABEL_MS);
+            }
+        } finally {
+            setSaving(false);
+        }
+    }, [saving, renderData, getTitle]);
+
+    return (
+        <div className="dropdown dropdown-end">
+            <div
+                tabIndex={0}
+                role="button"
+                className="btn btn-xs btn-ghost btn-square text-base-content/60"
+                aria-label={t("editor.more")}
+            >
+                <EllipsisVerticalIcon className="size-4" />
+            </div>
+            <ul
+                tabIndex={0}
+                className="dropdown-content menu menu-sm mt-1 w-52 rounded-box border border-base-content/15 bg-base-100 p-1 shadow-md"
+            >
+                {/* Display-mode switch — same fixed-label + toggle control as
+                    the host editor, same toggleEditorMode call as Cmd+/. The
+                    menu stays open so the change is visible behind it. */}
+                <li>
+                    <label className="flex items-center gap-2">
+                        <span className="flex-1">
+                            {t("editor.modeMarkdown")}
+                        </span>
+                        <span className="text-[10px] leading-none text-base-content/35 tabular-nums">
+                            {mac
+                                ? MODE_TOGGLE_SHORTCUT.mac
+                                : MODE_TOGGLE_SHORTCUT.other}
+                        </span>
+                        <input
+                            type="checkbox"
+                            className="toggle toggle-xs"
+                            checked={mode === "markdown"}
+                            onChange={() => {
+                                if (store) toggleEditorMode(store, mode);
+                            }}
+                        />
+                    </label>
+                </li>
+                <li>
+                    <button
+                        disabled={saving}
+                        onClick={(e) => {
+                            e.currentTarget.blur();
+                            void handleDownload();
+                        }}
+                    >
+                        {saving
+                            ? t("editor.downloading")
+                            : saved
+                              ? t("editor.downloaded")
+                              : t("editor.download")}
+                    </button>
+                </li>
+                <li>
+                    <button
+                        onClick={(e) => {
+                            e.currentTarget.blur();
+                            exportToPdf(
+                                contentRef.current,
+                                getTitle() || "Untitled",
+                            );
+                        }}
+                    >
+                        {t("editor.exportPdf")}
+                    </button>
+                </li>
+            </ul>
+        </div>
+    );
+}
+
 function GuestEditorSurface({
     keyboardPin,
+    contentRef,
 }: {
     keyboardPin: ViewportPin | null;
+    /** Owned by the parent so the "more" menu can export the rendered DOM. */
+    contentRef: React.RefObject<HTMLDivElement | null>;
 }) {
     const editor = useEditor();
     const isEditable = useEditorStore((store) => store.isEditable);
     const renderData = useRenderData();
-    const domdRef = useRef<HTMLDivElement>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     // Same debugging affordance the host editor exposes (window.toMarkdown).
@@ -154,12 +312,12 @@ function GuestEditorSurface({
             ref={scrollAreaRef}
             className="flex-1 min-h-0 overflow-y-auto"
             onClick={(e) => {
-                if (domdRef.current?.contains(e.target as Node)) return;
+                if (contentRef.current?.contains(e.target as Node)) return;
                 editor?.focus();
             }}
         >
             <div className="max-w-3xl mx-auto px-6 py-8">
-                <div ref={domdRef}>
+                <div ref={contentRef}>
                     <DOMD />
                     {isEditable && <CustomCursor />}
                 </div>
@@ -266,6 +424,10 @@ function CollabAppContent() {
     const [highlightTargets, setHighlightTargets] = useState<
         HighlightTarget[]
     >([]);
+    // Rendered-document root, owned here so the header's "more" menu can
+    // export it to PDF while the surface component keeps using it for
+    // click-to-focus hit-testing.
+    const contentRef = useRef<HTMLDivElement>(null);
     // null = room open. Otherwise the room is dead ("dissolved" by the host
     // or "expired" past its link lifetime — the banner wording differs) and
     // `restored` says how the editor got its content: false = it went dead
@@ -616,14 +778,32 @@ function CollabAppContent() {
                 inlineRules={appInlineRules}
                 codeBeautify={beautify}
                 renderComponent={CustomRender}
+                mode="rich"
             >
-                <header className="relative shrink-0 h-10 flex items-center justify-between gap-2 px-3 bg-base-200 border-b border-base-300 select-none">
+                {/* Same input affordances as the host editor: format
+                    keystrokes (viewer-safe — they bail on a read-only store)
+                    and the persisted rich/markdown mode + Cmd+/ toggle. */}
+                <FormatShortcuts />
+                <ModeController />
+                {/* z-40 lifts the bar above the document layer: the centered
+                    `-translate-*` cluster opens a local stacking context, so
+                    without it the format popover loses to the table plugin's
+                    `relative` root (same fix as the host editor's bar). */}
+                <header className="relative z-40 shrink-0 h-10 flex items-center justify-between gap-2 px-3 bg-base-200 border-b border-base-content/15 select-none">
                     <BrandMark />
-                    {/* macOS Notes-style centered insert entries. Viewers are
+                    {/* macOS Notes-style centered cluster, aligned with the
+                        host editor: format menu + insert entries. Viewers are
                         read-only, so they get none. Hidden on small screens
                         (no room; mobile inserts ride the keyboard bar). */}
                     {!isViewer ? (
-                        <InsertToolbar className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-md:hidden" />
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-0.5 max-md:hidden">
+                            <FormatDropdown />
+                            <span
+                                aria-hidden
+                                className="h-3.5 w-px bg-base-content/15 mr-1.5"
+                            />
+                            <InsertToolbar />
+                        </div>
                     ) : null}
                     <div className="flex items-center gap-2 min-w-0">
                         {versioningHandle && !roomClosed ? (
@@ -667,6 +847,9 @@ function CollabAppContent() {
                                 {room.displayName}
                             </span>
                         )}
+                        {!isViewer ? (
+                            <CollabMoreMenu contentRef={contentRef} />
+                        ) : null}
                     </div>
                 </header>
 
@@ -721,7 +904,10 @@ function CollabAppContent() {
                         ) : null
                     }
                 >
-                    <GuestEditorSurface keyboardPin={keyboardPin} />
+                    <GuestEditorSurface
+                        keyboardPin={keyboardPin}
+                        contentRef={contentRef}
+                    />
                 </SidePanelHost>
                 <RemoteCursors peers={roomClosed ? [] : peers} />
                 {highlightTargets.length ? (
