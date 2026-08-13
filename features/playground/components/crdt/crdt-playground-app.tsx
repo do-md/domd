@@ -43,9 +43,9 @@ import {
 
 interface PaneApi {
     /** Read the other client's state from storage and fold it in (false = the other side has not published yet). */
-    mergeFromOther: () => boolean;
+    mergeFromOther: () => Promise<boolean>;
     /** Publish this client's current state to storage immediately. */
-    publish: () => void;
+    publish: () => Promise<void>;
 }
 
 interface PaneStatus {
@@ -121,8 +121,8 @@ function CrdtBridge({
             doc ? { doc } : {},
         );
 
-        const publish = () => {
-            const state = handle.getStateBase64();
+        const publish = async () => {
+            const state = await handle.getStateBase64();
             saveClientSnapshot(clientId, {
                 state,
                 md: (store as never as { toMarkdown(): string }).toMarkdown(),
@@ -132,23 +132,23 @@ function CrdtBridge({
         };
 
         // Editing produces doc updates -> debounced publish (merges use the
-        // synchronous publish below).
+        // immediate publish below).
         let timer: ReturnType<typeof setTimeout> | undefined;
         const onUpdate = () => {
             clearTimeout(timer);
-            timer = setTimeout(publish, 400);
+            timer = setTimeout(() => void publish(), 400);
         };
         handle.doc.on("update", onUpdate);
 
         // First publish, so the other side can merge from us at any time.
-        publish();
+        void publish();
 
         onReady({
-            mergeFromOther: () => {
+            mergeFromOther: async () => {
                 const other = loadClientSnapshot(otherId);
                 if (!other) return false;
-                handle.applyRemoteBase64(other.state);
-                publish(); // publish the merged result at once (Force sync relies on synchronous semantics)
+                await handle.applyRemoteBase64(other.state);
+                await publish();
                 return true;
             },
             publish,
@@ -325,9 +325,9 @@ export function CrdtPlaygroundApp() {
     );
 
     const mergeInto = useCallback(
-        (id: CrdtClientId) => {
+        async (id: CrdtClientId) => {
             const other = id === "A" ? "B" : "A";
-            const ok = paneApis.current[id]?.mergeFromOther();
+            const ok = await paneApis.current[id]?.mergeFromOther();
             flash(
                 ok
                     ? t("crdt.toastMerged", { id, other })
@@ -337,10 +337,10 @@ export function CrdtPlaygroundApp() {
         [flash, t],
     );
 
-    const forceSync = useCallback(() => {
+    const forceSync = useCallback(async () => {
         // A merges B (and publishes) -> B merges A's new state -> both converge.
-        paneApis.current.A?.mergeFromOther();
-        paneApis.current.B?.mergeFromOther();
+        await paneApis.current.A?.mergeFromOther();
+        await paneApis.current.B?.mergeFromOther();
         flash(t("crdt.toastForced"));
     }, [flash, t]);
 

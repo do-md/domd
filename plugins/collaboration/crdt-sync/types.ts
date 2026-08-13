@@ -72,6 +72,8 @@ export interface CursorSnapshot {
  * EditorStore type.
  */
 export interface CrdtCapableStore {
+    /** True while the DOM is owned by an active IME composition. */
+    duringComposition?: boolean;
     subscribeRenderDataOps(
         listener: (ops: RenderDataOp[]) => void,
     ): () => void;
@@ -82,12 +84,12 @@ export interface CrdtCapableStore {
      * is nothing pending). Optional — the plugin gracefully skips it on older
      * cores without this method.
      */
-    flushPendingInput?(): void;
+    flushPendingInput?(): void | Promise<void>;
     /**
      * Realtime hot path: surgically apply a remote op batch (O(change)
      * rendering). Provided by core >=0.4.0; realtime-sync requires it.
      */
-    applyExternalRenderDataOps?(ops: RenderDataOp[]): void;
+    applyExternalRenderDataOps?(ops: RenderDataOp[]): void | Promise<void>;
     /** Local cursor snapshot (awareness OUT direction). core >=0.4.0. */
     getCursorSnapshot?(): CursorSnapshot;
     /** Subscribe to local cursor changes. core >=0.4.0. */

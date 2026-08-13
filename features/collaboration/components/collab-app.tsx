@@ -41,6 +41,13 @@ import {
 import "@do-md/core-react/style.css";
 import { BrandMark } from "@/common/components/brand-mark";
 import { InsertToolbar } from "@/common/components/insert-toolbar";
+import {
+    SidePanelHost,
+    SidePanelProvider,
+    SidePanelTrigger,
+    useSidePanelActive,
+    useSidePanelApi,
+} from "@/common/components/side-panel";
 import { tokenize } from "@/common/lib/prism";
 import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
@@ -226,6 +233,17 @@ function CenterCard({ children }: { children: React.ReactNode }) {
 }
 
 export function CollabApp() {
+    // Side-panel store provider above the content: the header trigger and
+    // the panel host share state through the store, not through props
+    // (claude-os nav-drawer pattern — same wiring as the host editor).
+    return (
+        <SidePanelProvider>
+            <CollabAppContent />
+        </SidePanelProvider>
+    );
+}
+
+function CollabAppContent() {
     const { t } = useTranslation();
     const searchParams = useSearchParams();
     // Software-keyboard geometry (mobile) — same dual-layer pinning as the
@@ -242,7 +260,9 @@ export function CollabApp() {
     const [status, setStatus] = useState<WebRtcTransportStatus | null>(null);
     const [versioningHandle, setVersioningHandle] =
         useState<VersioningHandle | null>(null);
-    const [showVersioning, setShowVersioning] = useState(false);
+    // Panel open-state lives in the side-panel store (provider above).
+    const versioningOpen = useSidePanelActive() === "versioning";
+    const sidePanelApi = useSidePanelApi();
     const [highlightTargets, setHighlightTargets] = useState<
         HighlightTarget[]
     >([]);
@@ -600,20 +620,22 @@ export function CollabApp() {
                 <header className="relative shrink-0 h-10 flex items-center justify-between gap-2 px-3 bg-base-200 border-b border-base-300 select-none">
                     <BrandMark />
                     {/* macOS Notes-style centered insert entries. Viewers are
-                        read-only, so they get none. */}
+                        read-only, so they get none. Hidden on small screens
+                        (no room; mobile inserts ride the keyboard bar). */}
                     {!isViewer ? (
-                        <InsertToolbar className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+                        <InsertToolbar className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-md:hidden" />
                     ) : null}
                     <div className="flex items-center gap-2 min-w-0">
                         {versioningHandle && !roomClosed ? (
-                            <button
-                                onClick={() => setShowVersioning((v) => !v)}
-                                className="btn btn-xs btn-ghost gap-1 text-base-content/60 shrink-0"
-                                title={t("versioning.title")}
-                            >
-                                <HistoryIcon className="size-3.5" />
-                                {`${t("versioning.button")} · ${peers.length + 1}`}
-                            </button>
+                            <SidePanelTrigger panel="versioning">
+                                <button
+                                    className="btn btn-xs btn-ghost gap-1 text-base-content/60 shrink-0"
+                                    title={t("versioning.title")}
+                                >
+                                    <HistoryIcon className="size-3.5" />
+                                    {`${t("versioning.button")} · ${peers.length + 1}`}
+                                </button>
+                            </SidePanelTrigger>
                         ) : null}
                         {roomClosed ? (
                             <span className="badge badge-sm badge-warning badge-soft">
@@ -685,27 +707,28 @@ export function CollabApp() {
                         }
                     />
                 )}
-                <GuestEditorSurface keyboardPin={keyboardPin} />
+                <SidePanelHost
+                    id="collab-side-panel"
+                    panel={
+                        versioningOpen && versioningHandle ? (
+                            <VersioningPanel
+                                handle={versioningHandle}
+                                selfClientId={room.clientId}
+                                onlineClientIds={peers.map((p) => p.clientId)}
+                                onClose={() => sidePanelApi.close("versioning")}
+                                onHighlightsChange={setHighlightTargets}
+                            />
+                        ) : null
+                    }
+                >
+                    <GuestEditorSurface keyboardPin={keyboardPin} />
+                </SidePanelHost>
                 <RemoteCursors peers={roomClosed ? [] : peers} />
                 {highlightTargets.length ? (
                     <AuthorHighlights targets={highlightTargets} />
                 ) : null}
                 {!isViewer ? <QuickInputBar pin={keyboardPin} /> : null}
             </DOMDProvider>
-
-            {showVersioning && versioningHandle ? (
-                <VersioningPanel
-                    handle={versioningHandle}
-                    selfClientId={room.clientId}
-                    onlineClientIds={peers.map((p) => p.clientId)}
-                    topClassName="top-10"
-                    onClose={() => {
-                        setShowVersioning(false);
-                        setHighlightTargets([]);
-                    }}
-                    onHighlightsChange={setHighlightTargets}
-                />
-            ) : null}
             </div>
         </div>
     );

@@ -50,9 +50,9 @@ export const LOCAL_ORIGIN = "domd-crdt-sync-local";
 export interface CrdtSyncHandle {
     doc: Y.Doc;
     /** The doc's full current state (base64, persistable). */
-    getStateBase64(): string;
+    getStateBase64(): Promise<string>;
     /** Fold in an external base64 state (another device / historical persistence); the merged result is flushed back into the store automatically. */
-    applyRemoteBase64(base64: string): void;
+    applyRemoteBase64(base64: string): Promise<void>;
     /** Detach the mirror (does not destroy the doc). */
     dispose(): void;
 }
@@ -111,16 +111,16 @@ export const attachCrdtSync = (
 
     return {
         doc,
-        getStateBase64: () => {
+        getStateBase64: async () => {
             // Flush any in-flight typing burst first so the published state contains everything typed.
-            store.flushPendingInput?.();
+            await store.flushPendingInput?.();
             return uint8ToBase64(Y.encodeStateAsUpdate(doc));
         },
-        applyRemoteBase64: (base64: string) => {
+        applyRemoteBase64: async (base64: string) => {
             // Flush before merging: an unflushed burst must enter model+doc
             // (via the op stream) first, otherwise the post-merge whole-tree
             // flush-back would wash it away together with the DOM.
-            store.flushPendingInput?.();
+            await store.flushPendingInput?.();
             Y.applyUpdate(doc, base64ToUint8(base64), "remote");
         },
         dispose: () => {

@@ -305,7 +305,7 @@ export const DomdChatInput = forwardRef<DomdChatInputHandle, Props>(
                         if (e.target === e.currentTarget) setExpanded(false);
                     }}
                 >
-                    <div className="w-full max-w-3xl h-[70vh] flex flex-col rounded-2xl border border-base-300 bg-base-100 shadow-xl overflow-hidden">
+                    <div className="w-full max-w-3xl h-[70vh] flex flex-col rounded-2xl border border-base-content/15 bg-base-100 shadow-xl overflow-hidden">
                         {providerNode}
                     </div>
                 </div>

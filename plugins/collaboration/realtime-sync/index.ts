@@ -143,13 +143,30 @@ export interface AttachRealtimeSyncOptions {
     readonly?: boolean;
 }
 
+/** A locally hosted synthetic participant (e.g. an in-process AI agent).
+ *  The session broadcasts its presence exactly like its own (cursor
+ *  messages + heartbeats), so remote peers render it as a normal peer,
+ *  and it is folded into the local peers list for the host UI. */
+export interface VirtualPeerHandle {
+    updateCursor(cursor: CursorSnapshot | null): void;
+    /** Announces departure (bye) and removes the peer everywhere. */
+    dispose(): void;
+}
+
 export interface RealtimeSyncHandle {
     doc: Y.Doc;
     clientId: string;
     /** The doc's full current state (base64, for persisting the shared origin). */
-    getStateBase64(): string;
+    getStateBase64(): Promise<string>;
     getPeers(): RealtimePeer[];
     subscribePeers(listener: (peers: RealtimePeer[]) => void): () => void;
+    /** Host a synthetic in-process participant on this session's transport.
+     *  Its clientId must be unique within the room. */
+    registerVirtualPeer(peer: {
+        clientId: string;
+        name: string;
+        color: string;
+    }): VirtualPeerHandle;
     /** Broadcast room dissolution to every peer (host action). Does not
      *  dispose — call dispose() afterwards. */
     closeRoom(): void;
@@ -217,7 +234,7 @@ export const attachRealtimeSync = (
         // maintenance for high-frequency large documents).
         registry.clear();
         registerSubtree(rootNode, registry);
-        if (ops.length) store.applyExternalRenderDataOps!(ops);
+        if (ops.length) void store.applyExternalRenderDataOps!(ops);
     };
     rootNode.observeDeep(onDeepEvents);
 
@@ -246,6 +263,26 @@ export const attachRealtimeSync = (
         store.getCursorSnapshot?.() ?? null;
     let lastCursorPost = 0;
     let cursorTimer: ReturnType<typeof setTimeout> | undefined;
+
+    // Virtual peers (locally hosted synthetic participants, e.g. AI agents).
+    // Their presence rides this session's transport; remote sessions cannot
+    // tell them from real peers. They also live in the local `peers` map so
+    // the host UI (RemoteCursors, panels) renders them uniformly.
+    const virtualPeers = new Map<
+        string,
+        { name: string; color: string; cursor: CursorSnapshot | null }
+    >();
+    const postVirtualCursor = (id: string) => {
+        const vp = virtualPeers.get(id);
+        if (!vp) return;
+        transport.post({
+            t: "cursor",
+            from: id,
+            name: vp.name,
+            color: vp.color,
+            cursor: vp.cursor,
+        } as WireMessage);
+    };
     const postCursor = () => {
         if (readonly) return; // viewers have no presence
         transport.post({
@@ -256,6 +293,10 @@ export const attachRealtimeSync = (
             cursor: lastCursor,
         } as WireMessage);
         lastCursorPost = Date.now();
+        // Virtual peers announce wherever the session itself does (attach,
+        // hello replies, heartbeat) so remote TTL eviction never fires while
+        // they are alive.
+        for (const id of virtualPeers.keys()) postVirtualCursor(id);
     };
     const postCursorThrottled = () => {
         const wait = CURSOR_THROTTLE_MS - (Date.now() - lastCursorPost);
@@ -273,12 +314,15 @@ export const attachRealtimeSync = (
               postCursorThrottled();
           }) ?? (() => {}));
 
-    // Heartbeat (also evicts timed-out peers).
+    // Heartbeat (also evicts timed-out peers). Virtual peers are locally
+    // hosted — no inbound messages refresh them — so they are exempt from
+    // TTL eviction (their lifetime is their handle's dispose()).
     const heartbeat = setInterval(() => {
         postCursor();
         const now = Date.now();
         let changed = false;
         for (const [id, peer] of peers) {
+            if (virtualPeers.has(id)) continue;
             if (now - peer.lastSeen > PEER_TTL_MS) {
                 peers.delete(id);
                 changed = true;
@@ -294,12 +338,12 @@ export const attachRealtimeSync = (
     };
     const asUint8 = (value: Uint8Array | number[]): Uint8Array =>
         value instanceof Uint8Array ? value : new Uint8Array(value);
-    const unsubscribeTransport = transport.onMessage((raw) => {
+    const handleTransportMessage = async (raw: unknown) => {
         const msg = raw as WireMessage;
         if (!msg || msg.from === clientId) return;
         switch (msg.t) {
             case "u":
-                store.flushPendingInput?.();
+                await store.flushPendingInput?.();
                 Y.applyUpdate(doc, msg.u, REMOTE_ORIGIN);
                 return;
             case "hello":
@@ -308,7 +352,7 @@ export const attachRealtimeSync = (
                 // announced. Targeted: a broadcast reply on mesh transports
                 // would fan the payload down EVERY link, turning one
                 // newcomer's hello into O(N^2) room-wide traffic.
-                store.flushPendingInput?.();
+                await store.flushPendingInput?.();
                 postTargeted(msg.from, {
                     t: "state",
                     from: clientId,
@@ -319,7 +363,7 @@ export const attachRealtimeSync = (
                 postCursor();
                 return;
             case "state":
-                store.flushPendingInput?.();
+                await store.flushPendingInput?.();
                 Y.applyUpdate(doc, msg.u, REMOTE_ORIGIN);
                 return;
             case "cursor":
@@ -341,6 +385,9 @@ export const attachRealtimeSync = (
             default:
                 return;
         }
+    };
+    const unsubscribeTransport = transport.onMessage((raw) => {
+        void handleTransportMessage(raw);
     });
 
     // ---- Peer-link lifecycle (transports with real per-peer connectivity,
@@ -354,20 +401,22 @@ export const attachRealtimeSync = (
     // covers the same ground.
     const unsubscribePeerConnect =
         transport.onPeerConnect?.((peerId) => {
-            store.flushPendingInput?.();
-            postTargeted(peerId, {
-                t: "hello",
-                from: clientId,
-                sv: Y.encodeStateVector(doc),
-            });
-            if (readonly) return; // no presence announcement
-            postTargeted(peerId, {
-                t: "cursor",
-                from: clientId,
-                name,
-                color,
-                cursor: lastCursor,
-            });
+            void (async () => {
+                await store.flushPendingInput?.();
+                postTargeted(peerId, {
+                    t: "hello",
+                    from: clientId,
+                    sv: Y.encodeStateVector(doc),
+                });
+                if (readonly) return; // no presence announcement
+                postTargeted(peerId, {
+                    t: "cursor",
+                    from: clientId,
+                    name,
+                    color,
+                    cursor: lastCursor,
+                });
+            })();
         }) ?? (() => {});
     const unsubscribePeerDisconnect =
         transport.onPeerDisconnect?.((peerId) => {
@@ -385,8 +434,8 @@ export const attachRealtimeSync = (
     return {
         doc,
         clientId,
-        getStateBase64: () => {
-            store.flushPendingInput?.();
+        getStateBase64: async () => {
+            await store.flushPendingInput?.();
             return uint8ToBase64(Y.encodeStateAsUpdate(doc));
         },
         getPeers: () => [...peers.values()],
@@ -397,10 +446,63 @@ export const attachRealtimeSync = (
                 peerListeners.delete(listener);
             };
         },
+        registerVirtualPeer: ({ clientId: id, name: vName, color: vColor }) => {
+            virtualPeers.set(id, {
+                name: vName,
+                color: vColor,
+                cursor: null,
+            });
+            const upsert = () => {
+                const vp = virtualPeers.get(id);
+                if (!vp) return;
+                peers.set(id, {
+                    clientId: id,
+                    name: vp.name,
+                    color: vp.color,
+                    cursor: vp.cursor,
+                    lastSeen: Date.now(),
+                });
+                notifyPeers();
+            };
+            upsert();
+            postVirtualCursor(id);
+            let vpTimer: ReturnType<typeof setTimeout> | undefined;
+            let lastVpPost = 0;
+            return {
+                updateCursor: (cursor) => {
+                    const vp = virtualPeers.get(id);
+                    if (!vp) return;
+                    vp.cursor = cursor;
+                    upsert();
+                    const wait =
+                        CURSOR_THROTTLE_MS - (Date.now() - lastVpPost);
+                    if (wait <= 0) {
+                        postVirtualCursor(id);
+                        lastVpPost = Date.now();
+                        return;
+                    }
+                    clearTimeout(vpTimer);
+                    vpTimer = setTimeout(() => {
+                        postVirtualCursor(id);
+                        lastVpPost = Date.now();
+                    }, wait);
+                },
+                dispose: () => {
+                    clearTimeout(vpTimer);
+                    if (!virtualPeers.delete(id)) return;
+                    transport.post({ t: "bye", from: id } as WireMessage);
+                    if (peers.delete(id)) notifyPeers();
+                },
+            };
+        },
         closeRoom: () => {
             transport.post({ t: "close", from: clientId } as WireMessage);
         },
         dispose: () => {
+            for (const id of virtualPeers.keys()) {
+                transport.post({ t: "bye", from: id } as WireMessage);
+            }
+            virtualPeers.clear();
             if (!readonly) {
                 // Viewers never announced themselves — no bye to send.
                 transport.post({ t: "bye", from: clientId } as WireMessage);

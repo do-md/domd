@@ -1,8 +1,16 @@
-export function debounceWithRAF(fn: (...args: any[]) => void, ms: number, immediate = false) {
+export interface DebouncedWithRAF {
+  (...args: any[]): void;
+  /** Disarm any scheduled invocation (timer + RAF). The next call re-arms
+   *  normally. Lets callers make "invalidate pending work" atomic instead of
+   *  relying on guards inside the callback. */
+  cancel(): void;
+}
+
+export function debounceWithRAF(fn: (...args: any[]) => void, ms: number, immediate = false): DebouncedWithRAF {
   let timer: ReturnType<typeof setTimeout> | undefined = undefined;
   let frame: number | undefined = undefined;
 
-  return function (this: any, ...args: any[]) {
+  const debounced = function (this: any, ...args: any[]) {
     const context = this;
     const callNow = immediate && !timer;
 
@@ -28,6 +36,17 @@ export function debounceWithRAF(fn: (...args: any[]) => void, ms: number, immedi
         frame = undefined;
       });
     }
+  } as DebouncedWithRAF;
+
+  debounced.cancel = () => {
+    clearTimeout(timer);
+    timer = undefined;
+    if (frame !== undefined) {
+      cancelAnimationFrame(frame);
+      frame = undefined;
+    }
   };
+
+  return debounced;
 }
 

@@ -30,7 +30,7 @@ export function ConfigModal({
 
     return (
         <dialog className={`modal ${open ? "modal-open" : ""}`}>
-            <div className="modal-box max-w-md w-[92%]">
+            <div className="modal-box max-w-md w-[92%] border border-base-content/15">
                 <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-semibold text-base">
                         {t("chat.config.title")}

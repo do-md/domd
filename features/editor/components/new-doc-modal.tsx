@@ -33,7 +33,7 @@ export function NewDocModal({
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="bg-base-100 rounded-xl shadow-xl p-6 w-96 max-w-[calc(100vw-2rem)]"
+                className="bg-base-100 rounded-xl border border-base-content/15 shadow-xl p-6 w-96 max-w-[calc(100vw-2rem)]"
             >
                 <h3 className="text-sm font-semibold mb-2">
                     {t("editor.newDocModal.title")}

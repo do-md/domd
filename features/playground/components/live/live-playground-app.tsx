@@ -153,11 +153,14 @@ function LiveBridge({
         let handle: RealtimeSyncHandle | null = null;
         let persistTimer: ReturnType<typeof setTimeout> | undefined;
         let unsubPeers = () => {};
+        const persist = async (h: RealtimeSyncHandle) => {
+            saveState(await h.getStateBase64());
+        };
         const onDocUpdate = () => {
             if (!config.isOriginOwner || !handle) return;
             clearTimeout(persistTimer);
             const h = handle;
-            persistTimer = setTimeout(() => saveState(h.getStateBase64()), 500);
+            persistTimer = setTimeout(() => void persist(h), 500);
         };
 
         try {
@@ -172,7 +175,7 @@ function LiveBridge({
             });
             // The origin owner persists immediately (anchoring the Yjs item
             // identities for latecomers to clone).
-            if (config.isOriginOwner) saveState(handle.getStateBase64());
+            if (config.isOriginOwner) void persist(handle);
             handle.doc.on("update", onDocUpdate);
             unsubPeers = handle.subscribePeers(onPeers);
             onReady();

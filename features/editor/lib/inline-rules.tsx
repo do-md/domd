@@ -150,7 +150,7 @@ function CommentPopover({
     return createPortal(
         <div
             ref={popRef}
-            className="fixed z-50 w-72 rounded-xl border border-base-300 bg-base-100 shadow-xl text-base-content"
+            className="fixed z-50 w-72 rounded-xl border border-base-content/15 bg-base-100 shadow-xl text-base-content"
             style={{ top: pos.top, left: pos.left }}
         >
             <div className="flex items-center gap-2 px-3 pt-2.5">

@@ -61,6 +61,7 @@ export interface CollabControl {
 export function CollabBridge({
     room,
     initialDocBytes,
+    dataKey,
     controlRef,
     onPeers,
     onStatus,
@@ -68,9 +69,16 @@ export function CollabBridge({
     onError,
     onVersioning,
     onAttached,
+    onHandle,
 }: {
     room: RoomRecord;
     initialDocBytes: Uint8Array | null;
+    /** Persistence key for the doc bytes. The host passes its per-DOCUMENT
+     *  collaboration key (shared with the local AI session — one
+     *  collaboration doc per document, whatever the channel); guests omit
+     *  it and fall back to the room id (no document identity on their
+     *  side). */
+    dataKey?: string;
     controlRef?: React.MutableRefObject<CollabControl | null>;
     onPeers?: (peers: RealtimePeer[]) => void;
     onStatus?: (status: WebRtcTransportStatus) => void;
@@ -83,6 +91,9 @@ export function CollabBridge({
      *  been flushed into the store (desktop uses it to calibrate against
      *  the disk file). */
     onAttached?: () => void;
+    /** Receives the realtime session handle once attached (null again on
+     *  teardown). Lets siblings host in-process peers (AI agents). */
+    onHandle?: (handle: RealtimeSyncHandle | null) => void;
 }) {
     const store = useEditorStoreApi();
     const attachedRef = useRef(false);
@@ -106,6 +117,8 @@ export function CollabBridge({
     onVersioningRef.current = onVersioning;
     const onAttachedRef = useRef(onAttached);
     onAttachedRef.current = onAttached;
+    const onHandleRef = useRef(onHandle);
+    onHandleRef.current = onHandle;
 
     useEffect(() => {
         if (!store || attachedRef.current) return;
@@ -119,14 +132,14 @@ export function CollabBridge({
         let persistTimer: ReturnType<typeof setTimeout> | undefined;
         let unsubPeers = () => {};
 
-        const persist = () => {
+        const persist = async () => {
             if (!handle) return;
-            const bytes = base64ToUint8(handle.getStateBase64());
-            void saveRoomDocBytes(room.id, bytes);
+            const bytes = base64ToUint8(await handle.getStateBase64());
+            await saveRoomDocBytes(dataKey ?? room.id, bytes);
         };
         const persistDebounced = () => {
             clearTimeout(persistTimer);
-            persistTimer = setTimeout(persist, PERSIST_DEBOUNCE_MS);
+            persistTimer = setTimeout(() => void persist(), PERSIST_DEBOUNCE_MS);
         };
 
         void (async () => {
@@ -165,7 +178,7 @@ export function CollabBridge({
                 });
                 // Anchor the origin bytes right away (critical on host
                 // creation: these are the item identities guests clone).
-                persist();
+                void persist();
                 handle.doc.on("update", persistDebounced);
                 unsubPeers = handle.subscribePeers(
                     (peers) => onPeersRef.current?.(peers),
@@ -204,6 +217,7 @@ export function CollabBridge({
                         closeRoom: () => handle?.closeRoom(),
                     };
                 }
+                onHandleRef.current?.(handle);
                 onAttachedRef.current?.();
             } catch (e) {
                 transport.close();
@@ -227,12 +241,13 @@ export function CollabBridge({
                 versioning.dispose();
             }
             if (handle) {
+                onHandleRef.current?.(null);
                 handle.doc.off("update", persistDebounced);
                 // The versioning flush above may have re-armed the debounce
-                // timer via the doc update; the synchronous persist below
+                // timer via the doc update; the explicit persist below
                 // supersedes it.
                 clearTimeout(persistTimer);
-                persist();
+                void persist();
                 unsubPeers();
                 handle.dispose(); // also closes the transport
             } else {
@@ -281,23 +296,23 @@ export function LocalCollabBridge({
         const handle = attachCrdtSync(store as never, { doc });
 
         let persistTimer: ReturnType<typeof setTimeout> | undefined;
-        const persist = () => {
-            void saveRoomDocBytes(
+        const persist = async () => {
+            await saveRoomDocBytes(
                 roomId,
-                base64ToUint8(handle.getStateBase64()),
+                base64ToUint8(await handle.getStateBase64()),
             );
         };
         const persistDebounced = () => {
             clearTimeout(persistTimer);
-            persistTimer = setTimeout(persist, PERSIST_DEBOUNCE_MS);
+            persistTimer = setTimeout(() => void persist(), PERSIST_DEBOUNCE_MS);
         };
-        persist();
+        void persist();
         handle.doc.on("update", persistDebounced);
 
         return () => {
             clearTimeout(persistTimer);
             handle.doc.off("update", persistDebounced);
-            persist();
+            void persist();
             handle.dispose();
             attachedRef.current = false;
         };

@@ -4,7 +4,9 @@
         "home": "主页",
         "github": "GitHub",
         "close": "关闭",
-        "settings": "设置"
+        "settings": "设置",
+        "cancel": "取消",
+        "save": "保存"
     },
     "menu": {
         "about": "关于 DOMD",
@@ -61,6 +63,7 @@
             "confirm": "新建"
         },
         "more": "更多操作",
+        "modeMarkdown": "Markdown 模式",
         "table": {
             "addColumn": "在右侧新增列",
             "addRow": "在下方新增行",
@@ -74,6 +77,40 @@
         "insert": {
             "table": "插入表格",
             "checklist": "插入清单"
+        },
+        "format": {
+            "button": "格式",
+            "characterStyle": "字符样式",
+            "bold": "粗体",
+            "italic": "斜体",
+            "underline": "下划线",
+            "strikethrough": "删除线",
+            "highlight": "高亮",
+            "paragraphStyle": "段落样式",
+            "title": "标题",
+            "heading": "小标题",
+            "subheading": "副标题",
+            "body": "正文",
+            "lists": "列表",
+            "bulletedList": "项目符号列表",
+            "numberedList": "编号列表",
+            "checklist": "待办清单",
+            "blockQuote": "引用块",
+            "codeBlock": "代码块",
+            "link": "链接",
+            "divider": "分割线",
+            "clearFormatting": "清除格式"
+        },
+        "welcome": {
+            "title": "欢迎使用 DoMD",
+            "intro": "花一分钟了解最近的新功能。这篇文档就是你的——可以随意编辑，或点 **新建** 从空白开始。",
+            "aiTitle": "AI 协作者",
+            "aiBody": "点击顶栏的 **AI** 打开面板，启用 AI 协作并添加一个 Agent（API key 只保存在本机浏览器）。之后在文档任意位置输入 **@**，即可在光标处召唤 Agent 并告诉它要做什么——它会像协作者一样和你一起编辑，每处改动都记录在历史中。",
+            "collabTitle": "实时协同",
+            "collabBody": "点击 **协作** 生成邀请链接。编辑内容通过 WebRTC 在浏览器之间点对点同步，文档不经过任何服务器。还可以设置访问密码，或分享只读链接。",
+            "modeTitle": "富文本模式与 Markdown 模式",
+            "modeBody": "当前是富文本模式：输入的 Markdown 会即时变成排版好的正文。Markdown 模式同样所见即所得——格式照常实时渲染，但会保留 Markdown 标记符号，便于精确控制。随时可通过 **⋯** 菜单或 **{{shortcut}}** 切换，你的选择会被记住。",
+            "outro": "祝写作愉快！"
         }
     },
     "updater": {
@@ -314,5 +351,33 @@
         "restoredBadge": "已恢复",
         "online": "在线",
         "offline": "离线"
+    },
+    "ai": {
+        "button": "AI",
+        "title": "AI 协同",
+        "enable": "开启 AI 协同",
+        "triggerHint": "在文档中输入 @ 即可在光标处召唤 Agent。",
+        "agents": "Agent 列表",
+        "addAgent": "新增 Agent",
+        "noAgents": "还没有 Agent，先新增一个吧。",
+        "edit": "编辑",
+        "name": "名称",
+        "model": "模型",
+        "apiKeySet": "API Key 已保存——留空则不变",
+        "apiKeyFor": "{{provider}} 的 API Key",
+        "keyNote": "配置与密钥仅存于本浏览器（localStorage），只发送给所选模型服务商。模型填 \"mock\" 可离线试用。",
+        "promptPlaceholder": "该 Agent 的常驻提示词（可选）",
+        "pickerTitle": "召唤 Agent",
+        "composerPlaceholder": "告诉 Agent 要做什么…",
+        "send": "发送",
+        "partialFail": "有 {{count}} 处修改未能应用",
+        "errors": {
+            "network": "网络错误——请检查连接",
+            "auth": "API Key 无效",
+            "generic": "Agent 请求失败",
+            "noKey": "该服务商还没有 API Key——请在 AI 面板中填写",
+            "locate": "未能定位要修改的文本——换个说法试试"
+        },
+        "localSelf": "我"
     }
 }

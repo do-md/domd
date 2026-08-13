@@ -1,18 +1,39 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DOMDProvider, useEditorStoreApi } from "@do-md/core-react";
 import type { EditorStoreWithInserts } from "@/common/lib/editor-store-compat";
 import { useTranslation } from "react-i18next";
 import { track } from "@vercel/analytics";
 import { BrandMark } from "@/common/components/brand-mark";
+import {
+    SidePanelProvider,
+    useSidePanelActive,
+    useSidePanelApi,
+} from "@/common/components/side-panel";
 import { tokenize } from "@/common/lib/prism";
 import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
 import { isTauri } from "@/common/lib/platform";
 import { tauriApp, tauriCore } from "@/common/lib/tauri";
-import type { RealtimePeer } from "@/plugins/collaboration/realtime-sync";
+import type {
+    RealtimePeer,
+    RealtimeSyncHandle,
+} from "@/plugins/collaboration/realtime-sync";
 import { RemoteCursors } from "@/plugins/collaboration/realtime-sync/remote-cursors";
+import {
+    AiCollab,
+    AiPanel,
+    LocalAiBridge,
+    loadAgents,
+    loadAiEnabled,
+    localSelfClientId,
+    saveAgents,
+    saveAiEnabled,
+    type AgentConfig,
+    type AiSession,
+    type LocalAiControl,
+} from "@/features/ai";
 import type { VersioningHandle } from "@/plugins/collaboration/versioning";
 import {
     AuthorHighlights,
@@ -33,7 +54,14 @@ import {
     type CollabControl,
     type RoomRecord,
 } from "@/features/collaboration";
+import {
+    WELCOME_DOC_NAME,
+    buildWelcomeMarkdown,
+    hasSeenWelcome,
+    markWelcomeSeen,
+} from "../lib/welcome";
 import { DiskReconciler, ScratchStoreBinder } from "./disk-reconciler";
+import { ModeController } from "./mode-controller";
 import { NewDocModal } from "./new-doc-modal";
 import { ImageDropHandler } from "../hooks/use-image-drop";
 import { useDocumentLoaders } from "../hooks/use-document-loaders";
@@ -44,6 +72,17 @@ import { UpdateBanner } from "@/features/updater/update-banner";
 import { Editor } from "./editor";
 import { UrlModal } from "./url-modal";
 import { CustomRender } from "../lib/custome-render";
+import { base64ToUint8 } from "@/plugins/collaboration/crdt-sync";
+
+/**
+ * ONE collaboration doc per document, whatever the channel (AI-only local
+ * session or a live room): both persist their Y.Doc bytes under this
+ * per-document key, so enabling sharing carries the AI history into the
+ * room, and stopping sharing merely closes the network channel — the
+ * collaboration data lives on.
+ */
+const COLLAB_DRAFT_KEY = "collab:draft";
+const collabKeyForDoc = (docId: string) => `collab:${docId}`;
 
 /**
  * Bridges the native macOS titlebar insert buttons to the editor store.
@@ -60,6 +99,18 @@ function TitlebarInsertBridge() {
 }
 
 export function EditorApp() {
+    // The side-panel store provider sits ABOVE the app content so every
+    // trigger surface — web top-bar buttons, the native-titlebar event
+    // bridge, the drawer overlay — reaches the same store without threading
+    // callbacks through props (claude-os nav-drawer pattern).
+    return (
+        <SidePanelProvider>
+            <EditorAppContent />
+        </SidePanelProvider>
+    );
+}
+
+function EditorAppContent() {
     const { t } = useTranslation();
     const searchParams = useSearchParams();
 
@@ -93,13 +144,77 @@ export function EditorApp() {
     /** Monotonic counter, bumped when a collab session finishes attaching —
      *  the disk reconciler calibrates the shared doc against the file. */
     const [collabEpoch, setCollabEpoch] = useState(0);
-    const [showVersioning, setShowVersioning] = useState(false);
+    // Which side panel is open lives in the side-panel store (see
+    // SidePanelProvider in EditorApp) — triggers and panels are decoupled.
+    const sidePanelActive = useSidePanelActive();
+    const sidePanelApi = useSidePanelApi();
     const [highlightTargets, setHighlightTargets] = useState<
         HighlightTarget[]
     >([]);
     const collabControlRef = useRef<CollabControl | null>(null);
     const collabRoomRef = useRef(collabRoom);
     collabRoomRef.current = collabRoom;
+
+    // ---- AI collaboration (browser-local agent roster) ----
+    // Agents are ordinary collaborators: they ride whatever collaboration
+    // session exists. With a live room that is the room's session; without
+    // one, LocalAiBridge mounts a local session (no-op transport) so the
+    // collaboration panel — blame highlight, history, restore — works
+    // identically. Defaults first so SSR and the first client render agree;
+    // the mount effect below hydrates from localStorage (chat-app pattern).
+    const [aiAgents, setAiAgents] = useState<AgentConfig[]>([]);
+    const [aiEnabled, setAiEnabled] = useState(false);
+    const [realtimeHandle, setRealtimeHandle] =
+        useState<RealtimeSyncHandle | null>(null);
+    const [localAiSession, setLocalAiSession] = useState<AiSession | null>(
+        null,
+    );
+    useEffect(() => {
+        setAiAgents(loadAgents());
+        setAiEnabled(loadAiEnabled());
+    }, []);
+    const handleAgentsChange = useCallback((agents: AgentConfig[]) => {
+        setAiAgents(agents);
+        saveAgents(agents);
+    }, []);
+    const handleAiEnabledChange = useCallback((enabled: boolean) => {
+        setAiEnabled(enabled);
+        saveAiEnabled(enabled);
+    }, []);
+    const aiCollabSession = useMemo(
+        () =>
+            realtimeHandle ? { handle: realtimeHandle } : localAiSession,
+        [realtimeHandle, localAiSession],
+    );
+    // This document's collaboration-data key (per document on desktop via
+    // the frontmatter domd-id; the single draft on web). An unsaved desktop
+    // window has no identity yet -> in-memory only.
+    const collabDataKey =
+        meta === null
+            ? null
+            : meta.kind === "tauri"
+              ? meta.docId
+                  ? collabKeyForDoc(meta.docId)
+                  : null
+              : COLLAB_DRAFT_KEY;
+    /** One-shot channel handover: when a live room dissolves, its final doc
+     *  bytes move here in memory and the local session picks them up —
+     *  same collaboration data, different channel. */
+    const pendingLocalBytesRef = useRef<Uint8Array | null>(null);
+    const localAiControlRef = useRef<LocalAiControl | null>(null);
+    /** Destroy the draft's collaboration data (New document / loading a
+     *  different draft): tell the live local session to skip its unmount
+     *  write-back FIRST — deleting alone gets resurrected by that final
+     *  persist — then drop the stored bytes and any pending handover. */
+    const discardDraftCollabData = useCallback(async () => {
+        localAiControlRef.current?.discard();
+        pendingLocalBytesRef.current = null;
+        await deleteRoomData(COLLAB_DRAFT_KEY);
+    }, []);
+    const realtimeHandleRef = useRef(realtimeHandle);
+    realtimeHandleRef.current = realtimeHandle;
+    const localAiSessionRef = useRef(localAiSession);
+    localAiSessionRef.current = localAiSession;
 
     /** Drop the live session state WITHOUT deleting the room record — used
      *  on desktop when another document loads into this window: the room
@@ -109,27 +224,46 @@ export function EditorApp() {
         setCollabRoom(null);
         setCollabBytes(null);
         setCollabPeers([]);
-        setShowVersioning(false);
+        // The versioning handle dies with the session — dismiss its panel
+        // (only; an open AI panel is document-independent and survives).
+        sidePanelApi.close("versioning");
         setHighlightTargets([]);
-    }, []);
+    }, [sidePanelApi]);
 
-    /** Broadcast dissolution to peers (if live) and drop the room locally.
-     *  The document itself stays in the editor and in the local draft. */
-    const dissolveSharing = useCallback(async () => {
-        const room = collabRoomRef.current;
-        if (!room) return;
-        collabControlRef.current?.closeRoom();
-        detachSharing();
-        await deleteRoomData(room.id);
-    }, [detachSharing]);
+    /** Broadcast dissolution to peers (if live) and drop the ROOM (the
+     *  network channel) locally. With `handover` (stop-sharing on the SAME
+     *  document) the collaboration data lives on: the doc's final bytes
+     *  move to the local session in memory, so collaborators, authorship
+     *  and history continue seamlessly. Document-switch paths pass false —
+     *  the next document must not inherit this one's bytes. */
+    const dissolveSharing = useCallback(
+        async (handover = true) => {
+            const room = collabRoomRef.current;
+            if (!room) return;
+            collabControlRef.current?.closeRoom();
+            if (handover) {
+                const handle = realtimeHandleRef.current;
+                const b64 = handle ? await handle.getStateBase64() : null;
+                pendingLocalBytesRef.current = b64 ? base64ToUint8(b64) : null;
+            } else {
+                pendingLocalBytesRef.current = null;
+            }
+            detachSharing();
+            await deleteRoomData(room.id);
+        },
+        [detachSharing],
+    );
 
-    /** New document: dissolve any live room, drop the draft, start blank. */
+    /** New document: dissolve any live room, drop the draft and its
+     *  collaboration data (a blank doc must not inherit the old one's
+     *  collaborators/versions), start blank. */
     const handleNewDoc = useCallback(async () => {
         setShowNewDocModal(false);
-        await dissolveSharing();
+        await dissolveSharing(false);
         await clearDraft();
+        await discardDraftCollabData();
         applyBlank();
-    }, [dissolveSharing, applyBlank]);
+    }, [dissolveSharing, discardDraftCollabData, applyBlank]);
 
     const metaRef = useRef(meta);
     metaRef.current = meta;
@@ -192,8 +326,16 @@ export function EditorApp() {
                 loadDraft(),
             ]);
             const hasDraft = draft !== null && draft.md.length > 0;
+            // First open in this browser? Existing local data always wins —
+            // a draft or a live session renders untouched and merely marks
+            // the welcome tour as seen; only a truly blank first open gets
+            // seeded with the tour document (see the fallthrough below).
+            const firstVisit = !hasSeenWelcome();
+            markWelcomeSeen();
             if (hostRoom) {
-                const bytes = await loadRoomDocBytes(hostRoom.id);
+                // Collaboration data is keyed per DOCUMENT, not per room —
+                // the same bytes the AI-only local session reads/writes.
+                const bytes = await loadRoomDocBytes(COLLAB_DRAFT_KEY);
                 setCollabBytes(bytes ?? null);
                 setCollabRoom(hostRoom);
                 // First paint from the draft (it mirrors the live doc at a
@@ -207,6 +349,13 @@ export function EditorApp() {
             }
             if (hasDraft) {
                 applyLocal(draft.md, draft.name);
+                return;
+            }
+            if (firstVisit) {
+                // Seeded as an ordinary local document (the draft mirror
+                // persists it), in the browser language, so a brand-new
+                // user opens onto a short feature tour instead of a void.
+                applyLocal(buildWelcomeMarkdown(), WELCOME_DOC_NAME);
                 return;
             }
             applyBlank();
@@ -246,7 +395,9 @@ export function EditorApp() {
         void (async () => {
             const room = await getActiveHostRoom();
             if (!room || cancelled) return;
-            const bytes = await loadRoomDocBytes(room.id);
+            // Per-document collaboration data (shared with the local AI
+            // session), not per-room.
+            const bytes = await loadRoomDocBytes(collabKeyForDoc(tauriDocId));
             if (cancelled) return;
             setCollabBytes(bytes ?? null);
             setCollabRoom(room);
@@ -260,11 +411,12 @@ export function EditorApp() {
     // Works on unsaved documents too: the doc id exists from creation.
     useTauriEvent("titlebar-share", () => setShowShareModal(true));
 
-    // Native titlebar "manage" button — same panel as the web entry point.
+    // Native titlebar "manage" button — the imperative half of the
+    // side-panel store (same panel the web top-bar trigger opens).
     const versioningHandleRef = useRef(versioningHandle);
     versioningHandleRef.current = versioningHandle;
     useTauriEvent("titlebar-versioning", () => {
-        if (versioningHandleRef.current) setShowVersioning((v) => !v);
+        if (versioningHandleRef.current) sidePanelApi.toggle("versioning");
     });
 
     // Mirror session state to Rust so the titlebar buttons can reflect it
@@ -285,8 +437,12 @@ export function EditorApp() {
     });
     const { dragging: webDragging, dragHandlers } = useWebDragDrop(
         ({ file, handle }) => {
-            // Loading a different document dissolves the hosted room first.
-            void dissolveSharing().then(() => loadFromFile(file, handle));
+            // Loading a different document dissolves the hosted room and
+            // destroys the draft's collaboration data — the new document
+            // must not inherit collaborators/history.
+            void dissolveSharing(false)
+                .then(() => discardDraftCollabData())
+                .then(() => loadFromFile(file, handle));
         },
     );
 
@@ -313,6 +469,33 @@ export function EditorApp() {
         );
     }
 
+    // Resolve the store's active panel kind to actual content (mutual
+    // exclusivity is inherent — the store holds one slot). Rendered into
+    // the Editor's SidePanelHost: an in-flow sibling of the document on
+    // large screens (the document shrinks), a DaisyUI overlay drawer below
+    // lg. Closed = null = unmounted (the versioning panel clears its
+    // highlights in its own unmount cleanup).
+    const sidePanel =
+        sidePanelActive === "ai" ? (
+            <AiPanel
+                agents={aiAgents}
+                onAgentsChange={handleAgentsChange}
+                enabled={aiEnabled}
+                onEnabledChange={handleAiEnabledChange}
+                onClose={() => sidePanelApi.close("ai")}
+            />
+        ) : sidePanelActive === "versioning" && versioningHandle ? (
+            <VersioningPanel
+                handle={versioningHandle}
+                selfClientId={
+                    collabRoom ? collabRoom.clientId : localSelfClientId()
+                }
+                onlineClientIds={collabPeers.map((p) => p.clientId)}
+                onClose={() => sidePanelApi.close("versioning")}
+                onHighlightsChange={setHighlightTargets}
+            />
+        ) : null;
+
     return (
         <div
             onDragOver={isWeb ? dragHandlers.onDragOver : undefined}
@@ -337,8 +520,13 @@ export function EditorApp() {
                 inlineRules={appInlineRules}
                 codeBeautify={beautify}
                 renderComponent={CustomRender}
+                mode="rich"
             >
                 <ImageDropHandler />
+                {/* Hydrates the persisted display mode + binds Cmd+/ —
+                    the "more" menu entry (web) and this keystroke (both
+                    runtimes) call the same toggle. */}
+                <ModeController />
                 {/* Desktop has no web top bar; the native titlebar's
                     table/checklist buttons emit these events (see
                     src-tauri/src/titlebar.rs). This bridge lives inside the
@@ -349,9 +537,11 @@ export function EditorApp() {
                         key={collabRoom.id}
                         room={collabRoom}
                         initialDocBytes={collabBytes}
+                        dataKey={collabDataKey ?? undefined}
                         controlRef={collabControlRef}
                         onPeers={setCollabPeers}
                         onVersioning={setVersioningHandle}
+                        onHandle={setRealtimeHandle}
                         onAttached={() => setCollabEpoch((n) => n + 1)}
                         onError={(message) =>
                             console.warn("[collab] attach failed:", message)
@@ -378,13 +568,38 @@ export function EditorApp() {
                     onRequestNew={
                         isWeb ? () => setShowNewDocModal(true) : undefined
                     }
-                    onRequestVersioning={
-                        versioningHandle
-                            ? () => setShowVersioning((v) => !v)
-                            : undefined
-                    }
+                    versioningAvailable={versioningHandle !== null}
+                    aiAvailable={isWeb}
+                    aiActive={aiEnabled && aiAgents.length > 0}
+                    sidePanel={sidePanel}
                 />
-                {collabRoom ? <RemoteCursors peers={collabPeers} /> : null}
+                {/* Local collaboration session while AI is on without a
+                    live room: same doc/versioning machinery over a no-op
+                    transport, so the collaboration panel treats agents as
+                    ordinary collaborators (blame, history, restore). */}
+                {aiEnabled && !collabRoom ? (
+                    <LocalAiBridge
+                        key={collabDataKey ?? "memory"}
+                        docKey={collabDataKey}
+                        takeInitialBytes={() => {
+                            const bytes = pendingLocalBytesRef.current;
+                            pendingLocalBytesRef.current = null;
+                            return bytes;
+                        }}
+                        controlRef={localAiControlRef}
+                        onSession={setLocalAiSession}
+                        onVersioning={setVersioningHandle}
+                        onPeers={setCollabPeers}
+                    />
+                ) : null}
+                <AiCollab
+                    agents={aiAgents}
+                    enabled={aiEnabled}
+                    session={aiCollabSession}
+                />
+                {collabPeers.length > 0 ? (
+                    <RemoteCursors peers={collabPeers} />
+                ) : null}
                 {highlightTargets.length ? (
                     <AuthorHighlights targets={highlightTargets} />
                 ) : null}
@@ -406,28 +621,15 @@ export function EditorApp() {
                 </DOMDProvider>
             ) : null}
 
-            {showVersioning && versioningHandle && collabRoom ? (
-                <VersioningPanel
-                    handle={versioningHandle}
-                    selfClientId={collabRoom.clientId}
-                    onlineClientIds={collabPeers.map((p) => p.clientId)}
-                    // Web: below the 36px web top bar. Desktop: the native
-                    // titlebar sits above the webview, so flush to the top.
-                    topClassName={isWeb ? "top-9" : "top-0"}
-                    onClose={() => {
-                        setShowVersioning(false);
-                        setHighlightTargets([]);
-                    }}
-                    onHighlightsChange={setHighlightTargets}
-                />
-            ) : null}
-
             {showUrlModal ? (
                 <UrlModal
                     onClose={() => setShowUrlModal(false)}
                     onSubmit={(input) =>
-                        // Loading a different document dissolves the room.
-                        void dissolveSharing().then(() => loadRemote(input))
+                        // Loading a different document dissolves the room
+                        // and destroys the draft's collaboration data.
+                        void dissolveSharing(false)
+                            .then(() => discardDraftCollabData())
+                            .then(() => loadRemote(input))
                     }
                 />
             ) : null}
@@ -445,8 +647,17 @@ export function EditorApp() {
                     room={collabRoom}
                     onClose={() => setShowShareModal(false)}
                     onCreated={(room) => {
-                        setCollabBytes(null);
-                        setCollabRoom(room);
+                        void (async () => {
+                            // Same collaboration data, new channel: the local
+                            // AI session's doc (collaborators, authorship,
+                            // history included) becomes the room's origin doc.
+                            const handle = localAiSessionRef.current?.handle;
+                            const b64 = handle
+                                ? await handle.getStateBase64()
+                                : null;
+                            setCollabBytes(b64 ? base64ToUint8(b64) : null);
+                            setCollabRoom(room);
+                        })();
                     }}
                     onStop={() => void dissolveSharing()}
                 />

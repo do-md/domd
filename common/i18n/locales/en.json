@@ -4,7 +4,9 @@
         "home": "Home",
         "github": "GitHub",
         "close": "Close",
-        "settings": "Settings"
+        "settings": "Settings",
+        "cancel": "Cancel",
+        "save": "Save"
     },
     "menu": {
         "about": "About DOMD",
@@ -61,6 +63,7 @@
             "confirm": "Create new"
         },
         "more": "More actions",
+        "modeMarkdown": "Markdown mode",
         "table": {
             "addColumn": "Add column to the right",
             "addRow": "Add row below",
@@ -74,6 +77,40 @@
         "insert": {
             "table": "Insert table",
             "checklist": "Insert checklist"
+        },
+        "format": {
+            "button": "Format",
+            "characterStyle": "Character Style",
+            "bold": "Bold",
+            "italic": "Italic",
+            "underline": "Underline",
+            "strikethrough": "Strikethrough",
+            "highlight": "Highlight",
+            "paragraphStyle": "Paragraph Style",
+            "title": "Title",
+            "heading": "Heading",
+            "subheading": "Subheading",
+            "body": "Body",
+            "lists": "Lists",
+            "bulletedList": "Bulleted List",
+            "numberedList": "Numbered List",
+            "checklist": "Checklist",
+            "blockQuote": "Block Quote",
+            "codeBlock": "Code Block",
+            "link": "Link",
+            "divider": "Divider",
+            "clearFormatting": "Clear Formatting"
+        },
+        "welcome": {
+            "title": "Welcome to DoMD",
+            "intro": "A quick tour of what's new. This document is yours — edit it freely, or hit **New** to start clean.",
+            "aiTitle": "AI collaborators",
+            "aiBody": "Open the **AI** panel from the top bar, enable AI collaboration, and add an agent (your API key stays in this browser). Then type **@** anywhere in the document to summon the agent at the caret and tell it what to do — it edits alongside you like a collaborator, and every change is tracked in the history.",
+            "collabTitle": "Real-time collaboration",
+            "collabBody": "Click **Collaborate** to create an invite link. Edits sync peer-to-peer over WebRTC, straight between browsers — the document never touches a server. You can add an access password, or share a read-only link.",
+            "modeTitle": "Rich mode & Markdown mode",
+            "modeBody": "You are in rich mode: Markdown turns into clean formatted text as you type. Markdown mode is WYSIWYG too — formatting still renders live, but the Markdown marks stay visible for precise control. Toggle any time via the **⋯** menu or **{{shortcut}}** — your choice is remembered.",
+            "outro": "Happy writing!"
         }
     },
     "updater": {
@@ -314,5 +351,33 @@
         "restoredBadge": "restored",
         "online": "online",
         "offline": "offline"
+    },
+    "ai": {
+        "button": "AI",
+        "title": "AI Collaboration",
+        "enable": "Enable AI collaboration",
+        "triggerHint": "Type @ in the document to summon an agent at the caret.",
+        "agents": "Agents",
+        "addAgent": "Add agent",
+        "noAgents": "No agents yet. Add one to get started.",
+        "edit": "Edit",
+        "name": "Name",
+        "model": "Model",
+        "apiKeySet": "API key saved — leave blank to keep",
+        "apiKeyFor": "API key for {{provider}}",
+        "keyNote": "Config and keys stay in this browser (localStorage) and are sent only to the provider. Model \"mock\" runs offline for testing.",
+        "promptPlaceholder": "Standing instructions for this agent (optional)",
+        "pickerTitle": "Ask an agent",
+        "composerPlaceholder": "Tell the agent what to do…",
+        "send": "Send",
+        "partialFail": "{{count}} edit(s) could not be applied",
+        "errors": {
+            "network": "Network error — check your connection",
+            "auth": "Invalid API key",
+            "generic": "The agent request failed",
+            "noKey": "No API key for this provider — add one in the AI panel",
+            "locate": "Could not locate the text to edit — try rephrasing"
+        },
+        "localSelf": "Me"
     }
 }

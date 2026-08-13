@@ -101,15 +101,12 @@ export function VersioningPanel({
     selfClientId,
     onClose,
     onHighlightsChange,
-    topClassName = "top-0",
     onlineClientIds = [],
 }: {
     handle: VersioningHandle;
     selfClientId: string;
     onClose: () => void;
     onHighlightsChange: (targets: HighlightTarget[]) => void;
-    /** Vertical anchor below the page's own top bar (e.g. "top-9"). */
-    topClassName?: string;
     /** Presence: clientIds currently online (from realtime peers). Self is
      *  always shown online regardless. */
     onlineClientIds?: string[];
@@ -219,8 +216,8 @@ export function VersioningPanel({
         );
     };
 
-    const handleRestore = (id: string) => {
-        const restored = handle.restoreVersion(id);
+    const handleRestore = async (id: string) => {
+        const restored = await handle.restoreVersion(id);
         setConfirmingRestore(null);
         // Successful restore appends new entries; drop the stale selection
         // (and its highlights) so the timeline reads fresh.
@@ -230,9 +227,7 @@ export function VersioningPanel({
     const collaboratorIds = Object.keys(collaborators);
 
     return (
-        <aside
-            className={`fixed right-0 bottom-0 ${topClassName} z-40 w-72 max-w-[85vw] flex flex-col border-l border-base-content/10 bg-base-100 shadow-sm`}
-        >
+        <aside className="flex h-full w-72 max-w-[85vw] flex-col border-l border-base-content/10 bg-base-100">
             <header className="shrink-0 flex items-center gap-2 px-4 h-11 border-b border-base-content/10">
                 <HistoryIcon className="size-4 text-base-content/50" />
                 <h3 className="flex-1 text-sm font-semibold truncate">
@@ -526,7 +521,7 @@ export function VersioningPanel({
                                                             <div className="flex gap-1.5">
                                                                 <button
                                                                     onClick={() =>
-                                                                        handleRestore(
+                                                                        void handleRestore(
                                                                             entry.id,
                                                                         )
                                                                     }

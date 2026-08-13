@@ -48,9 +48,6 @@ export function BrandMark() {
             >
                 DOMD
             </Link>
-            <span className="text-xs text-base-content/40 truncate">
-                {ts("collab.guestHeader")}
-            </span>
         </div>
     );
 }

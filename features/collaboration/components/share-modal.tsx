@@ -176,7 +176,7 @@ export function ShareModal({
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="bg-base-100 rounded-xl shadow-xl p-6 w-[26rem] max-w-[calc(100vw-2rem)]"
+                className="bg-base-100 rounded-xl border border-base-content/15 shadow-xl p-6 w-[26rem] max-w-[calc(100vw-2rem)]"
             >
                 {!room ? (
                     <form onSubmit={handleCreate}>

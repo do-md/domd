@@ -45,7 +45,7 @@ export function UrlModal({
                     onSubmit(t);
                     onClose();
                 }}
-                className="bg-base-100 rounded-xl shadow-xl p-6 w-96"
+                className="bg-base-100 rounded-xl border border-base-content/15 shadow-xl p-6 w-96"
             >
                 <h3 className="text-sm font-semibold mb-3">{t("editor.urlModal.title")}</h3>
                 <input

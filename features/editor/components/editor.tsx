@@ -18,8 +18,19 @@ import "@do-md/core-react/style.css";
 import { useTranslation } from "react-i18next";
 import { BrandMark } from "@/common/components/brand-mark";
 import { InsertToolbar } from "@/common/components/insert-toolbar";
+import {
+    SidePanelHost,
+    SidePanelTrigger,
+} from "@/common/components/side-panel";
+import { FormatDropdown } from "@/common/components/format-dropdown";
+import { FormatShortcuts } from "@/common/components/format-shortcuts";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
+import { useApplePlatform } from "@/common/hooks/use-apple-platform";
 import { isTauri } from "@/common/lib/platform";
+import {
+    MODE_TOGGLE_SHORTCUT,
+    toggleEditorMode,
+} from "../lib/editor-mode";
 import { tauriCore } from "@/common/lib/tauri";
 import { useLatest } from "@/common/lib/use-latest";
 import { useAutoSave } from "../hooks/use-auto-save";
@@ -31,6 +42,7 @@ import type { FileMeta } from "../lib/types";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 import { QuickInputBar } from "@/plugins/toolbar/quick-input-bar";
 import { useVisualViewportPin } from "@/plugins/shared/use-visual-viewport-pin";
+import { PlusIcon } from "@/features/icons/plus-icon";
 
 function EllipsisVerticalIcon({ className }: { className?: string }) {
     return (
@@ -66,6 +78,24 @@ function HistoryIcon({ className }: { className?: string }) {
     );
 }
 
+function SparklesIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+            aria-hidden="true"
+        >
+            <path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3z" />
+            <path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z" />
+        </svg>
+    );
+}
+
 function UsersIcon({ className }: { className?: string }) {
     return (
         <svg
@@ -95,7 +125,10 @@ export function Editor({
     collabPeerCount = 0,
     onRequestShare,
     onRequestNew,
-    onRequestVersioning,
+    versioningAvailable = false,
+    aiAvailable = false,
+    aiActive = false,
+    sidePanel = null,
 }: {
     meta: FileMeta;
     onMetaUpdate: (meta: FileMeta) => void;
@@ -106,9 +139,17 @@ export function Editor({
     collabPeerCount?: number;
     onRequestShare?: () => void;
     onRequestNew?: () => void;
-    /** Toggle the version-history panel (present only while a collab
-     *  session is attached — versioning data lives in the shared doc). */
-    onRequestVersioning?: () => void;
+    /** Show the version-history trigger (present only while a collab
+     *  session is attached — versioning data lives in the shared doc).
+     *  The button itself drives the panel through the side-panel store. */
+    versioningAvailable?: boolean;
+    /** Show the AI collaboration trigger (web only). */
+    aiAvailable?: boolean;
+    /** AI collaboration enabled with at least one agent configured. */
+    aiActive?: boolean;
+    /** Side panel content for the SidePanelHost slot, resolved by the app
+     *  from the side-panel store's active kind. Null = closed. */
+    sidePanel?: React.ReactNode;
 }) {
     const { t } = useTranslation();
     const renderData = useRenderData();
@@ -117,6 +158,8 @@ export function Editor({
     const editor = useEditor();
     const store = useEditorStoreApi();
     const isEditable = useEditorStore((store) => store.isEditable);
+    const mode = useEditorStore((store) => store.mode);
+    const mac = useApplePlatform();
 
     const metaRef = useLatest(meta);
     const domdRef = useRef<HTMLDivElement>(null);
@@ -230,7 +273,7 @@ export function Editor({
         const raf1 = requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 tauriCore().then(({ invoke }) => {
-                    invoke("benchmark_mark_ready").catch(() => {});
+                    invoke("benchmark_mark_ready").catch(() => { });
                 });
             });
         });
@@ -348,7 +391,7 @@ export function Editor({
             try {
                 const sel = store.getSelectionState();
                 tauriCore().then(({ invoke }) => {
-                    invoke("update_selection", { sel }).catch(() => {});
+                    invoke("update_selection", { sel }).catch(() => { });
                 });
             } catch {
                 // getSelectionState may throw while user is still implementing
@@ -385,7 +428,7 @@ export function Editor({
             const isDirty = md !== lastSavedMdRef.current;
             tauriCore().then(({ invoke }) => {
                 invoke("update_content", { content: md, isDirty }).catch(
-                    () => {},
+                    () => { },
                 );
             });
         }, 150);
@@ -402,7 +445,7 @@ export function Editor({
             invoke("update_content", {
                 content: lastSavedMdRef.current,
                 isDirty: false,
-            }).catch(() => {});
+            }).catch(() => { });
         });
     });
 
@@ -445,54 +488,106 @@ export function Editor({
         // zeroes the safe-area padding while the keyboard covers the home
         // indicator.
         <div className="fixed inset-0 bg-base-100 overflow-hidden">
+            {/* Format shortcuts (⌘1/⌘K/⌥⌘C/…) live outside the top bar: the
+                desktop build renders no web top bar, and they must work
+                there too. */}
+            <FormatShortcuts />
             <div
                 className="absolute inset-x-0 flex flex-col"
                 style={
                     keyboardPin
                         ? ({
-                              top: keyboardPin.top,
-                              height: keyboardPin.height,
-                              "--kb-safe-bottom": "0px",
-                          } as React.CSSProperties)
+                            top: keyboardPin.top,
+                            height: keyboardPin.height,
+                            "--kb-safe-bottom": "0px",
+                        } as React.CSSProperties)
                         : { top: 0, height: "100%" }
                 }
             >
                 {showSaveBar ? (
-                    <div className="relative shrink-0 h-9 flex items-center gap-1.5 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-300 select-none">
+                    // z-40 makes the bar its own stacking layer above the
+                    // document. Without it the bar's popovers lose: the
+                    // centered cluster below is `-translate-*`, which opens a
+                    // local stacking context, so a dropdown's z-index is
+                    // trapped inside it — and the cluster itself is only
+                    // z-auto, which the table renderer's `relative` root
+                    // (later in DOM order) paints straight over.
+                    <div className="relative z-40 shrink-0 h-10 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-content/15 select-none">
                         <BrandMark />
+                        {/* "New" sits on the left next to the brand: it is a
+                            document-lifecycle action, not a per-document one,
+                            and the right cluster (AI / history / share / more)
+                            is already crowded. */}
+                        {onRequestNew ? (
+                            <>
+                                <span
+                                    aria-hidden
+                                    className="h-3.5 w-px bg-base-content/15"
+                                />
+                                <button
+                                    onClick={onRequestNew}
+                                    className="btn btn-xs btn-soft"
+                                >
+                                    <PlusIcon className="size-3" />
+                                    {/* {t("editor.newDoc")} */}
+                                </button>
+                            </>
+                        ) : null}
                         {/* macOS Notes-style centered insert entries: absolute
                             so left brand / right actions never shove them off
-                            center. */}
-                        <InsertToolbar className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+                            center. Hidden on small screens — the bar has no
+                            room and mobile gets the keyboard quick-input bar
+                            for inserts anyway. */}
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-0.5 max-md:hidden">
+                            <FormatDropdown />
+                            <span
+                                aria-hidden
+                                className="h-3.5 w-px bg-base-content/15 mr-1.5"
+                            />
+                            <InsertToolbar />
+                        </div>
                         <span className="flex-1" />
-                        {onRequestNew ? (
-                            <button
-                                onClick={onRequestNew}
-                                className="btn btn-xs btn-ghost text-base-content/60"
-                            >
-                                {t("editor.newDoc")}
-                            </button>
+                        {aiAvailable ? (
+                            <SidePanelTrigger panel="ai">
+                                {/* text-ai tints label + icon only while AI
+                                    collaboration is actually on (enabled
+                                    with at least one agent) — the tint is a
+                                    status light, not decoration. */}
+                                <button
+                                    className={`btn btn-xs btn-soft gap-1${
+                                        aiActive ? " text-ai" : ""
+                                    }`}
+                                    title={t("ai.title")}
+                                >
+                                    <SparklesIcon className="size-3.5" />
+                                    {t("ai.button")}
+                                </button>
+                            </SidePanelTrigger>
                         ) : null}
-                        {collabActive && onRequestVersioning ? (
-                            <button
-                                onClick={onRequestVersioning}
-                                className="btn btn-xs btn-ghost gap-1 text-base-content/60"
-                                title={t("versioning.title")}
-                            >
-                                <HistoryIcon className="size-3.5" />
-                                {/* Online headcount (peers + self) lives here:
-                                    the panel this opens is where people are
-                                    listed. The share button only breathes. */}
-                                {`${t("versioning.button")} · ${collabPeerCount + 1}`}
-                            </button>
+                        {versioningAvailable ? (
+                            <SidePanelTrigger panel="versioning">
+                                <button
+                                    className="btn btn-xs btn-soft gap-1"
+                                    title={t("versioning.title")}
+                                >
+                                    <HistoryIcon className="size-3.5" />
+                                    {/* Online headcount (peers + self) lives
+                                    here: the panel this opens is where people
+                                    are listed. The share button only breathes.
+                                    Present without a live room too — the
+                                    local AI session has collaborators (you
+                                    + agents), history and restore. */}
+                                    {` · ${collabPeerCount + 1}`}
+                                </button>
+                            </SidePanelTrigger>
                         ) : null}
                         {onRequestShare ? (
                             <button
                                 onClick={onRequestShare}
                                 className={
                                     collabActive
-                                        ? "btn btn-xs btn-accent gap-1.5 ml-1"
-                                        : "btn btn-xs btn-primary gap-1.5 ml-1"
+                                        ? "btn btn-xs gap-1.5 ml-1 btn-soft "
+                                        : "btn btn-xs gap-1.5 ml-1 btn-soft"
                                 }
                             >
                                 {collabActive ? (
@@ -502,8 +597,8 @@ export function Editor({
                                     </>
                                 ) : (
                                     <>
-                                        <UsersIcon className="size-3.5" />
-                                        {t("collab.share")}
+                                        <UsersIcon className="size-3.5 " />
+                                        {/* {t("collab.share")} */}
                                     </>
                                 )}
                             </button>
@@ -519,8 +614,40 @@ export function Editor({
                             </div>
                             <ul
                                 tabIndex={0}
-                                className="dropdown-content menu menu-sm z-30 mt-1 w-44 rounded-box border border-base-content/10 bg-base-100 p-1 shadow-md"
+                                className="dropdown-content menu menu-sm mt-1 w-52 rounded-box border border-base-content/15 bg-base-100 p-1 shadow-md"
                             >
+                                {/* Display-mode switch: a fixed label plus a
+                                    toggle whose position IS the current state
+                                    (on = markdown, off = rich) — an action
+                                    label naming the target mode read as
+                                    ambiguous. Same toggleEditorMode call as
+                                    the Cmd+/ keystroke (see ModeController).
+                                    No blur: the menu stays open so the mode
+                                    change is visible behind it. */}
+                                <li>
+                                    <label className="flex items-center gap-2">
+                                        <span className="flex-1">
+                                            {t("editor.modeMarkdown")}
+                                        </span>
+                                        <span className="text-[10px] leading-none text-base-content/35 tabular-nums">
+                                            {mac
+                                                ? MODE_TOGGLE_SHORTCUT.mac
+                                                : MODE_TOGGLE_SHORTCUT.other}
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            className="toggle toggle-xs"
+                                            checked={mode === "markdown"}
+                                            onChange={() => {
+                                                if (store)
+                                                    toggleEditorMode(
+                                                        store,
+                                                        mode,
+                                                    );
+                                            }}
+                                        />
+                                    </label>
+                                </li>
                                 <li>
                                     <button
                                         onClick={(e) => {
@@ -542,8 +669,8 @@ export function Editor({
                                         {saving
                                             ? t("editor.downloading")
                                             : saved
-                                              ? t("editor.downloaded")
-                                              : t("editor.download")}
+                                                ? t("editor.downloaded")
+                                                : t("editor.download")}
                                     </button>
                                 </li>
                                 <li>
@@ -564,21 +691,24 @@ export function Editor({
                     </div>
                 ) : null}
 
-                <div
-                    ref={scrollAreaRef}
-                    className="flex-1 min-h-0 overflow-y-auto"
-                    onClick={(e) => {
-                        if (domdRef.current?.contains(e.target as Node)) return;
-                        editor?.focus();
-                    }}
-                >
-                    <div className="max-w-3xl mx-auto px-6 py-8">
-                        <div ref={domdRef}>
-                            <DOMD />
-                            {isEditable && <CustomCursor />}
+                <SidePanelHost id="editor-side-panel" panel={sidePanel}>
+                    <div
+                        ref={scrollAreaRef}
+                        className="flex-1 min-h-0 overflow-y-auto"
+                        onClick={(e) => {
+                            if (domdRef.current?.contains(e.target as Node))
+                                return;
+                            editor?.focus();
+                        }}
+                    >
+                        <div className="max-w-3xl mx-auto px-6 py-8">
+                            <div ref={domdRef}>
+                                <DOMD />
+                                {isEditable && <CustomCursor />}
+                            </div>
                         </div>
                     </div>
-                </div>
+                </SidePanelHost>
 
                 <QuickInputBar pin={keyboardPin} />
             </div>

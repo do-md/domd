@@ -149,7 +149,7 @@ export interface VersioningHandle {
     authoredUuids(clientId: string): string[];
     /** Finalize the open burst entry with the latest content immediately
      *  (no-op when nothing changed or no burst is open). */
-    captureNow(): void;
+    captureNow(): Promise<void>;
     /**
      * Roll the document forward to an older version's content (industry
      * semantics: restore is a NEW edit on top of history, never a rewind —
@@ -160,7 +160,7 @@ export interface VersioningHandle {
      * is unknown, identical to the current content, or the session is
      * observe-only.
      */
-    restoreVersion(versionId: string): boolean;
+    restoreVersion(versionId: string): Promise<boolean>;
     dispose(): void;
 }
 
@@ -287,16 +287,27 @@ export const attachVersioning = (
         return [...authors];
     };
 
-    const snapshotNow = (): string => {
-        store.flushPendingInput?.();
-        return JSON.stringify(store.getRenderDataSnapshot());
+    const snapshotNow = (): string | Promise<string> => {
+        if (!store.duringComposition) {
+            // New cores flush synchronously on this fast path before returning
+            // their already-resolved Promise; old cores return void.
+            void store.flushPendingInput?.();
+            return JSON.stringify(store.getRenderDataSnapshot());
+        }
+        return Promise.resolve(store.flushPendingInput?.()).then(() =>
+            JSON.stringify(store.getRenderDataSnapshot()),
+        );
     };
 
     /** Open a new version entry IMMEDIATELY (leading capture — the version
      *  appears on the first edit, not after an idle wait). */
-    const openBurst = () => {
+    const openBurst = async () => {
         if (disposed || observeOnly) return;
-        const snapshot = snapshotNow();
+        const snapshotResult = snapshotNow();
+        const snapshot =
+            typeof snapshotResult === "string"
+                ? snapshotResult
+                : await snapshotResult;
         const last = versions.length
             ? versions.get(versions.length - 1)
             : undefined;
@@ -324,7 +335,7 @@ export const attachVersioning = (
      *  only entries this client created are ever rewritten, so peers never
      *  contend). Authors are re-derived against the entry's predecessor so
      *  remote edits that landed inside the window get credited. */
-    const refreshBurst = () => {
+    const refreshBurst = async () => {
         if (disposed || observeOnly || !burst) return;
         const arr = versions.toArray();
         const index = arr.findIndex((v) => v.id === burst!.id);
@@ -332,7 +343,11 @@ export const attachVersioning = (
             burst = null; // pruned or reorganized away
             return;
         }
-        const snapshot = snapshotNow();
+        const snapshotResult = snapshotNow();
+        const snapshot =
+            typeof snapshotResult === "string"
+                ? snapshotResult
+                : await snapshotResult;
         const entry = arr[index];
         if (entry.snapshot === snapshot) return;
         const authors = diffAuthors(
@@ -346,7 +361,9 @@ export const attachVersioning = (
     };
     const scheduleRefresh = () => {
         clearTimeout(refreshTimer);
-        refreshTimer = setTimeout(refreshBurst, burstRefreshMs);
+        refreshTimer = setTimeout(() => {
+            void refreshBurst();
+        }, burstRefreshMs);
     };
 
     // Baseline: a doc without history gets an initial entry so every later
@@ -390,7 +407,7 @@ export const attachVersioning = (
               } else {
                   // Window expired (or first edit): new version, right now.
                   burst = null;
-                  openBurst();
+                  void openBurst();
                   // Catch the trailing speculative-input tail of this burst.
                   scheduleRefresh();
               }
@@ -403,12 +420,15 @@ export const attachVersioning = (
     const getVersions = () =>
         versions.toArray().slice().sort((a, b) => a.ts - b.ts);
 
-    const restoreVersion = (versionId: string): boolean => {
+    const restoreVersion = async (versionId: string): Promise<boolean> => {
         if (disposed || observeOnly) return false;
         const entry = versions.toArray().find((v) => v.id === versionId);
         if (!entry) return false;
-        store.flushPendingInput?.();
-        const currentJson = JSON.stringify(store.getRenderDataSnapshot());
+        const currentSnapshot = snapshotNow();
+        const currentJson =
+            typeof currentSnapshot === "string"
+                ? currentSnapshot
+                : await currentSnapshot;
         if (currentJson === entry.snapshot) return false;
         const target = JSON.parse(entry.snapshot) as SerializedRenderData;
         // The restore closes any open burst — its content is preserved by
@@ -491,7 +511,7 @@ export const attachVersioning = (
             if (disposed) return;
             clearTimeout(refreshTimer);
             // Finalize the open burst so the persisted bytes carry it.
-            refreshBurst();
+            void refreshBurst();
             disposed = true;
             unsubscribeOps();
         },

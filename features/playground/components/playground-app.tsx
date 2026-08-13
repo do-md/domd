@@ -331,7 +331,7 @@ export function PlaygroundApp() {
             <dialog
                 className={`modal ${mobileOpen ? "modal-open" : ""} md:hidden`}
             >
-                <div className="modal-box max-w-md w-[92%] p-0 max-h-[80vh] flex flex-col overflow-hidden">
+                <div className="modal-box max-w-md w-[92%] border border-base-content/15 p-0 max-h-[80vh] flex flex-col overflow-hidden">
                     <ControlPanel
                         {...controlProps}
                         onApply={() => setMobileOpen(false)}

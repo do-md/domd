@@ -7,7 +7,7 @@
 @plugin "daisyui/theme" {
     name: "light";
     default: true;
-    --color-accent: "#1f2937";
+    --color-accent: #1f2937;
     --color-accent-content: #ffffff;
     --color-base-100: rgb(252, 252, 252);
     --color-base-200: #f5f6f7;
@@ -24,19 +24,21 @@
     --color-success-content: oklch(26% 0.051 172.552);
     --color-error: #ef4444;
     --color-error-content: oklch(0% 0 0);
+    --ai: #7b6ba3;
+    --ai-content: #ffffff;
     --depth: 0;
 }
 
 @plugin "daisyui/theme" {
     name: "dark";
     prefersdark: true;
-    --color-accent: "#1f2937";
+    --color-accent: #1f2937;
     --color-accent-content: #ffffff;
     --color-base-100: #1e1e1e;
     --color-base-200: #181818;
     --color-base-300: #202020;
     --color-base-content: #bcbec4;
-    --color-primary: #1f2937;
+    --color-primary: #124b99;
     --color-neutral: #2e3034;
     --color-neutral-content: #aaaaaa;
     --color-info: #2563eb;
@@ -47,7 +49,57 @@
     --color-success-content: oklch(26% 0.051 172.552);
     --color-error: #ef4444;
     --color-error-content: oklch(0% 0 0);
+    --ai: #8b7cd8;
+    --ai-content: #16141c;
     --depth: 0;
+}
+
+@theme inline {
+    --color-ai: var(--ai);
+    --color-ai-content: var(--ai-content);
+}
+
+/*
+ * Lighten the outline/dash button border.
+ *
+ * The border reads heavy at full strength, but thinning it below 1px is not an
+ * option: a sub-pixel stroke has to be antialiased along the corner radius,
+ * which makes the rounded corners look ragged. Keep the 1px width and drop the
+ * border's alpha instead -- visually lighter, geometrically still a full pixel,
+ * so the corners stay smooth.
+ *
+ * Applies at rest and on hover alike; active/focus-visible are excluded so
+ * daisyui's solid confirmation state keeps its own border.
+ */
+.btn-outline:not(.btn-active, :active:focus, :focus-visible, :disabled, [disabled], .btn-disabled),
+.btn-dash:not(.btn-active, :active:focus, :focus-visible, :disabled, [disabled], .btn-disabled) {
+    --btn-border: color-mix(in oklab, var(--btn-color, var(--color-base-content)) 50%, #0000);
+}
+
+/*
+ * Keep the outline/dash button outlined on hover.
+ *
+ * daisyui applies its outline treatment through a `:not(..., :hover, ...)`
+ * guard, so hovering drops it entirely and the button falls back to the solid
+ * `.btn` look. With `--depth: 0` the fallback border resolves to
+ * `color-mix(in oklab, var(--btn-bg), #000 0%)` -- byte-identical to the
+ * background -- so the border reads as if it disappeared.
+ *
+ * Re-apply the outline tokens on hover and use a faint tint for feedback
+ * instead of a full fill. Active/focus-visible states are left untouched so
+ * clicking and keyboard focus still produce daisyui's solid confirmation.
+ * `--btn-border` is deliberately absent here: the rule above already covers
+ * the hover state, so the border keeps one consistent weight throughout.
+ *
+ * Must stay unlayered: daisyui components live in `@layer utilities`, and
+ * unlayered rules win over every cascade layer regardless of specificity.
+ */
+.btn-outline:hover:not(.btn-active, :active:focus, :focus-visible, :disabled, [disabled], .btn-disabled),
+.btn-dash:hover:not(.btn-active, :active:focus, :focus-visible, :disabled, [disabled], .btn-disabled) {
+    --btn-shadow: "";
+    --btn-noise: none;
+    --btn-fg: var(--btn-color, var(--color-base-content));
+    --btn-bg: color-mix(in oklab, var(--btn-color, var(--color-base-content)) 10%, #0000);
 }
 
 * {
@@ -66,8 +118,7 @@ body {
  * do-md ships sensible literal defaults at zero specificity; this block
  * remaps them so the editor picks up the active daisyui theme (light/dark).
  */
-[data-domd-root] {
-}
+[data-domd-root] {}
 
 /*
  * Dual-handle range slider used by the playground (chunk-size min/max).
@@ -96,16 +147,19 @@ body {
     -webkit-appearance: none;
     appearance: none;
 }
+
 .dual-range::-webkit-slider-runnable-track {
     background: transparent;
     border: none;
     height: 14px;
 }
+
 .dual-range::-moz-range-track {
     background: transparent;
     border: none;
     height: 14px;
 }
+
 .dual-range::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
@@ -118,9 +172,11 @@ body {
     cursor: grab;
     margin-top: 0;
 }
+
 .dual-range::-webkit-slider-thumb:active {
     cursor: grabbing;
 }
+
 .dual-range::-moz-range-thumb {
     pointer-events: auto;
     box-sizing: border-box;
@@ -131,6 +187,7 @@ body {
     border: 2px solid var(--color-base-content);
     cursor: grab;
 }
+
 .dual-range:focus {
     outline: none;
 }
@@ -156,6 +213,7 @@ body {
 :root[lang="zh"] .DOMD-Summary:empty:not(:focus)::after {
     content: "折叠块" !important;
 }
+
 :root[lang="zh"] .DOMD-EmptyDetailContent:empty:not(:focus)::after {
     content: "空折叠块" !important;
 }
@@ -163,6 +221,7 @@ body {
 :root[lang="ja"] .DOMD-Summary:empty:not(:focus)::after {
     content: "トグル" !important;
 }
+
 :root[lang="ja"] .DOMD-EmptyDetailContent:empty:not(:focus)::after {
     content: "空のトグル" !important;
 }
@@ -192,9 +251,11 @@ body {
     color: oklch(45% 0.16 260);
     cursor: pointer;
 }
+
 .mention:hover {
     background: oklch(55% 0.18 260 / 0.22);
 }
+
 .mention-badge {
     font-size: 0.8em;
     opacity: 0.65;

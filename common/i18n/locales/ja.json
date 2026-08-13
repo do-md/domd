@@ -4,7 +4,9 @@
         "home": "ホーム",
         "github": "GitHub",
         "close": "閉じる",
-        "settings": "設定"
+        "settings": "設定",
+        "cancel": "キャンセル",
+        "save": "保存"
     },
     "menu": {
         "about": "DOMD について",
@@ -61,6 +63,7 @@
             "confirm": "作成"
         },
         "more": "その他の操作",
+        "modeMarkdown": "Markdown モード",
         "table": {
             "addColumn": "右に列を追加",
             "addRow": "下に行を追加",
@@ -74,6 +77,40 @@
         "insert": {
             "table": "表を挿入",
             "checklist": "チェックリストを挿入"
+        },
+        "format": {
+            "button": "書式",
+            "characterStyle": "文字スタイル",
+            "bold": "ボールド",
+            "italic": "イタリック",
+            "underline": "下線",
+            "strikethrough": "取り消し線",
+            "highlight": "ハイライト",
+            "paragraphStyle": "段落スタイル",
+            "title": "タイトル",
+            "heading": "見出し",
+            "subheading": "小見出し",
+            "body": "本文",
+            "lists": "リスト",
+            "bulletedList": "箇条書きリスト",
+            "numberedList": "番号付きリスト",
+            "checklist": "チェックリスト",
+            "blockQuote": "引用ブロック",
+            "codeBlock": "コードブロック",
+            "link": "リンク",
+            "divider": "区切り線",
+            "clearFormatting": "書式をクリア"
+        },
+        "welcome": {
+            "title": "DoMD へようこそ",
+            "intro": "最近追加された機能を簡単にご紹介します。このドキュメントは自由に編集できます。**新規** を押せば白紙から始められます。",
+            "aiTitle": "AI コラボレーター",
+            "aiBody": "トップバーの **AI** からパネルを開き、AI コラボレーションを有効にしてエージェントを追加します（API キーはこのブラウザにのみ保存されます）。あとは本文中で **@** を入力するとカーソル位置にエージェントを呼び出せます。指示を伝えると、共同編集者のように一緒に編集し、変更はすべて履歴に記録されます。",
+            "collabTitle": "リアルタイム共同編集",
+            "collabBody": "**共同編集** をクリックすると招待リンクを作成できます。編集内容は WebRTC でブラウザ同士がピアツーピアで直接同期し、ドキュメントがサーバーを経由することはありません。アクセスパスワードの設定や、閲覧専用リンクの共有も可能です。",
+            "modeTitle": "リッチモードと Markdown モード",
+            "modeBody": "現在はリッチモードで、入力した Markdown は即座に整形されたテキストになります。Markdown モードも同じく WYSIWYG——書式はリアルタイムで反映されたまま、Markdown 記号も表示されるため細かな調整がしやすくなります。**⋯** メニューまたは **{{shortcut}}** でいつでも切り替えられ、選択は記憶されます。",
+            "outro": "よい執筆を！"
         }
     },
     "updater": {
@@ -314,5 +351,33 @@
         "restoredBadge": "復元済み",
         "online": "オンライン",
         "offline": "オフライン"
+    },
+    "ai": {
+        "button": "AI",
+        "title": "AI コラボ",
+        "enable": "AI コラボを有効化",
+        "triggerHint": "本文中で @ を入力するとカーソル位置にエージェントを呼び出せます。",
+        "agents": "エージェント",
+        "addAgent": "エージェントを追加",
+        "noAgents": "エージェントがまだありません。まず追加してください。",
+        "edit": "編集",
+        "name": "名前",
+        "model": "モデル",
+        "apiKeySet": "API キーは保存済み——空欄のままで維持",
+        "apiKeyFor": "{{provider}} の API キー",
+        "keyNote": "設定とキーはこのブラウザ（localStorage）にのみ保存され、選択したプロバイダーにのみ送信されます。モデルに \"mock\" と入力するとオフラインで試せます。",
+        "promptPlaceholder": "このエージェントへの常設プロンプト（任意）",
+        "pickerTitle": "エージェントを呼び出す",
+        "composerPlaceholder": "エージェントへの指示を入力…",
+        "send": "送信",
+        "partialFail": "{{count}} 件の編集を適用できませんでした",
+        "errors": {
+            "network": "ネットワークエラー——接続を確認してください",
+            "auth": "API キーが無効です",
+            "generic": "エージェントのリクエストに失敗しました",
+            "noKey": "このプロバイダーの API キーがありません——AI パネルで設定してください",
+            "locate": "編集対象のテキストを特定できませんでした——言い換えてみてください"
+        },
+        "localSelf": "自分"
     }
 }
