@@ -1,0 +1,15 @@
+{
+    "//": "Standalone Node verify harnesses (run via --experimental-strip-types, not bundled). Excluded from the app tsconfig so `next build` does not typecheck them — Node ESM needs explicit .ts extensions in imports, which the app config forbids. This config exists for editor/IDE type info only.",
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "allowImportingTsExtensions": true,
+        "plugins": []
+    },
+    "include": [
+        "**/*.mts",
+        "**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
