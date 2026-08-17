@@ -5,10 +5,11 @@
  * reveals them. Model and round-trip are identical across modes. Persisted
  * in localStorage so the choice survives reloads and new windows.
  *
- * The Cmd+/ (Ctrl+/) toggle deliberately lives OUTSIDE the FORMAT_SHORTCUTS
- * registry: that registry is the Aa menu's — every entry there is a format
- * command with a menu row and a parity test asserting both. Mode switching
- * is a view command with its own surface (the "more" menu). The platform
+ * The Cmd+/ (Ctrl+/) toggle deliberately lives OUTSIDE @do-md/commands'
+ * EDITOR_SHORTCUTS registry: every entry there edits the DOCUMENT and is
+ * portable to any host of the kernel. Mode switching changes nothing in the
+ * model, is this app's own surface (the "more" menu), and persists to this
+ * app's localStorage — it has no business in a shared package. The platform
  * discipline is the same though: the primary modifier is ⌘ on Apple
  * platforms and Ctrl elsewhere, and the foreign modifier must reject
  * (Ctrl+/ on macOS or Win+/ on Windows belong to the OS, not to us).
@@ -41,7 +42,7 @@ export function saveEditorMode(mode: EditorMode): void {
 
 /** True when the keystroke is this app's mode toggle. Matching is on
  *  `KeyboardEvent.code` ("Slash" on every layout) with an exact modifier
- *  set, mirroring matchFormatShortcut's discipline. */
+ *  set, mirroring matchCommandShortcut's discipline. */
 export function matchModeToggleShortcut(
     event: Pick<
         KeyboardEvent,

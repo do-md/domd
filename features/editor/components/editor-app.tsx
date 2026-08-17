@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DOMDProvider, useEditorStoreApi } from "@do-md/core-react";
-import type { EditorStoreWithInserts } from "@/common/lib/editor-store-compat";
+import { insertTable, toggleTodoList } from "@do-md/commands";
 import { useTranslation } from "react-i18next";
 import { track } from "@vercel/analytics";
 import { BrandMark } from "@/common/components/brand-mark";
@@ -90,11 +90,9 @@ const collabKeyForDoc = (docId: string) => `collab:${docId}`;
  * the store. Mirrors the web InsertToolbar's actions 1:1.
  */
 function TitlebarInsertBridge() {
-    const storeApi = useEditorStoreApi() as EditorStoreWithInserts | null;
-    useTauriEvent("titlebar-insert-table", () => storeApi?.insertTable());
-    useTauriEvent("titlebar-insert-checklist", () =>
-        storeApi?.insertCheckList(),
-    );
+    const storeApi = useEditorStoreApi();
+    useTauriEvent("titlebar-insert-table", () => insertTable(storeApi));
+    useTauriEvent("titlebar-insert-checklist", () => toggleTodoList(storeApi));
     return null;
 }
 

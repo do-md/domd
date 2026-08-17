@@ -9,21 +9,23 @@
  */
 
 import { useEditorStoreApi } from "@do-md/core-react";
+import { insertTable, toggleTodoList } from "@do-md/commands";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ChecklistIcon, TableIcon } from "@/features/icons";
-import type { EditorStoreWithInserts } from "@/common/lib/editor-store-compat";
 
 export function InsertToolbar({ className = "" }: { className?: string }) {
     const { t } = useTranslation();
-    const storeApi = useEditorStoreApi() as EditorStoreWithInserts | null;
+    const storeApi = useEditorStoreApi();
 
-    const insertTable = useCallback(() => {
-        storeApi?.insertTable();
+    const onInsertTable = useCallback(() => {
+        insertTable(storeApi);
     }, [storeApi]);
 
-    const insertChecklist = useCallback(() => {
-        storeApi?.insertCheckList();
+    // A toggle rather than a blind insert, so this button and ⇧⌘L do the same
+    // thing on a line that is already a to-do item.
+    const onToggleChecklist = useCallback(() => {
+        toggleTodoList(storeApi);
     }, [storeApi]);
 
     // Insertion targets the caret; keep the pointerdown from blurring the
@@ -40,7 +42,7 @@ export function InsertToolbar({ className = "" }: { className?: string }) {
                 aria-label={t("editor.insert.table")}
                 title={t("editor.insert.table")}
                 onPointerDown={keepFocus}
-                onClick={insertTable}
+                onClick={onInsertTable}
             >
                 {/* 1024-grid glyphs fill their canvas fuller than the old
                     24-grid ones — one size down keeps the same visual bulk. */}
@@ -52,7 +54,7 @@ export function InsertToolbar({ className = "" }: { className?: string }) {
                 aria-label={t("editor.insert.checklist")}
                 title={t("editor.insert.checklist")}
                 onPointerDown={keepFocus}
-                onClick={insertChecklist}
+                onClick={onToggleChecklist}
             >
                 <ChecklistIcon className="size-3.5" />
             </button>

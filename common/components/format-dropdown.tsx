@@ -10,9 +10,9 @@
  *     queries — and are applied with `format(mark)` against the MODEL
  *     selection, which survives the editor losing DOM focus to the click.
  *   - Block styles have no kernel command API, so they are derived from the
- *     markdown source (see common/lib/editor-block-format). That costs a full
- *     `toMarkdown()`, which is far too expensive for a render path, so the
- *     snapshot is taken when the popover OPENS and refreshed after each action.
+ *     markdown source by @do-md/commands. That costs a full `toMarkdown()`,
+ *     which is far too expensive for a render path, so the snapshot is taken
+ *     when the popover OPENS and refreshed after each action.
  *
  * Self-contained like InsertToolbar: works anywhere inside a DOMDProvider.
  */
@@ -30,16 +30,15 @@ import {
     insertDivider,
     readBlockFormatState,
     setParagraphStyle,
+    shortcutLabel,
     toggleList,
     toggleQuote,
     EMPTY_BLOCK_FORMAT_STATE,
     type BlockFormatState,
-} from "@/common/lib/editor-block-format";
-import type { HeadingLevel, ListKind } from "@/common/lib/markdown-line-format";
-import {
-    shortcutLabel,
-    type FormatCommandId,
-} from "@/common/lib/format-shortcuts";
+    type HeadingLevel,
+    type ListKind,
+} from "@do-md/commands";
+import { type FormatCommandId } from "@/common/lib/format-shortcuts";
 import { useApplePlatform } from "@/common/hooks/use-apple-platform";
 
 const MARK_BUTTONS: Array<{

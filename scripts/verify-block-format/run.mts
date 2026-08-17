@@ -1,6 +1,6 @@
 /**
- * Verification for the "Aa" menu's block-formatting layer
- * (common/lib/markdown-line-format.ts + common/lib/editor-block-format.ts).
+ * Verification for the block-formatting command layer (@do-md/commands) as
+ * this app consumes it, plus the app's own shortcut policy.
  *
  * Every store-driven case runs against a REAL headless EditorStore, so the
  * assertions cover what the kernel actually does with the markdown we hand it
@@ -12,28 +12,27 @@
  */
 import { EditorStore } from "@do-md/core-react";
 import {
+    EDITOR_SHORTCUTS,
+    buildPrefix,
     clearFormatting,
+    fenceMap,
     insertDivider,
     insertLink,
+    insertTable,
+    lineGuards,
+    linesInRange,
+    matchCommandShortcut,
+    parseLine,
     readBlockFormatState,
+    runCommand,
     setParagraphStyle,
+    shortcutLabel,
     toggleCodeBlock,
     toggleList,
     toggleQuote,
-} from "../../common/lib/editor-block-format";
+} from "@do-md/commands";
 import {
-    buildPrefix,
-    fenceMap,
-    lineGuards,
-    linesInRange,
-    parseLine,
-} from "../../common/lib/markdown-line-format";
-import {
-    FORMAT_SHORTCUTS,
     HIDDEN_COMMANDS,
-    KERNEL_OWNED_COMMANDS,
-    matchFormatShortcut,
-    shortcutLabel,
     type FormatCommandId,
 } from "../../common/lib/format-shortcuts";
 
@@ -231,6 +230,8 @@ const line = (store: { toMarkdown(): string }, index: number) =>
     setParagraphStyle(s, 1);
     toggleList(s, "bullet");
     insertLink(s);
+    insertTable(s);
+    insertDivider(s);
     eq("no styling inside a fence", s.toMarkdown(), before);
 }
 
@@ -274,6 +275,60 @@ const line = (store: { toMarkdown(): string }, index: number) =>
     ]);
 }
 
+// table ---------------------------------------------------------------------
+// The landing contract inherited from the kernel's retired insertTable(): an
+// empty paragraph is a legal insertion point and is filled in place; anywhere
+// else the caret sits inside content that may not be split, so the table
+// becomes a new block after it. One call is one undo step, and the caret ends
+// up in the first cell.
+{
+    const s = at(DOC, "alpha line");
+    let batches = 0;
+    s.subscribeRenderDataOps(() => {
+        batches += 1;
+    });
+    insertTable(s);
+    eq("table lands after the caret's block", s.toMarkdown().split("\n").slice(2, 7), [
+        "alpha line",
+        "",
+        "|  |  |",
+        "|  |  |",
+        "|  |  |",
+    ]);
+    eq(
+        "table parses as Table",
+        (s.getRenderDataSnapshot().children ?? []).some((c) => c.type === "Table"),
+        true,
+    );
+    eq("insertTable is one op batch", batches, 1);
+    // Typing is the only honest proof of where the caret landed.
+    s.insertText("x");
+    eq("caret lands in the first cell", s.toMarkdown().split("\n")[4], "| x |  |");
+}
+{
+    // "alpha\n\n\n\nbeta" is P / EmptyP / P — offset 7 is the empty paragraph.
+    const s = new EditorStore({ editable: true, initMd: "" });
+    s.resetMD("alpha\n\n\n\nbeta");
+    s.setSelection({ start: 7 });
+    insertTable(s);
+    eq("an empty paragraph is filled in place", s.toMarkdown().split("\n"), [
+        "alpha",
+        "",
+        "|  |  |",
+        "|  |  |",
+        "|  |  |",
+        "",
+        "beta",
+    ]);
+}
+{
+    const s = new EditorStore({ editable: true, initMd: "" });
+    s.resetMD("alpha\n\n\n\nbeta");
+    s.setSelection({ start: 7 });
+    insertDivider(s);
+    eq("a divider fills an empty paragraph in place too", s.toMarkdown(), "alpha\n\n---\n\nbeta");
+}
+
 // clear formatting ----------------------------------------------------------
 {
     const s = at(DOC, "plain");
@@ -302,21 +357,42 @@ const line = (store: { toMarkdown(): string }, index: number) =>
 
 // structural guards ---------------------------------------------------------
 {
-    // A caret in a table BODY cell is unaddressable: the kernel's
-    // getSelectionState reports a `before` that misses the column padding
-    // toMarkdown adds, so readTarget's consistency check refuses.
+    // A caret in a table BODY cell used to be unaddressable — getSelectionState's
+    // `before` missed the column padding toMarkdown adds, so the whole menu had
+    // to disable itself. getSelectionOffsets is exact inside tables, so the cell
+    // is addressable now and what keeps the table intact is purely the
+    // STRUCTURAL guard: a prefix rewrite on a `|` row is still illegal.
     const s = at(TABLE_DOC, "nizia");
-    eq("table body cell is unaddressable", readBlockFormatState(s).available, false);
+    const state = readBlockFormatState(s);
+    eq("table body cell is addressable", state.available, true);
+    eq("table body cell is guarded", state.guard, "table");
     eq("table header cell is guarded", readBlockFormatState(at(TABLE_DOC, "haishi")).guard, "table");
     const before = s.toMarkdown();
     setParagraphStyle(s, 1);
     toggleList(s, "bullet");
     toggleQuote(s);
     toggleCodeBlock(s);
-    insertLink(s);
     insertDivider(s);
+    insertTable(s);
     clearFormatting(s);
-    eq("table survives every block action", s.toMarkdown(), before);
+    eq("table survives every structural action", s.toMarkdown(), before);
+}
+{
+    // A link is inline content and the offsets in a cell are exact, so the
+    // blanket "no links in tables" rule is gone with the skew that caused it.
+    const s = at(TABLE_DOC, "nizia", { range: true });
+    insertLink(s);
+    eq("link inside a table cell", s.toMarkdown().includes("[nizia](url)"), true);
+}
+{
+    // What a link still may not do is span cell walls: wrapping a `|` inside
+    // `[...]` re-columns the row and the table is gone.
+    const s = at(TABLE_DOC, "nizia");
+    const md = s.toMarkdown();
+    s.setSelection({ start: md.indexOf("jijian"), end: md.indexOf("2008nian") + 8 });
+    const before = s.toMarkdown();
+    insertLink(s);
+    eq("a link may not span cell walls", s.toMarkdown(), before);
 }
 {
     // A selection starting on prose and running into a table IS addressable,
@@ -383,25 +459,32 @@ const line = (store: { toMarkdown(): string }, index: number) =>
     eq("second press unwraps", line(s, 2), "alpha line");
 }
 
-// Parity check behind KERNEL_OWNED_COMMANDS: the kernel's ⌘0-⌘6 handler must
-// keep agreeing with the menu row, or handing it ownership reintroduces the
-// very mismatch we just fixed.
+// ⌘0-⌘6 used to be the kernel's own setHeaderLevel, which meant a menu row and
+// a keystroke were two implementations of one idea and had to be checked for
+// agreement. They are one implementation now: the keymap dispatches into the
+// very function the menu row calls. These assertions pin that routing, so a
+// future edit to the keymap can't quietly point a digit somewhere else.
 {
-    type WithHeader = { setHeaderLevel(level: number): void };
-    for (const [needle, level] of [
-        ["alpha line", 2],
-        ["one", 2],
-        ["quoted", 3],
-    ] as Array<[string, 1 | 2 | 3]>) {
-        const viaKernel = at(DOC, needle);
-        (viaKernel as unknown as WithHeader).setHeaderLevel(level);
-        const viaMenu = at(DOC, needle);
-        setParagraphStyle(viaMenu, level);
-        eq(
-            `setHeaderLevel(${level}) matches setParagraphStyle @ ${needle}`,
-            viaKernel.toMarkdown(),
-            viaMenu.toMarkdown(),
-        );
+    for (const [id, level] of [
+        ["title", 1],
+        ["heading", 2],
+        ["subheading", 3],
+        ["heading4", 4],
+        ["heading5", 5],
+        ["heading6", 6],
+        ["body", 0],
+    ] as Array<[FormatCommandId, 0 | 1 | 2 | 3 | 4 | 5 | 6]>) {
+        for (const needle of ["alpha line", "one", "quoted"]) {
+            const viaKey = at(DOC, needle);
+            runCommand(viaKey, id);
+            const viaMenu = at(DOC, needle);
+            setParagraphStyle(viaMenu, level);
+            eq(
+                `${id} routes to setParagraphStyle(${level}) @ ${needle}`,
+                viaKey.toMarkdown(),
+                viaMenu.toMarkdown(),
+            );
+        }
     }
 }
 
@@ -420,8 +503,13 @@ const press = (code: string, mac: boolean, mods: Mods = {}) => ({
 
 for (const mac of [true, false]) {
     const on = mac ? "mac" : "win";
+    // Matched exactly the way the app binds them: the package does the
+    // platform arithmetic, the app supplies its withheld set.
     const match = (code: string, mods: Mods = {}) =>
-        matchFormatShortcut(press(code, mac, mods), { mac });
+        matchCommandShortcut(press(code, mac, mods), {
+            mac,
+            disabled: HIDDEN_COMMANDS,
+        });
 
     eq(`[${on}] primary+B -> bold`, match("KeyB"), "bold");
     eq(`[${on}] primary+I -> italic`, match("KeyI"), "italic");
@@ -434,12 +522,18 @@ for (const mac of [true, false]) {
     eq(`[${on}] shift+primary+9 -> blockQuote`, match("Digit9", { shiftKey: true }), "blockQuote");
     eq(
         `[${on}] bare key is unbound`,
-        matchFormatShortcut({ ...press("KeyB", mac), metaKey: false, ctrlKey: false }, { mac }),
+        matchCommandShortcut(
+            { ...press("KeyB", mac), metaKey: false, ctrlKey: false },
+            { mac, disabled: HIDDEN_COMMANDS },
+        ),
         null,
     );
-    // Digits belong to the kernel (setHeaderLevel); we render the hint only.
-    eq(`[${on}] primary+1 is left to the kernel`, match("Digit1"), null);
-    eq(`[${on}] primary+0 is left to the kernel`, match("Digit0"), null);
+    // The digits and ⌘T used to be the kernel's; the command layer owns them
+    // now, so they must actually resolve rather than fall through.
+    eq(`[${on}] primary+1 -> title`, match("Digit1"), "title");
+    eq(`[${on}] primary+0 -> body`, match("Digit0"), "body");
+    eq(`[${on}] primary+6 -> heading6`, match("Digit6"), "heading6");
+    eq(`[${on}] primary+T -> insertTable`, match("KeyT"), "insertTable");
     // Hidden commands must not stay reachable by keystroke, or they are only
     // half-hidden — the menu row is gone but the key still fires.
     eq(`[${on}] primary+K is parked while Link is hidden`, match("KeyK"), null);
@@ -448,6 +542,14 @@ for (const mac of [true, false]) {
         match("KeyC", { altKey: true }),
         null,
     );
+    // ...and parking is the APP's doing, not the package's: without the
+    // withheld set the same chord resolves. Otherwise "hidden" would be baked
+    // into the shared registry and no host could ever ship the feature.
+    eq(
+        `[${on}] primary+K resolves without the withheld set`,
+        matchCommandShortcut(press("KeyK", mac), { mac }),
+        "link",
+    );
 
     // The FOREIGN modifier must never fire a command. On macOS Ctrl+B / Ctrl+U
     // / Ctrl+K are system-wide emacs text bindings (backward-char, kill-line,
@@ -455,18 +557,18 @@ for (const mac of [true, false]) {
     // the Windows key and belongs to the OS shell. Accepting "either modifier"
     // silently breaks editing on both platforms.
     const foreign = (code: string, mods: Mods = {}) =>
-        matchFormatShortcut(
+        matchCommandShortcut(
             { ...press(code, mac, mods), metaKey: !mac, ctrlKey: mac },
-            { mac },
+            { mac, disabled: HIDDEN_COMMANDS },
         );
     eq(`[${on}] foreign modifier + B does not fire`, foreign("KeyB"), null);
     eq(`[${on}] foreign modifier + U does not fire`, foreign("KeyU"), null);
     // Both modifiers together is not our chord either.
     eq(
         `[${on}] meta+ctrl+B does not fire`,
-        matchFormatShortcut(
+        matchCommandShortcut(
             { ...press("KeyB", mac), metaKey: true, ctrlKey: true },
-            { mac },
+            { mac, disabled: HIDDEN_COMMANDS },
         ),
         null,
     );
@@ -474,25 +576,28 @@ for (const mac of [true, false]) {
 
 // Every command must carry a label for BOTH platforms, or a Windows user sees
 // a blank hint where a Mac user sees a glyph.
-for (const id of Object.keys(FORMAT_SHORTCUTS) as FormatCommandId[]) {
+for (const id of Object.keys(EDITOR_SHORTCUTS) as FormatCommandId[]) {
     const macLabel = shortcutLabel(id, true);
     const winLabel = shortcutLabel(id, false);
     eq(`${id} has a mac glyph label`, /^[⌘⇧⌥⌃]/.test(macLabel), true);
     eq(`${id} has a Ctrl label`, winLabel.startsWith("Ctrl+"), true);
 }
 
-// Ownership sets must not overlap — a command with two owners is a command
-// whose behaviour depends on which check runs first.
-eq("kernel-owned set", [...KERNEL_OWNED_COMMANDS].sort(), [
-    "body",
-    "heading",
-    "subheading",
-    "title",
-]);
+// One chord, one command. Two commands on the same chord is a command whose
+// behaviour depends on which one the matcher happens to reach first.
+{
+    const chords = Object.values(EDITOR_SHORTCUTS).map(
+        (s) => `${s.code}:${Boolean(s.shift)}:${Boolean(s.alt)}`,
+    );
+    eq("no two commands share a chord", chords.length, new Set(chords).size);
+}
+
+// The app's withheld set names real commands — a typo here would silently
+// un-park a feature that is meant to be hidden.
 eq("hidden set", [...HIDDEN_COMMANDS].sort(), ["codeBlock", "link"]);
 eq(
-    "hidden and kernel-owned do not overlap",
-    [...HIDDEN_COMMANDS].filter((id) => KERNEL_OWNED_COMMANDS.has(id)),
+    "every withheld command exists in the registry",
+    [...HIDDEN_COMMANDS].filter((id) => !(id in EDITOR_SHORTCUTS)),
     [],
 );
 
