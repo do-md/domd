@@ -183,7 +183,7 @@
     },
     "playground": {
         "headerTitle": "DOMD プレイグラウンド",
-        "headerSubtitle": "20 KB のコア · WYSIWYG Markdown ストリーミング",
+        "headerSubtitle": "30 KB 超のコア · WYSIWYG Markdown ストリーミング",
         "settings": "設定",
         "close": "閉じる",
         "dropToStream": "ドロップしてこの Markdown をストリーミング",
@@ -226,7 +226,7 @@
         "metricChars": "文字数",
         "metricChunks": "チャンク数",
         "metricElapsed": "経過時間",
-        "coreNote": "同じ 20 KB の Markdown ネイティブコアが、プレビュー・編集・ストリーミングを動かしています。このページは、AI モデルから届くトークン単位の Markdown ストリームをシミュレートします — ストリーミング実行中はエディタがロックされます。",
+        "coreNote": "同じ 30 KB 超の Markdown ネイティブコアが、プレビュー・編集・ストリーミングを動かしています。このページは、AI モデルから届くトークン単位の Markdown ストリームをシミュレートします — ストリーミング実行中はエディタがロックされます。",
         "startStreaming": "ストリーミングを開始",
         "restartStreaming": "ストリーミングを再開",
         "stopStreaming": "ストリーミングを停止",

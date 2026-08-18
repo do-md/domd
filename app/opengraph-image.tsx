@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
-export const alt = "DOMD — A WYSIWYG Markdown editor powered by a 20 KB engine";
+export const alt = "DOMD — A WYSIWYG Markdown editor powered by a 30+ KB engine";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -57,7 +57,7 @@ export default function OpengraphImage() {
                         A clean WYSIWYG Markdown editor
                     </div>
                     <div style={{ fontSize: 34, color: "#4b5563", lineHeight: 1.35 }}>
-                        Powered by a 20 KB, from-scratch, Markdown-native engine. Built for fast
+                        Powered by a 30+ KB, from-scratch, Markdown-native engine. Built for fast
                         editing, huge files, and real-time AI streaming.
                     </div>
                 </div>

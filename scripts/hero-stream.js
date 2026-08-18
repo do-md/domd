@@ -12,7 +12,7 @@ A **WYSIWYG** editor for Markdown — *no preview pane*, no flicker.
 
 ## What you get
 
-- 20 KB gzipped kernel
+- 30+ KB gzipped kernel
 - Streaming \`aiInsert()\` — you are watching it now
 - Native parse and render in one phase
 
@@ -32,7 +32,7 @@ A **WYSIWYG** editor for Markdown — *no preview pane*, no flicker.
 
 ## What you get
 
-- 20 KB gzipped kernel
+- 30+ KB gzipped kernel
 - Streaming \`aiInsert()\` — you are watching it now
 - Native parse and render in one phase
 

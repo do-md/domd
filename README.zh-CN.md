@@ -1,13 +1,13 @@
 # DOMD
 
 [![npm version](https://img.shields.io/npm/v/@do-md/core-react.svg?style=flat-square&labelColor=2f2f2f&color=4493f8)](https://www.npmjs.com/package/@do-md/core-react)
-[![Core size](https://img.shields.io/badge/core%20Brotli-%E2%89%8820%20KB-5E81AC?style=flat-square&labelColor=2f2f2f)](https://www.npmjs.com/package/@do-md/core-react)
+[![Core size](https://img.shields.io/badge/core%20Brotli-30%2B%20KB-5E81AC?style=flat-square&labelColor=2f2f2f)](https://www.npmjs.com/package/@do-md/core-react)
 
-**DOMD 是一款所见即所得 Markdown 编辑器，基于约 20 KB 的自研 Markdown 原生内核构建。**
+**DOMD 是一款所见即所得 Markdown 编辑器，基于 30 KB+ 的自研 Markdown 原生内核构建。**
 
 面向日常写作、大型 Markdown 文档、多人实时同步，以及 AI 内容的流式写入。
 
-* Brotli 压缩后约 20 KB，运行时只依赖 React 和 Immer
+* Brotli 压缩后 30 KB+，运行时只依赖 React 和 Immer
 * 20,000 行 Markdown 文档也能顺滑编辑、流式写入
 * 输入和渲染同步完成：光标稳定，无明显延迟、无闪烁
 * 支持段落内细粒度的离线、多端无冲突合并，不是段落级 LWW
@@ -22,55 +22,81 @@
 
 ---
 
-## Markdown 原生内核
+## 编辑器内核：`@do-md/core-react`
 
-DOMD 的所见即所得编辑直接发生在 Markdown 之上。
+[`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react) 是 DOMD 背后的 Markdown 原生编辑器内核，也可以独立嵌入编辑器、输入框、协作空间和 AI 界面。DOMD 是基于这套内核构建的产品，但不是内核能力的边界。
 
-Markdown 文档本身就是编辑状态的唯一来源。
+下方演示会分别隔离一项内核能力，因此无需依赖 DOMD 应用，也可以独立理解和验证每条能力链路。
 
-DOMD 没有基于 ProseMirror、Slate、Lexical 这类通用富文本框架构建。解析、渲染、编辑、撤销/重做、AI 流式写入、分块文件加载，都会在内核中被建模为确定性的状态变化。
+### Markdown 原生架构
 
-内容变化时，DOMD 只渲染真正发生变化的部分。整套编辑栈经过 Brotli 压缩后约 20 KB。
+所见即所得编辑直接发生在 Markdown 之上，Markdown 文档本身就是编辑状态的唯一来源。
 
----
+内核没有基于 ProseMirror、Slate、Lexical 这类通用富文本框架构建。解析、渲染、编辑、撤销/重做、AI 流式写入、分块文件加载，都会在内核中被建模为确定性的状态变化。
 
-## 离线无冲突合并
+内容变化时，内核只渲染真正发生变化的部分。整套编辑栈经过 Brotli 压缩后仅 30 KB+。
 
-DOMD 支持段落内的细粒度无冲突合并，而不是把整段内容作为一个 LWW 值。两台设备可以离线修改同一段落中的不同位置，之后交换已保存的状态，双方修改都能保留下来。离线状态交换和实时同步共享同一套 CRDT 基础，也可以彼此独立地接入。
+### 可扩展的行内语法
+
+Markdown 工具最终大多会遇到同一道墙：行内语法是固定的。想加入高亮、提及、评论或双链，通常只能预处理文本、fork 解析器，或者拼接原始 HTML。从 `@do-md/core-react` 0.6 开始，行内语法成为内核自身的一等扩展点。
+
+#### 一套语法，从样式扩展到语义
+
+参数沿用 Pandoc/Djot 的行内属性语法家族——这是扩展 Markdown 最接近标准的约定，Pandoc、Quarto、kramdown 和 markdown-it 都采用了相近的形式。同一套语法可以从简单高亮平滑扩展到带完整属性和类型的 span：
+
+```text
+==highlight==                              普通高亮
+=={red}highlight==                         带颜色——位置参数
+=={.comment author="Alice"}highlight==     语义类型及其属性
+```
+
+#### 语法与语义彼此独立
+
+分隔符本身不携带含义。`.word` 用来选择一个 **variant**，也就是以纯数据注册的语义类型；同一个 variant 可以绑定到产品所需的任意分隔符：
+
+```text
+=={.mention id=1}Alice==   ≡   <{.mention id=1}Alice>
+```
+
+Pandoc 生态已经把 class 驱动的语义建立为一种约定，例如 Quarto 的 `::: {.callout-note}`。内核进一步把这套约定变成一等的声明式 API。未注册的类型不会报错，而会自然降级为普通的 CSS hook。
+
+#### Variant 可以成为实时交互界面
+
+Variant 可以绑定 React 组件。编辑器会把解析后的参数和 children 传给组件，由组件直接在实时文档中渲染。像 `id` 这样的属性可以稳定关联产品中的业务对象，让一小段 Markdown 成为由应用数据驱动的实时交互界面：带审批操作的事项卡片、自动刷新的天气组件、工作流控制项，或任何其他 React 交互体验。
+
+因此，行内规则不只是样式 hook，也可以成为产品功能嵌入文档的界面。严格的渲染契约会保护光标、选区和协作机制，同时组件仍然拥有 React 的完整能力。
+
+### 段落内离线无冲突合并
+
+内核支持段落内的细粒度无冲突合并，而不是把整段内容作为一个 LWW 值。两台设备可以离线修改同一段落中的不同位置，之后交换已保存的状态，双方修改都能保留下来。离线状态交换和实时同步共享同一套 CRDT 基础，也可以彼此独立地接入。
 
 编辑器内核本身无需感知 CRDT。内核只输出常规编辑产生的结构化操作流；可选的 CRDT 插件监听这条操作流，把每次变化转换为嵌套 Yjs shared types 上的 transaction，并维护一个可合并的 `Y.Doc` 副本。Yjs 再把副本编码成可持久化、可传输、可按任意顺序应用的 document updates。由于 CRDT 边界只是操作流外的一层 adapter，业务层和交互层无需围绕 Yjs 重写：功能开发完成后，接入这个轻量插件即可获得段落内细粒度的 CRDT 合并能力。
 
 [**试试双编辑器 CRDT 合并 Playground**](https://www.domd.app/playground/crdt)
 
----
+### 实时同步
 
-## 实时同步
+内核可以让多个编辑器实时同步同一份 Markdown。细粒度编辑会传播到其他副本，并发修改通过 Yjs 自动收敛，远端光标也可以随内容一起同步。收到变化时，内核不会替换整篇文档，而是只在真正受影响的节点上回放操作，因此实时编辑仍然保持局部渲染的性能特征。
 
-DOMD 可以让多个编辑器实时同步同一份 Markdown。细粒度编辑会传播到其他副本，并发修改通过 Yjs 自动收敛，远端光标也可以随内容一起同步。收到变化时，DOMD 不会替换整篇文档，而是只在真正受影响的节点上回放操作，因此实时编辑仍然保持局部渲染的性能特征。
-
-内核为这条链路提供三个接入点：`subscribeRenderDataOps` 输出本地编辑操作，`applyExternalRenderDataOps` 增量应用远端操作，光标快照和订阅接口则提供 presence 数据。可选的 `realtime-sync` adapter 会在这些接口与嵌套的 Yjs shared types 之间双向翻译，形成可复用的同步、收敛和 presence 层。它独立于业务流程和产品状态，不同形态的编辑产品都可以接入，而无需重写 DOMD 的输入、历史记录或渲染系统。
+内核为这条链路提供三个接入点：`subscribeRenderDataOps` 输出本地编辑操作，`applyExternalRenderDataOps` 增量应用远端操作，光标快照和订阅接口则提供 presence 数据。可选的 `realtime-sync` adapter 会在这些接口与嵌套的 Yjs shared types 之间双向翻译，形成可复用的同步、收敛和 presence 层。它独立于业务流程和产品状态，不同形态的编辑产品都可以接入，而无需重写各自的输入、历史记录或渲染系统。
 
 [**试试实时同步 Playground**](https://www.domd.app/playground/live)
 
----
-
-## 流式写入
+### 流式写入
 
 AI 模型通常会一段一段输出 Markdown，而且经常会把语法切在中间。
 
-DOMD 可以按 chunk 接收这些内容，并在写入过程中实时渲染。
+内核可以按 chunk 接收这些内容，并在写入过程中实时渲染。
 
 未闭合的代码块、还没完成的表格、写到一半的列表，都可以在流式过程中正确显示。等真正的结束符到达时，内容会自然合并，不会闪烁，也不需要整篇重渲染。
 
-DOMD 对 chunk 大小不敏感，即使在 20,000 行文档里持续流式写入，也能保持顺滑。
+内核对 chunk 大小不敏感，即使在 20,000 行文档里持续流式写入，也能保持顺滑。
 
 [**试试流式写入 Playground**](https://www.domd.app/playground)
 
----
+### Markdown 原生输入框
 
-## Markdown 原生输入框
-
-DOMD 也可以作为 Markdown 原生输入框使用，适合评论框、Prompt 输入框、CMS 字段、聊天输入框、Issue 表单，以及任何需要结构化文本输入的地方。
+同一套内核也可以作为 Markdown 原生输入框使用，适合评论框、Prompt 输入框、CMS 字段、聊天输入框、Issue 表单，以及任何需要结构化文本输入的地方。
 
 用户输入 Markdown 时，内容会实时渲染成所见即所得效果，但底层 value 仍然保持为 Markdown。
 
@@ -80,49 +106,18 @@ DOMD 也可以作为 Markdown 原生输入框使用，适合评论框、Prompt �
 
 ---
 
-## 大文件性能
+## DOMD 产品
+
+DOMD 把上述内核能力封装成一款克制、轻量、本地优先的 Markdown 编辑器：
+
+* **大文件编辑：**打开 5 KB 笔记和 1 MB 文档的感知速度几乎没有区别，并且始终是完整的所见即所得渲染，而不是纯文本视图。
+* **原生 macOS 应用：**采用普通文件工作流，提供 Quick Look 预览，没有项目树、标签页、账号或内置同步服务。下载 [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) 或 [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg) 版本。
+* **本地优先 Web 编辑器：**打开网页或直接拖入 `.md` 文件即可编辑，处理始终留在本机。[在线试用 DOMD](https://www.domd.app/editor)。
+* **面向 Agent 的 CLI：**`domd-cli` 支持打开窗口、向文档流式写入内容和改写选区，让 DOMD 可以作为 agent 与自动化工具的本地 Markdown 渲染界面。
+
+macOS 应用的大文件编辑演示：
 
 https://github.com/user-attachments/assets/d4cb6d94-6efe-4d5d-8a67-846be7f3cd45
-
-打开一篇 5 KB 笔记，和打开一篇 1 MB Markdown 文档，在感知速度上几乎没有区别。
-
-这里不是普通纯文本预览，而是完整的所见即所得 Markdown 渲染。
-
-在 Finder 里选中 `.md` 文件后按空格，DOMD 自带的 Quick Look 扩展会接管 Markdown 渲染。
-
----
-
-## macOS
-
-DOMD 的 macOS 应用追求轻量、直接、接近系统原生体验。
-
-打开一个渲染后的 `.md` 文件，感觉应该接近系统打开 `.txt` 文件：快、轻、没有额外负担。
-
-DOMD 使用普通 Markdown 文件工作流：没有项目树，没有侧边栏，没有标签页，没有内置云同步服务，也不需要账号。文件始终留在你的设备上。
-
-下载 macOS 版本：[**Apple Silicon**](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) · [**Intel**](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg)
-
----
-
-## Web
-
-打开网页即可开始所见即所得 Markdown 编辑。
-
-你也可以把 `.md` 文件直接拖进页面，在浏览器里本地编辑。所有处理都在本机完成，文件不会离开你的设备。
-
-https://www.domd.app
-
----
-
-## CLI
-
-macOS 版本内置 `domd-cli`，可以让 agent、脚本、启动器和自动化工具直接控制 DOMD 窗口。
-
-这让 DOMD 不只是一个编辑器，也可以成为本地 Markdown 渲染界面。
-
-`domd-cli` 支持打开新窗口、流式写入、改写选区等操作。模型的流式响应可以直接 pipe 到 `domd-cli insert`，token 会一边到达，一边写入文档，并实时渲染成富文本 Markdown。
-
-页面顶部的演示视频，就是通过 Alfred workflow 调用 GPT API，然后把模型响应增量写入 DOMD 录制出来的。
 
 ---
 

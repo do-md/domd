@@ -183,7 +183,7 @@
     },
     "playground": {
         "headerTitle": "DOMD 演练场",
-        "headerSubtitle": "20 KB 核心 · WYSIWYG Markdown 流式渲染",
+        "headerSubtitle": "30 KB+ 核心 · WYSIWYG Markdown 流式渲染",
         "settings": "设置",
         "close": "关闭",
         "dropToStream": "拖放以流式渲染此 Markdown",
@@ -226,7 +226,7 @@
         "metricChars": "字符数",
         "metricChunks": "分块数",
         "metricElapsed": "耗时",
-        "coreNote": "同一个 20 KB 的原生 Markdown 核心，同时驱动预览、编辑与流式渲染。本页模拟 AI 模型逐 token 送达的 Markdown 流——流式渲染进行时，编辑器会被锁定。",
+        "coreNote": "同一个 30 KB+ 的原生 Markdown 核心，同时驱动预览、编辑与流式渲染。本页模拟 AI 模型逐 token 送达的 Markdown 流——流式渲染进行时，编辑器会被锁定。",
         "startStreaming": "开始流式渲染",
         "restartStreaming": "重新开始流式渲染",
         "stopStreaming": "停止流式渲染",

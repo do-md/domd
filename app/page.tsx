@@ -10,7 +10,7 @@ import {
 
 const TITLE = "DOMD — A clean WYSIWYG Markdown editor";
 const DESCRIPTION =
-    "DOMD is a WYSIWYG editor built on a from-scratch, Markdown-native rendering engine. 20 KB gzipped kernel — no account, no cloud, files stay on your device.";
+    "DOMD is a WYSIWYG editor built on a from-scratch, Markdown-native rendering engine. 30+ KB gzipped kernel — no account, no cloud, files stay on your device.";
 
 export const metadata: Metadata = {
     title: { absolute: TITLE },
@@ -62,7 +62,7 @@ const jsonLd = {
     },
     featureList: [
         "WYSIWYG editing directly on Markdown",
-        "20 KB from-scratch Markdown-native engine",
+        "30+ KB from-scratch Markdown-native engine",
         "Real-time AI Markdown streaming",
         "Smooth editing through 20,000-line documents",
         "Native macOS app with Quick Look preview",

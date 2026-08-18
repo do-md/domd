@@ -183,7 +183,7 @@
     },
     "playground": {
         "headerTitle": "DOMD Playground",
-        "headerSubtitle": "20 KB core · WYSIWYG Markdown streaming",
+        "headerSubtitle": "30+ KB core · WYSIWYG Markdown streaming",
         "settings": "Settings",
         "close": "Close",
         "dropToStream": "Drop to stream this Markdown",
@@ -226,7 +226,7 @@
         "metricChars": "Chars",
         "metricChunks": "Chunks",
         "metricElapsed": "Elapsed",
-        "coreNote": "The same 20 KB Markdown-native core powers preview, edit, and stream. This page simulates a token-by-token Markdown stream arriving from an AI model — the editor is locked while a stream is running.",
+        "coreNote": "The same 30+ KB Markdown-native core powers preview, edit, and stream. This page simulates a token-by-token Markdown stream arriving from an AI model — the editor is locked while a stream is running.",
         "startStreaming": "Start streaming",
         "restartStreaming": "Restart streaming",
         "stopStreaming": "Stop streaming",

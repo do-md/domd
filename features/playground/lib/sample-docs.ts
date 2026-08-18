@@ -21,7 +21,7 @@ complete. A list item may start with just a \`-\` and a space.
 
 ## What DOMD tries to prove
 
-1. A WYSIWYG Markdown core can stay small (~20 KB gzipped).
+1. A WYSIWYG Markdown core can stay small (30+ KB gzipped).
 2. The same core can handle preview, edit, and stream.
 3. Streaming output should remain **editable** while the stream is running.
 
@@ -111,7 +111,7 @@ curl -s https://example.com/doc.md \\
 {
     "name": "domd",
     "version": "0.2.2",
-    "core": "20kb"
+    "core": "30kb+"
 }
 \`\`\`
 `;
@@ -125,7 +125,7 @@ header row only becomes a table once the separator row arrives.
 
 | Engine | Core size | Streaming | WYSIWYG |
 | --- | --- | --- | --- |
-| DOMD | ~20 KB | yes | yes |
+| DOMD | 30+ KB | yes | yes |
 | ProseMirror | ~130 KB | partial | yes |
 | Slate | ~80 KB | manual | yes |
 | Lexical | ~70 KB | manual | yes |
@@ -183,7 +183,7 @@ const NESTED = `# Complex nested structures
 
 ## Task list
 
-- [x] Build a 20 KB core
+- [x] Build a 30+ KB core
 - [x] Support streaming input
 - [ ] Ship the playground
 - [ ] Record a 30-second demo

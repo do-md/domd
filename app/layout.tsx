@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     metadataBase: new URL(SITE_URL),
     title: "DOMD — WYSIWYG Markdown editor",
     description:
-        "A WYSIWYG Markdown editor powered by a 20 KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
+        "A WYSIWYG Markdown editor powered by a 30+ KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
     applicationName: "DOMD",
     authors: [{ name: "DOMD" }],
     creator: "DOMD",
@@ -52,13 +52,13 @@ export const metadata: Metadata = {
         url: SITE_URL,
         title: "DOMD — WYSIWYG Markdown editor",
         description:
-            "A WYSIWYG Markdown editor powered by a 20 KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
+            "A WYSIWYG Markdown editor powered by a 30+ KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
     },
     twitter: {
         card: "summary_large_image",
         title: "DOMD — WYSIWYG Markdown editor",
         description:
-            "A WYSIWYG Markdown editor powered by a 20 KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
+            "A WYSIWYG Markdown editor powered by a 30+ KB, from-scratch, Markdown-native engine. Built for fast human editing, huge files, and real-time AI streaming.",
     },
 };
 
