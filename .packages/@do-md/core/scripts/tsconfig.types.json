@@ -1,0 +1,19 @@
+{
+    "//": "For the api-extractor declaration rollup only (see scripts/build-types.mjs). paths point at the declaration tree tsc just emitted into .types-tmp, not at src — the rollup must see nothing but .d.ts files; the moment it resolves back to .ts sources, api-extractor crashes midway. Every path in files/paths refers to a build-time artifact.",
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "strict": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "paths": {
+            "@do-md/utils": ["../.types-tmp/utils"],
+            "@do-md/zenith": ["../.types-tmp/zenith"],
+            "@do-md/zenith/middleware": ["../.types-tmp/zenith/middleware"]
+        }
+    },
+    "files": ["../.types-tmp/core/src/index.d.ts"]
+}

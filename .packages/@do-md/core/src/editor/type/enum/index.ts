@@ -1,0 +1,128 @@
+export enum MarkdownType {
+    Root = "Root",
+
+    H1 = "H1",
+    H2 = "H2",
+    H3 = "H3",
+    H4 = "H4",
+    H5 = "H5",
+    H6 = "H6",
+
+    Blockquote = "Blockquote",
+
+    P = "P",
+    EmptyP = "EmptyP",
+
+    HTML = "HTML",
+
+    CheckBoxLabel = "CheckBoxLabel",
+
+    HrDiv = "HrDiv",
+
+    Ul = "Ul",
+    Ol = "Ol",
+    CheckBoxUl = "CheckBoxUl",
+
+    Table = "Table",
+    THead = "THead",
+    TBody = "TBody",
+    TR = "TR",
+    TH = "TH",
+    TD = "TD",
+
+    PreEmpty = "PreEmpty",
+    Pre = "Pre",
+
+    Detail = "Detail",
+
+    Summary = "Summary",
+
+    EmptyDetailContent = "EmptyDetailContent",
+
+    Hr = "Hr",
+
+    LiP = "LiP",
+    li = "li",
+    CheckBoxLi = "CheckBoxLi",
+    CheckboxesInput = "CheckboxesInput",
+    FunctionSymbol = "FunctionSymbol",
+    FunctionSymbolHide = "FunctionSymbolHide",
+    FunctionIcon = "FunctionIcon",
+    HideSecondLine = "HideSecondLine",
+    Br = "Br",
+    LineBrBr = "LineBrBr",
+    LineBr = "LineBr",
+    InlinePlain = "InlinePlain",
+    Plain = "Plain",
+    Function = "Function",
+    FunctionTextHide = "FunctionTextHide",
+    FunctionDel = "FunctionDel",
+    Link = "Link",
+    EmptyPlain = "EmptyPlain",
+    MdSymbol = "MdSymbol",
+    Img = "Img",
+    /** Aggregation wrapper for ≥2 adjacent inline images (opt-in via the
+     *  `imgGroupSeparators` store option). Children are the ORIGINAL nodes
+     *  verbatim: image wrappers plus the separator text leaves between them
+     *  — nothing is dropped or normalized, so round-trip stays byte-exact.
+     *  Default rendering is a layout-neutral inline span (BaseElement);
+     *  hosts override via renderComponent[MarkdownType.ImgGroup]. */
+    ImgGroup = "ImgGroup",
+    MdHideSymbol = "MdHideSymbol",
+    UlListSymbol = "UlListSymbol",
+    OlListSymbol = "OlListSymbol",
+    MdFrontSymbol = "MdFrontSymbol",
+    Mark = "Mark",
+    /** Host-registered inline syntax span (see InlineRule / inlineRules prop).
+     *  One generic type for ALL rules: the concrete tag lives in `tagName_`,
+     *  styling in `htmlProps_.className` — so new rules never grow this enum. */
+    InlineRuleSpan = "InlineRuleSpan",
+    Del = "Del",
+    Ins = "Ins",
+    Sub = "Sub",
+    Sup = "Sup",
+    U = "U",
+    Kbd = "Kbd",
+    Code = "Code",
+    PreCode = "PreCode",
+    PreCodeEmpty = "PreCodeEmpty",
+    Em = "Em",
+    Bold = "Bold",
+    EmBold = "EmBold",
+    CodeSpanText = "CodeSpanText",
+    CodeSpanBrText = "CodeSpanBrText",
+    CodeSpanBlockComment = "CodeSpanBlockComment",
+    CodeSpanCdata = "CodeSpanCdata",
+    CodeSpanComment = "CodeSpanComment",
+    CodeSpanDoctype = "CodeSpanDoctype",
+    CodeSpanProlog = "CodeSpanProlog",
+    CodeSpanPunctuation = "CodeSpanPunctuation",
+    CodeSpanAttrName = "CodeSpanAttrName",
+    CodeSpanDeleted = "CodeSpanDeleted",
+    CodeSpanNamespace = "CodeSpanNamespace",
+    CodeSpanTag = "CodeSpanTag",
+    CodeSpanFunctionName = "CodeSpanFunctionName",
+    CodeSpanBoolean = "CodeSpanBoolean",
+    CodeSpanFunction = "CodeSpanFunction",
+    CodeSpanNumber = "CodeSpanNumber",
+    CodeSpanClassName = "CodeSpanClassName",
+    CodeSpanConst = "CodeSpanConst",
+    CodeSpanProperty = "CodeSpanProperty",
+    CodeSpanSymbol = "CodeSpanSymbol",
+    CodeSpanAtrule = "CodeSpanAtrule",
+    CodeSpanBuiltin = "CodeSpanBuiltin",
+    CodeSpanImportant = "CodeSpanImportant",
+    CodeSpanKeyword = "CodeSpanKeyword",
+    CodeSpanSelector = "CodeSpanSelector",
+    CodeSpanAttrValue = "CodeSpanAttrValue",
+    CodeSpanChar = "CodeSpanChar",
+    CodeSpanRegex = "CodeSpanRegex",
+    CodeSpanString = "CodeSpanString",
+    CodeSpanVariable = "CodeSpanVariable",
+    CodeSpanEntity = "CodeSpanEntity",
+    CodeSpanOperator = "CodeSpanOperator",
+    CodeSpanUrl = "CodeSpanUrl",
+    CodeSpanBold = "CodeSpanBold",
+    CodeSpanItalic = "CodeSpanItalic",
+    CodeSpanInserted = "CodeSpanInserted",
+}

@@ -1,0 +1,786 @@
+/*
+ * Theme tokens.
+ * Defaults live at zero specificity via :where() so any external selector
+ * (e.g. [data-domd-root]) can remap them onto a host design system
+ * (daisyui, shadcn, custom …) without fighting the cascade.
+ */
+:where(.Root) {
+    --domd-base-100: var(--color-base-100, #000000);
+    --domd-base-200: var(--color-base-200, #181818);
+    --domd-base-300: var(--color-base-300, #202020);
+    --domd-base-content: var(--color-base-content, rgba(228, 228, 228, 0.92));
+    --domd-info-content: var(--color-info-content, #81a1c1);
+    --domd-info: var(--color-info, rgb(110, 172, 226));
+
+    --domd-text: color-mix(in srgb, var(--domd-base-content) 94%, transparent);
+    --domd-blockquote-text: color-mix(in srgb,
+            var(--domd-base-content) 74%,
+            transparent);
+    --domd-link-text: var(--domd-info-content);
+    --domd-placeholder-text: color-mix(in srgb,
+            var(--domd-base-content) 54%,
+            transparent);
+
+    --domd-border: color-mix(in srgb, var(--domd-base-content) 8%, transparent);
+    /*
+     * Table grid lines mix onto the surface (base-100) instead of transparent:
+     * same apparent color as --domd-border, but fully opaque so overlapping
+     * cell borders at crossings never compound their alpha into darker points.
+     */
+    --domd-table-border: color-mix(in srgb,
+            var(--domd-base-content) 8%,
+            var(--domd-base-100));
+    --domd-blockquote-border: color-mix(in srgb,
+            var(--domd-base-content) 12%,
+            transparent);
+    --domd-hr-bg: color-mix(in srgb, var(--domd-base-content) 30%, transparent);
+    --domd-hr-active: var(--domd-info);
+
+    --domd-code-bg: color-mix(in srgb,
+            var(--domd-base-content) 12%,
+            transparent);
+    --domd-pre-bg: color-mix(in srgb, var(--domd-base-content) 5%, transparent);
+    --domd-pre-topbar-bg: color-mix(in srgb,
+            var(--domd-base-content) 15%,
+            transparent);
+
+    /*
+     * Type family. Defaults to the same system-ui sans stack a modern host
+     * app uses, so the editor blends in with its surroundings. A host can
+     * remap it by setting --domd-font-family on the editor root.
+     */
+    --domd-font-family: ui-sans-serif, system-ui, sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        "Noto Color Emoji";
+
+    --domd-font-size-h1: 2rem;
+    /* 32px */
+    --domd-font-size-h2: 1.5rem;
+    /* 24px */
+    --domd-font-size-h3: 1.25rem;
+    /* 20px */
+    --domd-font-size-h4: 1rem;
+    /* 16px, distinguished by font-weight instead */
+    --domd-font-size-h5: 0.875rem;
+    /* 14px */
+    --domd-font-size-h6: 0.85rem;
+    /* 13.6px */
+    --domd-font-size-base: 1rem;
+    /* 16px */
+}
+
+.Root {
+    width: 100%;
+    outline: none;
+    /*caret-color: rgb(0, 189, 184);*/
+    /* caret-color: transparent; */
+    box-sizing: border-box;
+    position: relative;
+    font-family: var(--domd-font-family);
+    font-size: var(--domd-font-size-base);
+    color: var(--domd-text);
+    /* Render text with the lighter, crisper grayscale smoothing modern
+       writing apps use, rather than the heavier subpixel default — the
+       high-contrast document text otherwise looks noticeably bolder than
+       a typical UI surface (most visible for CJK on macOS). */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    & img {
+        display: inline;
+    }
+
+    & table {
+        margin-bottom: 16px;
+        border-collapse: collapse;
+    }
+
+    & tr {
+        & p {
+            margin-bottom: 0;
+        }
+    }
+
+    & th {
+        border: solid 1px var(--domd-table-border);
+        padding: 5px 10px;
+        text-align: left;
+    }
+
+    & td {
+        border: solid 1px var(--domd-table-border);
+        padding: 5px 10px;
+    }
+}
+
+/* Headings */
+.H1 {
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    outline: hidden;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    font-size: var(--domd-font-size-h1);
+    margin-bottom: 0.375rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+@media (min-width: 640px) {
+    .H1 {
+        font-size: var(--domd-font-size-h1);
+    }
+}
+
+.H2 {
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    outline: hidden;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-size: var(--domd-font-size-h2);
+    margin-top: 0.375rem;
+    margin-bottom: 0.375rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+@media (min-width: 640px) {
+    .H2 {
+        font-size: var(--domd-font-size-h2);
+    }
+}
+
+.H3 {
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    outline: hidden;
+    font-weight: 600;
+    font-size: var(--domd-font-size-h3);
+    margin-top: 0.375rem;
+    margin-bottom: 0.375rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
+
+@media (min-width: 640px) {
+    .H3 {
+        font-size: var(--domd-font-size-h3);
+    }
+}
+
+.H4 {
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    margin-bottom: 0.25rem;
+    font-size: var(--domd-font-size-h4);
+    font-weight: 600;
+}
+
+.H5 {
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    margin-bottom: 0.25rem;
+    font-size: var(--domd-font-size-h5);
+    font-weight: 600;
+}
+
+.H6 {
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    margin-bottom: 0.25rem;
+    font-size: var(--domd-font-size-h6);
+    font-weight: 600;
+}
+
+/* Block elements */
+.Blockquote {
+    border-left: 4px solid var(--domd-blockquote-border);
+    color: var(--domd-blockquote-text);
+    padding: 0 15px;
+    margin: 0.8em 0;
+    box-sizing: border-box;
+}
+
+.P {
+    outline: none;
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    word-break: normal;
+    line-height: 1.625;
+    margin-bottom: 1rem;
+    margin-top: 0rem;
+}
+
+.EmptyP {
+    outline: none;
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    word-break: normal;
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    line-height: 1.625;
+    margin-bottom: 1rem;
+    /*
+     * Chrome paints no caret for a block whose content box is 0 wide (the
+     * position is valid and typing works — it is simply invisible). An empty
+     * block holds a single <br> and no text, so its width comes entirely from
+     * the outside: in a normal block context it stretches to fill and nothing
+     * is wrong, but inside a shrink-to-fit container (a table cell is
+     * max-content, and a host may well drop the editor into a
+     * width:max-content box) the content width is exactly 0 — that is why a
+     * freshly created table's empty cells showed no caret. A 1px floor is
+     * enough for Chrome to start painting again (measured case by case with
+     * headless diff screenshots: 0px does not paint, 1px does). Same idea as
+     * .EmptyPlain's min-width.
+     */
+    min-width: 1px;
+
+    &:has(> br:first-child) {
+        position: relative;
+    }
+
+    &:has(> br:first-child)::after,
+    :has(> br:first-child)::after {
+        content: attr(placeholder);
+        color: var(--domd-placeholder-text);
+        position: absolute;
+        top: 0;
+    }
+}
+
+.HTML {
+    & img {
+        display: inline;
+    }
+}
+
+.HrDiv {
+    height: 18px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+
+    div {
+        width: 100%;
+    }
+}
+
+.HrDiv[data-active="true"] {
+    div {
+        padding-top: 0.125rem;
+        padding-bottom: 0.125rem;
+        outline: 1px solid var(--domd-hr-active);
+        border-radius: 0.125rem;
+    }
+}
+
+.Hr {
+    height: 1px;
+    margin-top: 0;
+    margin-bottom: 0;
+    background-color: var(--domd-hr-bg);
+    border: 0;
+}
+
+/* Details/Summary */
+.Detail {
+    outline: none;
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 0fr;
+    width: 100%;
+    visibility: collapse;
+    padding-left: 18px;
+    padding-right: 18px;
+    border-radius: 0.375rem;
+
+    &:not(td):not(tr):not(colgroup) {
+        visibility: visible;
+    }
+
+    &[open] svg {
+        transform: rotate(0);
+    }
+}
+
+.Summary {
+    outline: none;
+    position: relative;
+    display: block;
+    padding: 0;
+
+    &::-webkit-details-marker {
+        display: none;
+    }
+
+    &:empty:not(:focus):after {
+        content: "Toggle";
+        color: var(--domd-placeholder);
+    }
+}
+
+.EmptyDetailContent {
+    outline: none;
+    white-space: pre-wrap;
+    orphans: 4;
+    word-wrap: break-word;
+    word-break: normal;
+    box-sizing: border-box;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+
+    &:empty:not(:focus):after {
+        content: "Empty toggle";
+        color: var(--domd-placeholder);
+    }
+}
+
+/* Lists */
+.Ul {
+    padding-left: 30px;
+    box-sizing: border-box;
+    list-style: auto;
+    list-style-type: disc;
+    margin-bottom: 1rem;
+}
+
+.Ol {
+    padding-left: 30px;
+    margin: 0.8em 0;
+    box-sizing: border-box;
+    list-style: auto;
+    margin-bottom: 1rem;
+}
+
+.CheckBoxUl {
+    padding-left: 30px;
+    margin: 0.8em 0;
+    box-sizing: border-box;
+    margin-bottom: 1rem;
+}
+
+.li {
+    word-break: normal;
+    word-wrap: break-word;
+    white-space: normal;
+
+    p {
+        margin-bottom: 0.25rem;
+    }
+}
+
+.CheckBoxLi {
+    word-break: normal;
+    word-wrap: break-word;
+    white-space: normal;
+    /*position: relative;*/
+    list-style-type: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+
+    p {
+        margin-bottom: 0.25rem;
+    }
+}
+
+.CheckBoxLabel {
+    user-select: none;
+    margin-left: -25px;
+    height: 0;
+    top: 2px;
+    position: relative;
+}
+
+@supports (-webkit-hyphens: none) {
+    .CheckBoxLabel {
+        top: 0;
+    }
+}
+
+.LiP {
+    outline: none;
+    orphans: 4;
+    word-wrap: break-word;
+    word-break: normal;
+    box-sizing: border-box;
+    margin-bottom: 0.25rem;
+
+    &:after {
+        content: "\200B";
+    }
+}
+
+.TableScrollable {
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    overflow: auto hidden;
+}
+
+:global(.TableScrollable) {
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    overflow: auto hidden;
+}
+
+/* Table */
+.Table {
+    margin-bottom: 1.25rem;
+    margin-top: 0.25rem;
+    border-collapse: collapse;
+}
+
+.TR {
+    & p {
+        margin-bottom: 0;
+    }
+}
+
+.TH {
+    border: solid 1px var(--domd-table-border);
+    padding: 5px 10px;
+    text-align: left;
+}
+
+.TD {
+    border: solid 1px var(--domd-table-border);
+    padding: 5px 10px;
+}
+
+/* Function elements */
+.FunctionSymbol {
+    box-sizing: border-box;
+}
+
+.FunctionSymbolHide {
+    box-sizing: border-box;
+    display: none;
+}
+
+.FunctionIcon {
+    box-sizing: border-box;
+    width: 22px;
+    height: 22px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+    margin-bottom: 5px;
+    cursor: pointer;
+}
+
+.HideSecondLine {
+    display: none;
+}
+
+/* Line breaks */
+.Br {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    white-space: break-spaces;
+    -webkit-font-variant-ligatures: none;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0;
+}
+
+.BrBr {
+    display: none;
+}
+
+/* Inline elements */
+.InlinePlain {
+    display: inline-block;
+}
+
+.Plain {
+    box-sizing: border-box;
+}
+
+.Function {
+    border-radius: 10px;
+    padding: 0 5px;
+    box-sizing: border-box;
+}
+
+.FunctionTextHide {
+    border-radius: 10px;
+    padding: 0 5px;
+    box-sizing: border-box;
+    margin: 0 1px;
+}
+
+.FunctionDel {
+    & .function-icon {
+        display: none;
+    }
+}
+
+.Link {
+    text-decoration: none;
+    color: var(--domd-link-text);
+}
+
+.EmptyPlain {
+    box-sizing: border-box;
+    min-width: 1em;
+
+    &:after {
+        content: "\200B";
+    }
+}
+
+/* Markdown symbols */
+.MdHideSymbol {
+    display: none;
+}
+
+.UlListSymbol {
+    display: none;
+}
+
+.OlListSymbol {
+    display: none;
+}
+
+/* Images */
+.Img {
+    image-orientation: from-image;
+    margin: 0;
+    max-width: 100%;
+    display: block;
+    border-radius: 1rem;
+}
+
+/* Text formatting */
+.Mark {
+    margin: 0 1px;
+}
+
+/* InlineRuleSpan per-tag styling: `==` now renders through the rule engine
+   as <mark tagName_>, so visual parity with the old .Mark lives here. */
+.InlineRule_mark {
+    margin: 0 1px;
+}
+
+.Em {
+    margin-right: 2px;
+}
+
+.Bold {
+    font-weight: bold;
+}
+
+.EmBold {
+    font-weight: bold;
+    margin-right: 2px;
+}
+
+/* Code */
+.Code {
+    padding: 2px;
+    box-sizing: border-box;
+    margin: 0 1px;
+    border-radius: 3px;
+    background-color: var(--domd-code-bg);
+}
+
+.Pre {
+    outline: none !important;
+    border: 1px solid var(--domd-border);
+    border-radius: 4px;
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+    font-size: 1em;
+    text-align: left;
+    white-space: pre;
+    white-space: pre-wrap;
+    word-spacing: normal;
+    word-break: normal;
+    word-wrap: normal;
+    line-height: 1.5;
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+    tab-size: 4;
+    -webkit-hyphens: none;
+    -moz-hyphens: none;
+    -ms-hyphens: none;
+    hyphens: none;
+    position: relative;
+    overflow: hidden;
+    background: var(--domd-pre-bg);
+    margin-top: 0.25rem;
+    margin-bottom: 1rem;
+    padding: 0;
+}
+
+.PreCode {
+    background: 0 0;
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+    font-size: 1em;
+    text-align: left;
+    white-space: pre;
+    white-space: pre-wrap;
+    word-spacing: normal;
+    word-break: normal;
+    word-wrap: normal;
+    line-height: 1.5;
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+    tab-size: 4;
+    -webkit-hyphens: none;
+    -moz-hyphens: none;
+    -ms-hyphens: none;
+    hyphens: none;
+
+    &:after {
+        content: "\200B";
+    }
+}
+
+.PreCodeLanguage {
+    position: relative;
+
+    &:before {
+        content: attr(data-language);
+    }
+}
+
+.PreCodeCopy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+
+    :global(.icon) {
+        width: 12px;
+        height: 12px;
+        margin-right: 8px;
+        /*fill: var(--domd-pre-fg);*/
+    }
+}
+
+@media (hover: hover) and (min-width: 640px) {
+    .Pre .PreCodeCopy {
+        visibility: hidden;
+    }
+
+    .Pre:hover .PreCodeCopy {
+        visibility: visible;
+    }
+}
+
+.PreCodeCopyLabel {
+    position: relative;
+
+    :after {
+        content: "Copy code";
+    }
+}
+
+.PreCodeCopiedLabel {
+    position: relative;
+
+    :after {
+        content: "Copied!";
+    }
+}
+
+.PreCodeTopBar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    margin: auto;
+    height: 30px;
+    padding: 0;
+    padding-left: 16px;
+    padding-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /*background: var(--domd-pre-topbar-bg);*/
+    font-size: 12px;
+    color: var(--domd-text);
+}
+
+.PreCodeContent {
+    overflow: auto;
+    padding: 1em;
+    margin-top: 20px;
+
+    /*::-webkit-scrollbar {
+        width: 6px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--domd-scrollbar-thumb);
+        border-radius: 10px;
+    }*/
+}
+
+.PreCodeEmpty {
+    background: 0 0;
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+    font-size: 1em;
+    text-align: left;
+    white-space: pre;
+    white-space: pre-wrap;
+    word-spacing: normal;
+    word-break: normal;
+    word-wrap: normal;
+    line-height: 1.5;
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+    tab-size: 4;
+    -webkit-hyphens: none;
+    -moz-hyphens: none;
+    -ms-hyphens: none;
+    hyphens: none;
+
+    &:after {
+        content: "\200B";
+    }
+}
+
+/* Utility classes for generic elements */
+.Plain {
+    box-sizing: border-box;
+}
+
+.EmptyPlain {
+    box-sizing: border-box;
+    min-width: 1em;
+
+    &:after {
+        content: "\200B";
+    }
+}
+
+/* Code span elements */
+.CodeSpanBrText {
+    &:after {
+        content: "\200B";
+    }
+}
+
+.MdSymbol {
+    display: none;
+    color: var(--domd-text);
+}
+
+.MdSymbol[data-active="true"] {
+    display: inline;
+    opacity: 0.3;
+}

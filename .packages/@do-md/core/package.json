@@ -1,0 +1,78 @@
+{
+    "name": "@do-md/core-react",
+    "version": "0.11.0",
+    "private": true,
+    "description": "Markdown-native WYSIWYG editor core for React — the Markdown text is the model, no conversion layer.",
+    "keywords": [
+        "markdown",
+        "wysiwyg",
+        "editor",
+        "react",
+        "rich-text",
+        "contenteditable",
+        "markdown-editor",
+        "local-first",
+        "crdt",
+        "ai-streaming"
+    ],
+    "license": "GPL-3.0-only",
+    "author": "Jayden Wang",
+    "homepage": "https://github.com/do-md/domd",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/do-md/domd.git",
+        "directory": ".packages/@do-md/core"
+    },
+    "bugs": {
+        "url": "https://github.com/do-md/domd/issues"
+    },
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./src/index.ts"
+        },
+        "./style.css": "./src/style.css",
+        "./src/*": "./src/*"
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "scripts": {
+        "dev": "vite build --watch",
+        "build": "vite build && node scripts/build-types.mjs",
+        "build:pack": "npm run build && npm pack",
+        "release": "node scripts/release.mjs",
+        "typecheck": "tsc --noEmit"
+    },
+    "peerDependencies": {
+        "immer": "^10.2.0",
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+    },
+    "peerDependenciesMeta": {
+        "immer": {
+            "optional": false
+        }
+    },
+    "devDependencies": {
+        "@microsoft/api-extractor": "^7.58.13",
+        "@types/js-beautify": "^1.14.3",
+        "@types/react": "^19.2.2",
+        "@types/react-dom": "^19.2.2",
+        "@vitejs/plugin-react": "^5.1.0",
+        "nanoid": "^5.1.6",
+        "terser": "^5.44.1",
+        "typescript": "^5.9.3",
+        "vite": "^7.2.2",
+        "vite-plugin-css-injected-by-js": "^3.5.2"
+    },
+    "publishConfig": {
+        "files": [
+            "dist"
+        ]
+    }
+}

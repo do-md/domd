@@ -1,0 +1,15 @@
+# Normalize line endings to LF, avoiding cross-platform (macOS/Windows) CRLF noise
+* text=auto eol=lf
+
+# Binary files get no line-ending processing
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+
+# Mark the lockfile as generated: collapsed in diffs, excluded from language stats
+package-lock.json linguist-generated=true
