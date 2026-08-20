@@ -34,7 +34,6 @@ import {
     DOMDProvider,
     deserializeRenderData,
     toMarkdown,
-    useEditor,
     useEditorStore,
     useEditorStoreApi,
     useRenderData,
@@ -276,7 +275,7 @@ function GuestEditorSurface({
     /** Owned by the parent so the "more" menu can export the rendered DOM. */
     contentRef: React.RefObject<HTMLDivElement | null>;
 }) {
-    const editor = useEditor();
+    const store = useEditorStoreApi();
     const isEditable = useEditorStore((store) => store.isEditable);
     const renderData = useRenderData();
     const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -313,7 +312,7 @@ function GuestEditorSurface({
             className="flex-1 min-h-0 overflow-y-auto"
             onClick={(e) => {
                 if (contentRef.current?.contains(e.target as Node)) return;
-                editor?.focus();
+                store?.focus();
             }}
         >
             <div className="max-w-3xl mx-auto px-6 py-8">

@@ -19,7 +19,7 @@ Here is a small Markdown demo:
 
 \`\`\`ts
 const chunk = await stream.next()
-editor.insertText(chunk)
+store.insertText(chunk)
 \`\`\`
 
 | Feature | Behavior                |
@@ -43,7 +43,7 @@ const MOCK_ZH = `这是一段模拟的流式回复。
 
 \`\`\`ts
 const chunk = await stream.next()
-editor.insertText(chunk)
+store.insertText(chunk)
 \`\`\`
 
 | 能力 | 行为                    |
@@ -67,7 +67,7 @@ API キーは不要で、今すぐチャットを始められます。**実際�
 
 \`\`\`ts
 const chunk = await stream.next()
-editor.insertText(chunk)
+store.insertText(chunk)
 \`\`\`
 
 | 機能 | 挙動                       |

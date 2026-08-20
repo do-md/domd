@@ -57,8 +57,8 @@ const ACCEL_MAX_CHUNK = 4000; // cap so a single insert can't get pathological
 const FALLBACK_ACCEL_AT = 2000;
 
 // Streams `text` into the surrounding DOMDProvider one chunk at a time,
-// mimicking an AI token stream. Must sit inside the provider so `useEditor`
-// returns the live editor.
+// mimicking an AI token stream. Must sit inside the provider so the store
+// hook resolves to the live editor instance.
 function StreamDriver({
     text,
     abortRef,

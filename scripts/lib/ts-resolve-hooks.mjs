@@ -20,16 +20,41 @@ import { existsSync } from "node:fs";
 const ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CANDIDATE_SUFFIXES = [".ts", ".tsx", "/index.ts", "/index.tsx"];
 
+// The editor kernel lives in this repository as TypeScript source at
+// `.packages/@do-md/core/src`, which is what tsconfig `paths` and the bundler
+// resolve to. Node cannot be pointed at that source: `--experimental-strip-types`
+// removes type annotations but does not transform JSX, and the kernel's render
+// layer is `.tsx`. So the harnesses import the kernel's build output instead,
+// which means the kernel has to be built before they run.
+const KERNEL_PACKAGE = "@do-md/core-react";
+const KERNEL_DIST = ".packages/@do-md/core/dist";
+
 export async function resolve(specifier, context, nextResolve) {
     // `@/foo/bar` → <project root>/foo/bar
     if (specifier.startsWith("@/")) {
         const base = pathToFileURL(resolvePath(ROOT, specifier.slice(2))).href;
         return tryCandidates(base, context, nextResolve, specifier);
     }
-    // Workspace packages installed as source (`npx i`) live in `.packages/`;
-    // the ones consumed as a published build (@do-md/core-react) are in
-    // node_modules and must fall through untouched — hence the existence
-    // check rather than a blanket rewrite.
+    // The kernel: package name (`@do-md/core-react`) and directory name (`core`)
+    // differ, so the generic rule below cannot find it either way.
+    if (
+        specifier === KERNEL_PACKAGE ||
+        specifier.startsWith(`${KERNEL_PACKAGE}/`)
+    ) {
+        const subpath = specifier.slice(KERNEL_PACKAGE.length + 1);
+        const target = resolvePath(ROOT, KERNEL_DIST, subpath || "index.js");
+        if (!existsSync(target)) {
+            throw new Error(
+                `Cannot resolve "${specifier}": ${target} does not exist. ` +
+                    "The kernel has to be built before the verify harnesses run — " +
+                    "(cd .packages/@do-md/core && npm run build)",
+            );
+        }
+        return nextResolve(pathToFileURL(target).href, context);
+    }
+    // Other workspace packages are copied into `.packages/` as source under
+    // their own name; anything not found there falls through untouched — hence
+    // the existence check rather than a blanket rewrite.
     if (specifier.startsWith("@do-md/")) {
         const dir = resolvePath(ROOT, ".packages", specifier);
         if (existsSync(dir)) {

@@ -4,7 +4,7 @@ import {
     DOMD,
     DOMDProvider,
     toMarkdown,
-    useEditor,
+    useEditorStoreApi,
     useRenderData,
 } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
@@ -40,7 +40,7 @@ function readInitialContent(): string {
 // Sits inside DOMDProvider so it can resetMD when a grammar loads. Same
 // trick as the editor: re-parse so existing code blocks pick up highlighting.
 function GrammarReparseEffect() {
-    const editor = useEditor();
+    const store = useEditorStoreApi();
     const renderData = useRenderData();
     const renderDataRef = useLatest(renderData);
 
@@ -52,13 +52,13 @@ function GrammarReparseEffect() {
     const baseVersionRef = useRef(grammarVersion);
     useEffect(() => {
         if (grammarVersion <= baseVersionRef.current) return;
-        if (!editor) return;
+        if (!store) return;
         const id = setTimeout(() => {
             const md = toMarkdown(renderDataRef.current) ?? "";
-            editor.editorStore.resetMD(md);
+            store.resetMD(md);
         }, 50);
         return () => clearTimeout(id);
-    }, [grammarVersion, editor, renderDataRef]);
+    }, [grammarVersion, store, renderDataRef]);
 
     return null;
 }

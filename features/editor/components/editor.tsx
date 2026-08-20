@@ -9,7 +9,6 @@ import {
 import {
     DOMD,
     toMarkdown,
-    useEditor,
     useRenderData,
     useEditorStoreApi,
     useEditorStore,
@@ -155,7 +154,6 @@ export function Editor({
     const renderData = useRenderData();
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
-    const editor = useEditor();
     const store = useEditorStoreApi();
     const isEditable = useEditorStore((store) => store.isEditable);
     const mode = useEditorStore((store) => store.mode);
@@ -193,17 +191,16 @@ export function Editor({
         }
     }, [keyboardPin]);
 
-    // Auto-focus once when the editor instance materializes. @do-md hands the
-    // editor back via a deferred setTimeout in its provider, so the first
-    // render sees `editor === null` — a plain mount effect would no-op. The
-    // ref keeps focus from re-firing later (e.g. after user has clicked
-    // elsewhere or another doc swap re-runs this effect).
+    // Auto-focus once on mount. Currently disabled (the call is commented out)
+    // — kept as a deliberate toggle. store.focus() records an intent instead of
+    // touching the DOM, so it no longer needs to wait for the editor instance;
+    // the ref keeps it from re-firing on a later doc swap.
     const didFocusRef = useRef(false);
     useEffect(() => {
-        if (!editor || didFocusRef.current) return;
+        if (!store || didFocusRef.current) return;
         didFocusRef.current = true;
-        // editor.focus?.();
-    }, [editor]);
+        // store.focus();
+    }, [store]);
 
     useEffect(() => {
         // @ts-expect-error
@@ -219,10 +216,12 @@ export function Editor({
     }, [store, renderData]);
 
     useEffect(() => {
-        if (editor?.aiInsertInCursor) {
+        if (!store) return;
+        {
+            // 保留 aiInsertInCursor 这个名字（手敲惯了），实现就是 store.insertText。
             // @ts-expect-error
             window.aiInsertInCursor = (text: string) => {
-                editor?.aiInsertInCursor(text);
+                store.insertText(text);
             };
             // @ts-expect-error
             window.insertText = (text: string) => {
@@ -264,7 +263,7 @@ export function Editor({
                 }
             };
         }
-    }, [editor, store]);
+    }, [store]);
 
     // Benchmark: signal once after the initial paint. initMd makes renderData
     // available synchronously on first render, so a single mount effect is enough.
@@ -350,13 +349,13 @@ export function Editor({
     const baseVersionRef = useRef(grammarVersion);
     useEffect(() => {
         if (grammarVersion <= baseVersionRef.current) return;
-        if (!editor) return;
+        if (!store) return;
         const id = setTimeout(() => {
             const md = toMarkdown(renderDataRef.current) ?? "";
-            editor.editorStore.resetMD(md);
+            store.resetMD(md);
         }, 50);
         return () => clearTimeout(id);
-    }, [grammarVersion, editor]);
+    }, [grammarVersion, store]);
 
     // Tauri: menu → Save
     useTauriEvent("menu-save", () => {
@@ -369,8 +368,8 @@ export function Editor({
     // then fall through to incremental insertText.
     useTauriEvent<{ text: string }>("cli-insert", ({ text }) => {
         const isEmpty = (toMarkdown(renderDataRef.current) ?? "").length === 0;
-        if (isEmpty && editor?.editorStore) {
-            editor.editorStore.resetMD(text);
+        if (isEmpty && store) {
+            store.resetMD(text);
             return;
         }
         // TODO(user): if there's an active range selection, delete it before
@@ -698,7 +697,7 @@ export function Editor({
                         onClick={(e) => {
                             if (domdRef.current?.contains(e.target as Node))
                                 return;
-                            editor?.focus();
+                            store?.focus();
                         }}
                     >
                         <div className="max-w-3xl mx-auto px-6 py-8">

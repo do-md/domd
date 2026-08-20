@@ -26,6 +26,12 @@
             "@/*": [
                 "./*"
             ],
+            "@do-md/core-react": [
+                "./.packages/@do-md/core/src"
+            ],
+            "@do-md/core-react/style.css": [
+                "./.packages/@do-md/core/src/style.css"
+            ],
             "@do-md/utils": [
                 "./.packages/@do-md/utils"
             ],
@@ -51,6 +57,7 @@
         "node_modules",
         "plugins/**/verify/**",
         "services/**",
-        "scripts/**"
+        "scripts/**",
+        ".packages/@do-md/core/scripts/**"
     ]
 }

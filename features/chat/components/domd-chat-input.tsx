@@ -12,7 +12,6 @@ import {
     DOMD,
     DOMDProvider,
     toMarkdown,
-    useEditor,
     useEditorStoreApi,
     useRenderData,
 } from "@do-md/core-react";
@@ -42,7 +41,6 @@ function InputInner({
     disabled,
     draftRef,
     storeRef,
-    editorRef,
     submitFromStore,
 }: {
     expanded: boolean;
@@ -50,24 +48,19 @@ function InputInner({
     disabled: boolean;
     draftRef: React.MutableRefObject<string>;
     storeRef: React.MutableRefObject<EditorStore | null>;
-    editorRef: React.MutableRefObject<ReturnType<typeof useEditor>>;
     submitFromStore: (store: EditorStore) => boolean;
 }) {
     const { t } = useTranslation();
     const store = useEditorStoreApi();
-    const editor = useEditor();
     const renderData = useRenderData();
 
     const markdown = toMarkdown(renderData) ?? "";
     const isEmpty = markdown.trim().length === 0;
 
-    // Expose store/editor to the parent for imperative setMarkdown / focus.
+    // Expose the store to the parent for imperative setMarkdown / focus.
     useEffect(() => {
         storeRef.current = store;
     }, [store, storeRef]);
-    useEffect(() => {
-        editorRef.current = editor;
-    }, [editor, editorRef]);
 
     // Keep the draft in sync so an expand/collapse remount restores content.
     useEffect(() => {
@@ -84,18 +77,18 @@ function InputInner({
         if (!draftRef.current) store.resetMD("");
     }, [store, draftRef]);
 
-    // Focus once when the editor instance materializes (the provider hands it
-    // back via a deferred setTimeout, so the first render sees null).
+    // Focus once. store.focus() records an intent instead of touching the DOM,
+    // so it no longer has to wait for the editor instance to materialize.
     const didFocus = useRef(false);
     useEffect(() => {
-        if (!editor || didFocus.current) return;
+        if (!store || didFocus.current) return;
         didFocus.current = true;
-        editor.focus?.();
-    }, [editor]);
+        store.focus();
+    }, [store]);
 
     const send = () => {
         if (!store) return;
-        if (submitFromStore(store)) editor?.focus?.();
+        if (submitFromStore(store)) store.focus();
     };
 
     const sendDisabled = disabled || isEmpty;
@@ -218,7 +211,6 @@ export const DomdChatInput = forwardRef<DomdChatInputHandle, Props>(
         const [gen, setGen] = useState(0);
         const draftRef = useRef("");
         const storeRef = useRef<EditorStore | null>(null);
-        const editorRef = useRef<ReturnType<typeof useEditor>>(null);
 
         // Route through refs so the construction-time onEnter closure always
         // sees the latest props (it's captured once at provider mount). Written
@@ -251,7 +243,7 @@ export const DomdChatInput = forwardRef<DomdChatInputHandle, Props>(
                 setMarkdown: (md: string) => {
                     draftRef.current = md;
                     storeRef.current?.resetMD(md);
-                    editorRef.current?.focus?.();
+                    storeRef.current?.focus();
                 },
             }),
             [],
@@ -291,7 +283,6 @@ export const DomdChatInput = forwardRef<DomdChatInputHandle, Props>(
                     disabled={disabled}
                     draftRef={draftRef}
                     storeRef={storeRef}
-                    editorRef={editorRef}
                     submitFromStore={submitFromStore}
                 />
             </DOMDProvider>

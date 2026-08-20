@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Link from "next/link";
-import { DOMD, DOMDProvider, useEditor, useEditorStoreApi } from "@do-md/core-react";
+import { DOMD, DOMDProvider, useEditorStoreApi } from "@do-md/core-react";
 import "@do-md/core-react/style.css";
 import { tokenize } from "@/common/lib/prism";
 import { appInlineRules } from "@/features/editor/lib/inline-rules";
@@ -33,7 +33,6 @@ const MAX_DROPPED_BYTES = 10 * 1024 * 1024; // 10 MB — sanity cap on dropped f
 // that would wipe streamed content the moment a run finishes.
 function EditorInit({ skipSeed }: { skipSeed: boolean }) {
     const store = useEditorStoreApi();
-    const editor = useEditor();
     const didSeedRef = useRef(false);
     const didFocusRef = useRef(false);
 
@@ -47,16 +46,15 @@ function EditorInit({ skipSeed }: { skipSeed: boolean }) {
         store.resetMD("");
     }, [store, skipSeed]);
 
-    // Focus runs once when the editor instance is actually available — the
-    // DOMD provider hands it back via a setTimeout, so the very first render
-    // sees `editor === null`. Skipping the focus call (or guarding it with the
-    // same ref as seed) used to leave the doc unfocused, blocking typing.
+    // Focus runs once. store.focus() records an intent rather than touching
+    // the DOM, so it no longer has to wait for the editor instance to exist —
+    // the kernel replays the intent as soon as the controller is mounted.
     useEffect(() => {
-        if (!editor || didFocusRef.current) return;
+        if (didFocusRef.current) return;
         didFocusRef.current = true;
         if (skipSeed) return;
-        editor.focus?.();
-    }, [editor, skipSeed]);
+        store.focus();
+    }, [store, skipSeed]);
     return null;
 }
 

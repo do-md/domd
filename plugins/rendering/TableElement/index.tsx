@@ -2,7 +2,8 @@
 
 import {
     RenderChildren,
-    RenderData,
+    AnyRenderData,
+    RenderElementProps,
     SerializedRenderData,
     getRenderElementProps,
     getSpanRenderIdProps,
@@ -23,9 +24,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-interface Props {
-    parsedData: RenderData;
-}
+type Props = RenderElementProps;
 
 /**
  * The affordance gutter: 4px gap + 16px strip = 20px = 1.25rem. The wrapper
@@ -156,7 +155,7 @@ interface CellHandlesProps {
     tableRef: RefObject<HTMLTableElement | null>;
     /** Structure version signal: any table reparse produces a new node, so
      *  passing it as a dep re-measures after row/column mutations. */
-    parsedData: RenderData;
+    parsedData: AnyRenderData;
 }
 
 /**
