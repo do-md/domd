@@ -23,7 +23,7 @@ Peer dependencies (you provide these):
 
 - `react` `>=18` — required
 - `react-dom` `>=18` — required
-- `immer` `^10` — required; the store is Immer-based and shares your app's Immer instance
+- `immer` `^10 || ^11` — required; the store is Immer-based and shares your app's Immer instance
 
 ## Quick start
 
