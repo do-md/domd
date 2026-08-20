@@ -142,25 +142,19 @@ npm run tauri dev
 
 ## License
 
-DOMD 是一个产品优先的项目。
+DOMD 是一个产品优先的项目，许可证分为两层：
 
-应用层代码，包括 macOS 应用、Web 应用、辅助库和 DOMD 内核插件，均以 MIT License 开源，方便学习、个人使用、贡献和审查。
+* **应用层** — macOS 应用、Web 应用、辅助库和 DOMD 内核插件，均以 [MIT License](./LICENSE) 开源。
+* **编辑器内核** — 核心引擎的源码就在本仓库的 [`.packages/@do-md/core`](./.packages/@do-md/core)（npm 包名 [`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react)），采用 **GPL-3.0**，并依 GPL 第 7 条授予两条[附加许可](./.packages/@do-md/core/LICENSE-EXCEPTIONS.md)：
 
-核心编辑器内核以独立 npm 包 [`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react) 发布，并单独使用 PolyForm Noncommercial 1.0.0 许可证授权。该包提供 DOMD 的 Markdown 编辑和渲染能力。
+  1. **小型主体例外** — 个人、非营利组织，以及年营收低于 100 万美元且累计融资低于 200 万美元的公司，可以把内核链接进非 GPL 软件，并按自选条款发布。
+  2. **FOSS 许可证例外** — 采用 MIT、Apache-2.0、BSD、MPL-2.0、ISC、EPL-2.0 或 zlib 的项目，可以链接内核并按其自身许可证发布组合作品。
 
-你可以在以下场景中使用 `@do-md/core-react`：
+由于应用打包了 GPL 内核，DOMD 整体的二进制分发或 Web 部署作为一个整体按 GPL 传递；MIT 授权的应用层源文件本身仍是 MIT。试用内核、拿它开发、在组织内部运行都不产生任何义务——GPL 义务在你把它分发给用户时才产生（把内核加载进浏览器的 Web 应用上线也算分发）。
 
-* 评估和试用
-* 个人项目
-* 非商业项目
-* 非商业开源项目
-* 实验和原型开发
+内核 0.10.0 及更早版本按 PolyForm Noncommercial 1.0.0 许可证发布；自 0.11.0 起，内核为 GPL-3.0 加上述例外。
 
-商业使用需要提前获得书面授权。
-
-这包括但不限于：商业产品集成、SaaS / 产品嵌入、重新分发，或将 DOMD 作为付费产品、SDK、编辑器组件、托管服务的一部分提供。
-
-如需商业授权，请联系项目作者。
+超出例外范围的专有用途，可获取商业许可，请联系 <effyouapp@gmail.com>。
 
 ---
 

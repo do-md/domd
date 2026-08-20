@@ -136,15 +136,19 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for full setup and contribution notes.
 
 ## Licensing
 
-DOMD is a product-first project. The application layer, including the macOS app, web app, helper libraries, and DOMD kernel plugins, is open-source under the MIT License for learning, personal use, contribution, and transparency.
+DOMD is a product-first project with two license layers:
 
-The core editor engine is independently published on npm as [`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react) and separately licensed under the PolyForm Noncommercial 1.0.0 license. The package provides DOMD's Markdown editing and rendering capabilities.
+* **Application layer** — the macOS app, web app, helper libraries, and DOMD kernel plugins are open-source under the [MIT License](./LICENSE).
+* **Editor kernel** — the core engine lives in this repository at [`.packages/@do-md/core`](./.packages/@do-md/core) (published on npm as [`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react)) and is licensed under **GPL-3.0** with two [additional permissions](./.packages/@do-md/core/LICENSE-EXCEPTIONS.md) granted under GPL section 7:
 
-You may use `@do-md/core-react` for evaluation, personal projects, non-commercial projects, including non-commercial open-source projects, experiments, and prototypes.
+  1. **Small entity exception** — individuals, non-profits, and companies under USD 1M annual revenue and under USD 2M raised may link the kernel into non-GPL software and ship it under terms of their choice.
+  2. **FOSS license exception** — projects under MIT, Apache-2.0, BSD, MPL-2.0, ISC, EPL-2.0 or zlib may link the kernel and ship the combined work under their own license.
 
-Commercial use requires prior written authorization. This includes commercial embedding, SaaS/product integration, redistribution, or offering DOMD as part of a paid product, SDK, editor component, or hosted service.
+Because the app bundles the GPL kernel, any binary or web distribution of DOMD as a whole is conveyed under the GPL; the MIT-licensed application sources remain MIT on their own. Trying the kernel, building with it, and running it internally carry no obligations — GPL obligations attach when you ship it to users (and shipping a web app that loads it in the browser counts).
 
-For commercial licensing, please contact the project author.
+Kernel versions up to and including 0.10.0 were published under the PolyForm Noncommercial 1.0.0 license; from 0.11.0 on, the kernel is GPL-3.0 with the exceptions above.
+
+For proprietary use beyond the exceptions, a commercial license is available — contact <effyouapp@gmail.com>.
 
 ---
 
