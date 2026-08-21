@@ -1,6 +1,6 @@
 {
     "name": "@do-md/core-react",
-    "version": "0.11.1",
+    "version": "0.11.2",
     "private": true,
     "description": "Markdown-native WYSIWYG editor core for React — the Markdown text is the model, no conversion layer.",
     "keywords": [
