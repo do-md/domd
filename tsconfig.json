@@ -58,6 +58,9 @@
         "plugins/**/verify/**",
         "services/**",
         "scripts/**",
-        ".packages/@do-md/core/scripts/**"
+        ".packages/**/node_modules/**",
+        ".packages/@do-md/core/scripts/**",
+        ".packages/@do-md/core/vite.config.ts",
+        ".packages/@do-md/core/dist/**"
     ]
 }
