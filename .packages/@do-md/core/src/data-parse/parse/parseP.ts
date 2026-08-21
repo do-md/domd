@@ -12,6 +12,7 @@ import { getCodeAreaText } from "../gettext/getCodeAreaText";
 import { getParseContext } from "../parseMarkdown";
 import { getULAreaText } from "../gettext/getULAreaText";
 import { getBlockquoteAreaText } from "../gettext/getBlockquoteAreaText";
+import { extractTableText } from "../gettext/extractTableText";
 import { OL_LINE_REG } from "../reg";
 import { getOLAreaText } from "../gettext/getOLAreaText";
 import { parseBlock } from "./parseBlock";
@@ -43,7 +44,8 @@ export const parseP = ({
 
     const pLines = [];
     let otherText = "";
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         if (line.startsWith("#") || line.startsWith(CursorMarker + "#")) {
             const headerText = getHeaderAreaText(line);
 
@@ -80,6 +82,12 @@ export const parseP = ({
             if (olText) {
                 break;
             }
+        } else if (
+            line.startsWith("|") &&
+            extractTableText(lines.slice(i).join("\n"))
+        ) {
+            // Tight paragraph→table seam (GFM). Heading/list already break here.
+            break;
         } else {
             pLines.push(line);
         }
