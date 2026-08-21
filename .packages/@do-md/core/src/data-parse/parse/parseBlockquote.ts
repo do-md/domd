@@ -74,14 +74,20 @@ export const parseBlockquote = (
                 .map((c) => c.slice(2))
                 .join("\n");
 
+            // `do…while`, not `while`: an empty body (`> ` with nothing after
+            // it) still has to parse one block, so the quote gets the empty
+            // paragraph that makes it editable. A plain `while` skips the body
+            // entirely and leaves the Blockquote childless, which serializes
+            // to "" — the quote silently evaporates from the document. Same
+            // loop shape as the document-level one in parseMarkdown.
             let remaining = innerText;
-            while (remaining) {
+            do {
                 remaining = parseBlock({
                     text_: remaining,
                     parentRenderData_: lineRenderData,
                     rootRenderData_: rootRenderData,
                 });
-            }
+            } while (remaining);
 
             if (idx !== blockTexts.length - 1) {
                 lineRenderData.children_.push({

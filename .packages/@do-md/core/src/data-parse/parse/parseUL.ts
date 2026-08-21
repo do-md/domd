@@ -64,7 +64,7 @@ function getFirstLevelLiBlocks(markdown: string): string[] {
         if (isTopLevelLi) {
             // If it's a new top-level li, save the current block
             if (currentBlock !== null) {
-                result.push(currentBlock.trim());
+                result.push(trimBlockEnd(currentBlock));
             }
             // Start a new block
             currentBlock = line;
@@ -76,10 +76,26 @@ function getFirstLevelLiBlocks(markdown: string): string[] {
 
     // Add the last block
     if (currentBlock !== null) {
-        result.push((currentBlock as string).trim());
+        result.push(trimBlockEnd(currentBlock as string));
     }
 
     return result;
+}
+
+/**
+ * Drop the blank lines a block collects at its end, and nothing else.
+ *
+ * A plain `.trim()` here also ate the trailing spaces of the block's last
+ * content line, which are significant markdown: two of them are a hard line
+ * break, and one of them is the entire body of an empty to-do marker
+ * (`- [ ] `). Losing that one space downgrades an empty item to a bullet
+ * whose text is the literal `[ ]` — and since `- [ ] ` is what this kernel's
+ * own serializer emits for an empty item, the round trip broke on its own
+ * output. Every other block parser keeps trailing spaces verbatim; this is
+ * the list splitter catching up with them.
+ */
+function trimBlockEnd(block: string): string {
+    return block.replace(/\n\s*$/, "");
 }
 
 const parseLines = ({

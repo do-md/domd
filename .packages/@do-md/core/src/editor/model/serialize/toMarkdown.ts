@@ -119,6 +119,16 @@ export const toMarkdown = (
 
             if (passThrough) {
                 parts.push(childText);
+            } else if (childText === "") {
+                // A whole child that serializes to nothing — the empty
+                // paragraph of an empty quote. `> `, not `>`: the marker needs
+                // its trailing space to reparse as a quote at all, and the
+                // marker-injected serialization of this same state is
+                // `> <CursorMarker>`, which has to equal the canonical one
+                // once the markers are stripped (see the header comment).
+                // Blank lines *inside* a multi-line child are a different case
+                // and keep their bare `>` in the branch below.
+                parts.push("> ");
             } else {
                 parts.push(
                     childText

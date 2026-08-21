@@ -77,3 +77,4 @@ scripts/bench-merge/out.mjs
 scripts/verify-selection/out.mjs
 scripts/verify-img-group/out.mjs
 scripts/verify-img-group/out.css
+scripts/verify-empty-blocks/out.mjs

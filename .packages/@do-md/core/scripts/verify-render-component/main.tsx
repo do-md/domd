@@ -3,9 +3,16 @@
  * (replace kernel default elements with host components — the plugin surface).
  *
  * Run: npx esbuild scripts/verify-render-component/main.tsx --bundle \
- *        --format=esm --platform=node --jsx=automatic \
+ *        --format=esm --platform=node --jsx=automatic --packages=external \
+ *        --alias:@do-md/utils=../utils --alias:@do-md/zenith=../zenith \
  *        --outfile=scripts/verify-render-component/out.mjs \
  *      && node scripts/verify-render-component/out.mjs
+ *
+ * `--packages=external` keeps react-dom/server out of the bundle (bundling it
+ * turns its CommonJS `require("util")` into an esm-only stub that throws
+ * "Dynamic require of util is not supported"); the aliases then have to
+ * resolve the sibling workspace packages by hand, since externalizing would
+ * otherwise leave them as bare unresolvable specifiers.
  *
  * Strategy: renderToStaticMarkup through the REAL integration path
  * (DOMDProvider → renderComponent context → Renderer dispatch). Host
