@@ -147,7 +147,7 @@ DOMD 是一个产品优先的项目，许可证分为两层：
 * **应用层** — macOS 应用、Web 应用、辅助库和 DOMD 内核插件，均以 [MIT License](./LICENSE) 开源。
 * **编辑器内核** — 核心引擎的源码就在本仓库的 [`.packages/@do-md/core`](./.packages/@do-md/core)（npm 包名 [`@do-md/core-react`](https://www.npmjs.com/package/@do-md/core-react)），采用 **GPL-3.0**，并依 GPL 第 7 条授予两条[附加许可](./.packages/@do-md/core/LICENSE-EXCEPTIONS.md)：
 
-  1. **小型主体例外** — 个人、非营利组织，以及年营收低于 100 万美元且累计融资低于 200 万美元的公司，可以把内核链接进非 GPL 软件，并按自选条款发布。
+  1. **小型主体例外** — 非营利组织与教育机构，以及年营收低于 100 万美元且累计融资低于 200 万美元的个人与公司，可以把内核链接进非 GPL 软件，并按自选条款发布。
   2. **FOSS 许可证例外** — 采用 MIT、Apache-2.0、BSD、MPL-2.0、ISC、EPL-2.0 或 zlib 的项目，可以链接内核并按其自身许可证发布组合作品。
 
 由于应用打包了 GPL 内核，DOMD 整体的二进制分发或 Web 部署作为一个整体按 GPL 传递；MIT 授权的应用层源文件本身仍是 MIT。试用内核、拿它开发、在组织内部运行都不产生任何义务——GPL 义务在你把它分发给用户时才产生（把内核加载进浏览器的 Web 应用上线也算分发）。

@@ -600,9 +600,10 @@ and fires `onEnter`:
 [GPL-3.0](./LICENSE), with two [additional permissions](./LICENSE-EXCEPTIONS.md)
 granted under GPL section 7:
 
-1. **Small entity exception** — individuals, non-profits, and companies under
-   USD 1M annual revenue and under USD 2M raised may link this kernel into
-   non-GPL software and ship it under terms of their choice.
+1. **Small entity exception** — non-profits and educational institutions, plus
+   individuals and companies under USD 1M annual revenue and under USD 2M
+   raised, may link this kernel into non-GPL software and ship it under terms
+   of their choice.
 2. **FOSS license exception** — projects under MIT, Apache-2.0, BSD, MPL-2.0,
    ISC, EPL-2.0 or zlib may link this kernel and ship the combined work under
    their own license.

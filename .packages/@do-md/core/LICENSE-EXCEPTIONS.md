@@ -30,7 +30,10 @@ voting power or of the equity.
 **"Your Revenue"** — the combined total gross revenue of you and all your
 Affiliates for your most recently completed fiscal year, in US dollars at that
 year's average exchange rate. If you have not completed a fiscal year yet, use
-your revenue to date, annualized.
+your revenue to date, annualized. For an individual, this means the gross
+receipts of your trade or business activity, including any sole proprietorship
+or other unincorporated business you operate; wages or salary you earn as
+someone else's employee are not counted.
 
 **"Your Funding"** — the cumulative, undiscounted capital that you and your
 Affiliates have raised from outside investors through equity or convertible
@@ -53,10 +56,9 @@ adjusted (1982–1984 = 100).
 
 You qualify, at the time of a given conveying, if you are:
 
-- an individual, or
 - a non-profit organization or an educational institution, or
-- a for-profit entity whose **Your Revenue is less than USD 1,000,000** *and*
-  whose **Your Funding is less than USD 2,000,000**.
+- an individual or a for-profit entity whose **Your Revenue is less than
+  USD 1,000,000** *and* whose **Your Funding is less than USD 2,000,000**.
 
 If you qualify, you are granted permission to link or combine the Program with
 software that is not licensed under the GPL, and to convey the resulting work
