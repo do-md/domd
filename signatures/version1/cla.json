@@ -1,3 +1,12 @@
 {
-   "signedContributors": []
+  "signedContributors": [
+    {
+      "name": "BetterAndBetterII",
+      "id": 141388234,
+      "comment_id": 5374402939,
+      "created_at": "2026-08-21T19:36:07Z",
+      "repoId": 1249065355,
+      "pullRequestNo": 19
+    }
+  ]
 }
