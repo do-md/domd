@@ -10,7 +10,7 @@ import { getCursorInfoByParseData } from "../model/cursor/getCursorInfoByParseDa
 import { getNodeInfo } from "../model/tree/getNodeInfo";
 import { getRenderDataById } from "../model/tree/getRenderDataById";
 import { toMarkdown } from "../model/serialize/toMarkdown";
-import { getCursorInfo } from "./lib/getCursorInfo";
+import { getCursorInfo, getCursorInfoOfRange } from "./lib/getCursorInfo";
 import { CursorMarker, ZeroWidthSpace } from "../constant";
 import { isCursorAfterSymbol } from "../model/rich/isCursorAfterSymbol";
 import { normalizeRichCursorOffset } from "../model/rich/normalizeRichCursorOffset";
@@ -37,6 +37,32 @@ const FORMAT_INPUT_TYPES: Record<string, InlineFormatMark> = {
     formatStrikeThrough: "strike",
     // iOS / desktop Cmd+U → `<u>…</u>` (markdown has no underline syntax)
     formatUnderline: "underline",
+};
+
+/**
+ * beforeinput delete* inputTypes taken over by the range mechanism
+ * (deleteRangeInCursor_). Forward: fn+Delete / Ctrl+D →
+ * deleteContentForward, Option+fn+Delete → deleteWordForward, Ctrl+K
+ * (macOS delete-to-end-of-paragraph emacs binding) →
+ * deleteSoftLineForward / deleteHardLineForward depending on the engine.
+ * Backward: Cmd+Delete → deleteSoftLineBackward / deleteHardLineBackward,
+ * Option+Delete → deleteWordBackward, Ctrl+U → deleteEntireSoftLine.
+ * The one deliberate absentee is deleteContentBackward — plain backspace
+ * keeps its dedicated path (planRichBackspace symbol tunneling and the
+ * structural block-start cases). The direction tag drives a single rule:
+ * a backward range that crosses into the previous block is re-dispatched
+ * to those backspace-at-block-start semantics instead of being flattened
+ * into a raw text merge.
+ */
+const RANGE_DELETE_INPUT_TYPES: Record<string, "forward" | "backward"> = {
+    deleteContentForward: "forward",
+    deleteWordForward: "forward",
+    deleteSoftLineForward: "forward",
+    deleteHardLineForward: "forward",
+    deleteWordBackward: "backward",
+    deleteSoftLineBackward: "backward",
+    deleteHardLineBackward: "backward",
+    deleteEntireSoftLine: "backward",
 };
 
 export type EditorProps = {
@@ -435,6 +461,84 @@ export class EditorController {
             }
         }
 
+        this._editorStore_.updatePaddingMdSybolsAfterRender_();
+    }
+
+    /**
+     * Range-mechanism deletes: every delete* inputType in
+     * RANGE_DELETE_INPUT_TYPES lands here — forward (fn+Delete / Ctrl+D /
+     * Ctrl+K / Option+fn+Delete) and backward line/word deletes
+     * (Cmd+Delete / Option+Delete / Ctrl+U) alike. Left native, the
+     * browser would rewrite the DOM behind the data layer's back, and the
+     * reparse fallback (parseInCursor_) only re-reads the caret's block —
+     * a block swallowed by a cross-block delete would survive in the model
+     * and be resurrected on the next render: duplicated content and a
+     * diverged undo history (issue #21).
+     *
+     * The takeover is one mechanism, not per-key semantics: beforeinput's
+     * getTargetRanges() already carries exactly the stretch the engine meant
+     * to delete (grapheme clusters, word and line boundaries included), so
+     * map that range's endpoints to model coordinates and run the existing
+     * selection-delete pipeline. A caret at the end of a block degrades
+     * naturally to "merge the next block up" — the mirror image of backspace
+     * at the start of a block.
+     */
+    private deleteRangeInCursor_(
+        e: InputEvent,
+        direction: "forward" | "backward",
+    ) {
+        // Selection-shaped states delete the selection itself, exactly like
+        // plain backspace — reuse its dispatch (select-all terminal state,
+        // an active atomic block, a two-endpoint DOM selection).
+        if (
+            this._editorStore_.cursorInfo_.all_ ||
+            this._editorStore_.activeAtomicUUID_ ||
+            getCursorInfo().length === 2
+        ) {
+            this.deleteInCursor_();
+            return;
+        }
+        // Collapsed caret: address the engine-computed deletion range. No
+        // range, or a collapsed one, means nothing to delete (the edge of
+        // the document).
+        const targetRange = e.getTargetRanges()[0];
+        if (!targetRange || targetRange.collapsed) return;
+        // StaticRange → live Range: the shared endpoint mapper measures with
+        // Range APIs. setStart/setEnd throw on detached nodes — then drop
+        // the edit (we already preventDefault-ed; a dead key beats a native
+        // DOM mutation the model never hears about).
+        const range = document.createRange();
+        try {
+            range.setStart(
+                targetRange.startContainer,
+                targetRange.startOffset,
+            );
+            range.setEnd(targetRange.endContainer, targetRange.endOffset);
+        } catch {
+            return;
+        }
+        const cursorInfo = getCursorInfoOfRange(range);
+        // An endpoint outside any render element (serialization scaffolding,
+        // a view-only decoration): fail safe, same rationale as above.
+        if (cursorInfo.length !== 2) return;
+        // A backward range that crosses into the previous block means the
+        // caret sits at the visible start of its block (Cmd+Delete /
+        // Option+Delete at block start). That position already has a
+        // structural owner — backspace-at-block-start semantics in
+        // deleteInCursor_ (list outdent, blockquote dissolve, heading
+        // demotion) — so re-dispatch there instead of flattening the merge
+        // into a raw text-level reparse.
+        if (
+            direction === "backward" &&
+            cursorInfo[0].renderUUID !== cursorInfo[1].renderUUID
+        ) {
+            this.deleteInCursor_();
+            return;
+        }
+        this._editorStore_.chainProduceParsedData_((chain) => {
+            chain.replaceSelect_(cursorInfo.map(this.adjustCursor_), "");
+        });
+        this._editorStore_.setPendingInput_(null);
         this._editorStore_.updatePaddingMdSybolsAfterRender_();
     }
 
@@ -1201,9 +1305,12 @@ export class EditorController {
         if (e.inputType === "deleteContentBackward") {
             e.preventDefault();
             this.deleteInCursor_();
-        } else if (e.inputType === "deleteSoftLineBackward") {
+        } else if (RANGE_DELETE_INPUT_TYPES[e.inputType]) {
             e.preventDefault();
-            this.deleteInCursor_();
+            this.deleteRangeInCursor_(
+                e,
+                RANGE_DELETE_INPUT_TYPES[e.inputType],
+            );
         } else if (e.inputType === "insertText" && e.data != null) {
             // Select-all terminal state: take over unconditionally, without
             // relying on getCursorInfo()'s DOM reading — native select-all usually
@@ -1302,24 +1409,7 @@ export class EditorController {
         // else if (e.inputType === "insertParagraph") {}
         // else if (e.inputType === "insertLineBreak") {}
 
-        /**
-         * TODO(mobile-autocomplete): `deleteWordBackward`
-         * ---------------------------------------------------------------
-         * Whole-word deletion on a long-press backspace / swipe-to-delete (very
-         * common on mobile). We currently take over only deleteContentBackward
-         * (deleting a single character); this one falls back to a reparse. We should
-         * preventDefault and take it over as a controlled "delete one word".
-         */
-        // else if (e.inputType === "deleteWordBackward") {}
 
-        /**
-         * TODO(mobile-autocomplete): `deleteContentForward` / `deleteWordForward` / `deleteSoftLineForward`
-         * ---------------------------------------------------------------
-         * Forward deletion (the Delete key / some gestures). We only handle the
-         * Backward direction today; Forward relies entirely on the fallback. Take it
-         * over as a controlled delete in that direction when we need it.
-         */
-        // else if (e.inputType === "deleteContentForward") {}
     };
 
     private handleInput_ = async () => {

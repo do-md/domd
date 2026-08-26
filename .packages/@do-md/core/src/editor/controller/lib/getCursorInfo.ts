@@ -2,13 +2,15 @@ import { getClosestRenderDom } from "./getClosestRenderDom";
 import { getIdByRenderDom } from "./getIdByRenderDom";
 import { getVisibleRangeLength } from "./getVisibleRangeLength";
 
-export const getCursorInfo = () => {
-    const selection = document.getSelection();
-    if (!selection || selection.rangeCount === 0) {
-        return [];
-    }
-
-    const range = selection.getRangeAt(0);
+/**
+ * Map a DOM Range's endpoints to render coordinates: one entry
+ * ({ renderElement, renderUUID, visible offset }) for a collapsed range,
+ * two (start, end) otherwise, empty when an endpoint lies outside any
+ * render element. Shared by the live-selection reading (getCursorInfo)
+ * and by takeover paths that address a browser-computed range instead of
+ * the selection (forward delete's beforeinput target range).
+ */
+export const getCursorInfoOfRange = (range: Range) => {
     const isCollapsed = range.collapsed;
 
     const getRenderElementInfo = (container: Node) => {
@@ -62,4 +64,12 @@ export const getCursorInfo = () => {
             },
         ];
     }
+};
+
+export const getCursorInfo = () => {
+    const selection = document.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        return [];
+    }
+    return getCursorInfoOfRange(selection.getRangeAt(0));
 };
