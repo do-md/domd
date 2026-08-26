@@ -1164,6 +1164,25 @@ export class EditorController {
     private handleBeforeInput_ = (e: InputEvent) => {
         if (this._editorStore_.duringComposition) return;
 
+        // Undo/redo arriving as input events rather than a keydown Cmd/Ctrl+Z:
+        // native menu bar items (macOS "Edit → Undo" walks the responder chain
+        // into the WKWebView's NSUndoManager; muda's predefined Redo on
+        // Windows synthesizes Ctrl+Y, which Chromium maps to historyRedo),
+        // the context menu, three-finger trackpad and mobile shake-to-undo
+        // gestures. Take them over: the browser's native history knows
+        // nothing about the model and would mutate the DOM behind the data
+        // layer's back (same policy as the keydown undo/redo path).
+        if (e.inputType === "historyUndo") {
+            e.preventDefault();
+            this._editorStore_.undo();
+            return;
+        }
+        if (e.inputType === "historyRedo") {
+            e.preventDefault();
+            this._editorStore_.redo();
+            return;
+        }
+
         // Inline format shortcuts (Cmd/Ctrl+B/I, strikethrough) surface as
         // beforeinput format* inputTypes in contenteditable. Take them over:
         // native formatting would wrap DOM nodes and corrupt the data layer.
@@ -1301,17 +1320,6 @@ export class EditorController {
          * over as a controlled delete in that direction when we need it.
          */
         // else if (e.inputType === "deleteContentForward") {}
-
-        /**
-         * TODO(mobile-autocomplete): `historyUndo` / `historyRedo`
-         * ---------------------------------------------------------------
-         * Three-finger trackpad and mobile undo gestures arrive as beforeinput, not
-         * as a keydown Cmd+Z, so undos made that way currently go unhandled. We
-         * should preventDefault → call editorStore.undo() / redo(), keeping the
-         * browser's native history from drifting out of sync with the data layer's.
-         */
-        // else if (e.inputType === "historyUndo") {}
-        // else if (e.inputType === "historyRedo") {}
     };
 
     private handleInput_ = async () => {
