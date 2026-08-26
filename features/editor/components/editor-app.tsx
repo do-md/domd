@@ -15,6 +15,7 @@ import { tokenize } from "@/common/lib/prism";
 import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import { beautify } from "@/common/lib/beautify";
 import { isTauri } from "@/common/lib/platform";
+import { useIsTauri } from "@/common/lib/use-is-tauri";
 import { tauriApp, tauriCore } from "@/common/lib/tauri";
 import type {
     RealtimePeer,
@@ -444,7 +445,12 @@ function EditorAppContent() {
         },
     );
 
-    const isWeb = !isTauri();
+    // Hydration-safe: the prerendered HTML is always the web layout, so the
+    // first client render must agree with it even inside the Tauri webview
+    // (useIsTauri returns false during hydration, the real value right
+    // after). Branching on isTauri() here directly caused a hydration
+    // mismatch that regenerated the whole tree on desktop.
+    const isWeb = !useIsTauri();
     const dragging = tauriDragging || webDragging;
 
     if (view === "loading" || meta === null || content === null) {
