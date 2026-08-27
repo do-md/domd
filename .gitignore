@@ -52,4 +52,4 @@ next-env.d.ts
 # offline plugin verify harnesses: local-only (import monorepo package
 # source via relative paths that don't exist in a standalone checkout / on
 # Vercel). Run via their own run.sh; never part of the Next.js build.
-plugins/**/verify/
+/plugins/**/verify/

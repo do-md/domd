@@ -26,6 +26,9 @@
             "@/*": [
                 "./*"
             ],
+            "@do-md/commands": [
+                "./.packages/@do-md/plugins/commands/src"
+            ],
             "@do-md/core-react": [
                 "./.packages/@do-md/core/src"
             ],
