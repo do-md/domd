@@ -13,7 +13,6 @@
         "lint": "eslint"
     },
     "dependencies": {
-        "@do-md/commands": "^0.1.0",
         "@tauri-apps/api": "^2.10.1",
         "@tauri-apps/plugin-deep-link": "^2.4.8",
         "@tauri-apps/plugin-dialog": "^2.7.0",

@@ -1,0 +1,53 @@
+{
+    "name": "@do-md/commands",
+    "version": "0.1.0",
+    "description": "Named editing commands (headings, lists, quotes, code blocks, tables, links) for the @do-md/core-react editor",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "scripts": {
+        "build": "vite build && node scripts/build-types.mjs",
+        "typecheck": "tsc --noEmit",
+        "prepublishOnly": "rm -rf dist && npm run build"
+    },
+    "peerDependencies": {
+        "@do-md/core-react": ">=0.9.3"
+    },
+    "devDependencies": {
+        "@do-md/core-react": "^0.11.6",
+        "@microsoft/api-extractor": "^7.58.13",
+        "typescript": "^5.6.0",
+        "vite": "^7.2.2"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/do-md/domd.git",
+        "directory": ".packages/@do-md/plugins/commands"
+    },
+    "homepage": "https://github.com/do-md/domd",
+    "bugs": {
+        "url": "https://github.com/do-md/domd/issues"
+    },
+    "keywords": [
+        "markdown",
+        "wysiwyg",
+        "editor",
+        "commands",
+        "domd"
+    ],
+    "author": "Jintao Wang",
+    "license": "MIT"
+}
