@@ -2,7 +2,8 @@
 /**
  * AI collaboration panel: master enable toggle, the agent roster and an
  * add/edit form (name, provider, model, standing prompt, provider API key).
- * Config is browser-local (localStorage); keys are stored per provider.
+ * Config is device-local (localStorage on web, ~/.domd/ai.json on desktop
+ * — see ../lib/storage.ts); keys are stored per provider.
  * Mirrors the VersioningPanel aside geometry so the two panels feel like
  * one family.
  *

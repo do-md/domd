@@ -6,6 +6,7 @@ export {
     type LocalAiControl,
 } from "./components/local-ai-bridge";
 export {
+    hydrateAiConfig,
     loadAgents,
     saveAgents,
     loadAiEnabled,

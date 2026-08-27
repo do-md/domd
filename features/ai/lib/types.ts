@@ -13,7 +13,8 @@ export const AI_PROVIDERS: {
     },
 ];
 
-/** One user-configured AI agent. Persisted in browser localStorage only. */
+/** One user-configured AI agent. Persisted locally — localStorage on the
+ *  web, ~/.domd/ai.json on desktop (see lib/storage.ts). */
 export interface AgentConfig {
     id: string;
     name: string;
