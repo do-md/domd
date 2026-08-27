@@ -1,0 +1,42 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "useDefineForClassFields": true,
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "skipLibCheck": true,
+
+        /* Bundler mode — deliberately NOT NodeNext.
+           The DoMD app consumes this package's source through tsconfig paths, and
+           Turbopack resolves relative specifiers literally: a NodeNext-style
+           "./target.js" import never finds target.ts (Next's extensionAlias escape
+           hatch is webpack-only). Source therefore imports extensionless, and the
+           published artifact is a single bundled file with no relative specifiers
+           left to resolve — see vite.config.ts. */
+        "moduleResolution": "bundler",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+
+        /* Linting */
+        "strict": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "noFallthroughCasesInSwitch": true,
+
+        /* Declaration */
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "outDir": "./dist",
+        "rootDir": "./src",
+
+        /* No paths override: @do-md/core-react resolves to the PUBLISHED
+           package in node_modules (devDependency), so every command
+           typechecks against the kernel's public declarations exactly as a
+           third-party consumer sees them. If a command ever reaches for an
+           internal (`_`-suffixed) member, or for a method that was never
+           promised, the build breaks here rather than at some consumer's. */
+    },
+    "include": ["src"]
+}
