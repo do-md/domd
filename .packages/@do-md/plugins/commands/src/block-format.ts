@@ -175,6 +175,18 @@ export function toggleCodeBlock(store: EditorStoreApi | null): void {
     if (!store || !target) return;
     // A table row or a rule is structure; fencing it would swallow the block.
     if (activeGuard(target) === "table" || activeGuard(target) === "rule") return;
+    // Virtual tail: the caret shares its md coordinate with the end of the
+    // structural block above, so the fence lookup below would wrongly find —
+    // and unwrap — that block. The empty line below it gets a fresh empty
+    // fence of its own instead.
+    if (target.virtualTail) {
+        const at = target.selStart;
+        const { lead } = blockPadding(target.md, at);
+        const text = lead + "```\n\n```";
+        store.replaceRanges({ start: at, end: at, text });
+        store.setSelection({ start: at + lead.length + 4 });
+        return;
+    }
     const { md } = target;
     const allLines = md.split("\n");
     const fences = fenceMap(md);
@@ -253,13 +265,18 @@ export function insertLink(store: EditorStoreApi | null): void {
     // a link.
     if (guard === "code" || guard === "rule") return;
     if (guard === "table" && (label.includes("|") || label.includes("\n"))) return;
+    // On the virtual tail line the link must not be glued onto the structural
+    // line that shares its md coordinate — materialize the separator first.
+    const lead = target.virtualTail
+        ? blockPadding(md, selStart).lead
+        : "";
     const text = `[${label}](${LINK_URL_PLACEHOLDER})`;
-    store.replaceRanges({ start: selStart, end: selEnd, text });
+    store.replaceRanges({ start: selStart, end: selEnd, text: lead + text });
     if (label) {
-        const urlStart = selStart + label.length + 3;
+        const urlStart = selStart + lead.length + label.length + 3;
         store.setSelection({ start: urlStart, end: urlStart + LINK_URL_PLACEHOLDER.length });
     } else {
-        store.setSelection({ start: selStart + 1 });
+        store.setSelection({ start: selStart + lead.length + 1 });
     }
 }
 

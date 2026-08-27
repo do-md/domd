@@ -23,7 +23,12 @@
  * region of a line is replaced, never the content.
  */
 
-import type { EditorStoreApi, RangeEdit } from "@do-md/core-react";
+import {
+    serializeRenderData,
+    type EditorStoreApi,
+    type RangeEdit,
+    type SerializedRenderData,
+} from "@do-md/core-react";
 import {
     lineGuards,
     lineIndexAt,
@@ -43,6 +48,40 @@ export interface FormatTarget {
     /** Why each touched line refuses styling (null = free), index-aligned
      *  with `lines`. */
     guards: Array<LineGuard | null>;
+    /** True when the caret sits on a ZERO-WIDTH empty paragraph — the empty
+     *  block the kernel keeps below a structural block (code fence, table,
+     *  rule), most visibly the one appended at document end. It serializes
+     *  to nothing, so its markdown coordinate is glued to the end of the
+     *  structural line before it. `lines` then holds a single zero-width
+     *  line; writes must materialize any missing blank-line separator first
+     *  (applyPrefixEdits / toggleCodeBlock / insertLink, via blockPadding —
+     *  which is adaptive, so an empty paragraph that already owns its blank
+     *  line gets no extra padding). */
+    virtualTail?: boolean;
+}
+
+/**
+ * True when the collapsed caret rests on an EMPTY paragraph block. Such a
+ * block serializes to ZERO characters, so its markdown coordinate merges
+ * with the end of the previous line — by offsets alone it is
+ * indistinguishable from a caret at the end of that line's text, and when
+ * that line is structural (a fence, a table row) the guard wrongly locks
+ * every block command. The distinction only exists in the model, so it is
+ * read from the serialized render tree (the stable public structure
+ * surface: type/uuid keys).
+ */
+function cursorOnEmptyParagraph(store: EditorStoreApi): boolean {
+    const cursor = store.startCursorInfo;
+    if (!cursor) return false;
+    const stack: SerializedRenderData[] = [
+        serializeRenderData(store.renderData_),
+    ];
+    while (stack.length) {
+        const node = stack.pop()!;
+        if (node.uuid === cursor.uuid) return node.type === "EmptyP";
+        if (node.children) stack.push(...node.children);
+    }
+    return false;
 }
 
 /**
@@ -63,6 +102,34 @@ export function readTarget(store: EditorStoreApi | null): FormatTarget | null {
     if (!lines.length) return null;
     const guards = lineGuards(md);
     const firstIndex = lineIndexAt(md, lines[0].start);
+
+    // Zero-width empty-paragraph disambiguation. An empty paragraph that
+    // directly follows a structural block (the kernel keeps one below a
+    // document-final code fence / table / rule, and it can survive
+    // mid-document once content is added after it) serializes to NOTHING —
+    // a caret resting on it reports the very same offset as the end of the
+    // structural line before it. The naive line lookup then files the caret
+    // under that guarded line and every block command wrongly goes dead
+    // (user-visible: click the empty line under a code block and the whole
+    // Aa menu greys out, the insert buttons no-op). Offsets cannot tell the
+    // two readings apart, so the MODEL is asked instead: a collapsed caret
+    // whose block is an empty paragraph acts on a zero-width unguarded line
+    // of its own. Writes materialize the separating blank line through the
+    // adaptive `blockPadding` (applyPrefixEdits, toggleCodeBlock,
+    // insertLink; the block-insert commands already pad through the same
+    // helper), which degrades to no padding for an empty paragraph that
+    // already owns its blank line.
+    if (selStart === selEnd && cursorOnEmptyParagraph(store)) {
+        return {
+            md,
+            selStart,
+            selEnd,
+            lines: [{ start: selStart, end: selStart, text: "" }],
+            guards: [null],
+            virtualTail: true,
+        };
+    }
+
     return {
         md,
         selStart,
@@ -106,7 +173,18 @@ export function applyPrefixEdits(
         const oldLength = prefixLength(line.text, parsed);
         const next = nextPrefixFor(line);
         if (next === null || next === line.text.slice(0, oldLength)) continue;
-        edits.push({ start: line.start, end: line.start + oldLength, text: next });
+        // The virtual tail line has no characters of its own — writing its
+        // prefix at md.length would glue it onto the structural line above
+        // (a fence line would become "```## "), so the separating blank
+        // line is materialized first.
+        const lead = target.virtualTail
+            ? blockPadding(target.md, line.start).lead
+            : "";
+        edits.push({
+            start: line.start,
+            end: line.start + oldLength,
+            text: lead + next,
+        });
     }
     if (!edits.length) return;
 

@@ -70,6 +70,38 @@ import {
     SelectionTarget,
 } from "../model/selection/resolve";
 
+/**
+ * Trailing-paragraph invariant — THE single definition.
+ *
+ * A document whose last top-level block is structural (a code fence, a
+ * table, a rule — anything that is not a paragraph) always gets a zero-width
+ * autofill EmptyP appended, so the caret has a legal home below the last
+ * block: clicks below the document land on it, and focus()'s last-block
+ * fallback resolves to it instead of parking the cursor inside code/table
+ * space. The EmptyP serializes to zero characters, so document bytes never
+ * change; `isAutoFill_` is load-bearing — when the user types into the
+ * block, the reparse promotes it to a real block and the autofill promotion
+ * in store/chain splices in the missing `\n\n` separator keyed on exactly
+ * this flag.
+ *
+ * Every entry that (re)builds the top-level tree enforces the rule through
+ * this pair — the constructor, resetMD, setParsedData_ and
+ * chainProduceParsedData_ — each applying it via its own mutation mechanism
+ * (plain mutation, immer produce, store produce).
+ */
+const lacksTrailingParagraph = (root: ParentRenderData): boolean => {
+    const last = root.children_.at(-1);
+    return (
+        last?.htmlType_ !== MarkdownType.EmptyP &&
+        last?.htmlType_ !== MarkdownType.P
+    );
+};
+
+const createTrailingParagraph = () => ({
+    ...createEmptyP()[0],
+    isAutoFill_: true,
+});
+
 export class EditorStore extends ZenithStore<StoreState> {
     private _codeTokenizer_?: (code: string, lang?: string) => Token[];
     private _codeBeautify_?: (code: string, lang?: string) => string | undefined;
@@ -98,6 +130,15 @@ export class EditorStore extends ZenithStore<StoreState> {
         onEnter,
     }: StoreConstructorProps) {
         const INITIAL_CHUNK_LINES = 500;
+        // CursorMarker (U+E000) is the kernel's PRIVATE cursor-position
+        // protocol character: injected into intermediate text and consumed by
+        // the parse that follows, never part of a document. External input is
+        // stripped of it at every boundary (insertText already does this) —
+        // both as hygiene and as self-healing: a marker that leaked into a
+        // persisted document through a historical bug would otherwise glue
+        // itself to a fence line and skew every offset-addressed command
+        // after it, forever.
+        initMd = initMd.replaceAll(CursorMarker, "");
         const initLines = initMd.split("\n");
         const initialMd =
             initLines.length > INITIAL_CHUNK_LINES
@@ -118,6 +159,11 @@ export class EditorStore extends ZenithStore<StoreState> {
             imgGroupSeparators_: imgGroupSeparators,
         });
         splitTextSpans(initialParsed);
+
+        // Trailing-paragraph invariant — see lacksTrailingParagraph above.
+        if (lacksTrailingParagraph(initialParsed)) {
+            initialParsed.children_.push(createTrailingParagraph());
+        }
 
         if (
             initialParsed.children_.length === 1 &&
@@ -502,6 +548,10 @@ export class EditorStore extends ZenithStore<StoreState> {
     }
 
     public resetMD(text: string, disableRecord = true) {
+        // External input boundary: strip the kernel's private CursorMarker —
+        // see the constructor comment (hygiene + self-healing for documents
+        // a historical bug leaked a marker into).
+        text = text.replaceAll(CursorMarker, "");
         // Full-document replacement is a new baseline: invalidate any pending
         // chunked append (>500-line constructor / resetMDChunked), otherwise
         // stale ticks would splice the old tail lines into the new document.
@@ -518,6 +568,10 @@ export class EditorStore extends ZenithStore<StoreState> {
         });
         // The markdown-text → tree seam: pre-split large plain-text spans
         splitTextSpans(parsedData);
+        // Trailing-paragraph invariant — see lacksTrailingParagraph above.
+        if (lacksTrailingParagraph(parsedData)) {
+            parsedData.children_.push(createTrailingParagraph());
+        }
         this.produce(
             (state) => {
                 state.renderData_ = parsedData;
@@ -540,6 +594,9 @@ export class EditorStore extends ZenithStore<StoreState> {
     }
 
     public resetMDChunked(text: string, chunkLines = 500) {
+        // Same external-input boundary as resetMD: the tail chunks bypass
+        // resetMD's own strip, so strip once up front.
+        text = text.replaceAll(CursorMarker, "");
         const lines = text.split("\n");
         if (lines.length <= chunkLines) {
             this.resetMD(text);
@@ -618,17 +675,13 @@ export class EditorStore extends ZenithStore<StoreState> {
         );
 
         const parseData = this.renderData_;
-        if (
-            parseData.children_.at(-1)?.htmlType_ !== MarkdownType.EmptyP &&
-            parseData.children_.at(-1)?.htmlType_ !== MarkdownType.P
-        ) {
-            const temp = createEmptyP()[0];
+        // Trailing-paragraph invariant — see lacksTrailingParagraph above.
+        if (lacksTrailingParagraph(parseData)) {
             this.produce(
                 (draft) => {
-                    draft.renderData_.children_.push({
-                        ...temp,
-                        isAutoFill_: true,
-                    });
+                    draft.renderData_.children_.push(
+                        createTrailingParagraph(),
+                    );
                 },
                 { disableRecord: disableRecord },
             );
@@ -1338,13 +1391,12 @@ export class EditorStore extends ZenithStore<StoreState> {
     }
 
     public setParsedData_ = (parseData: ParentRenderData) => {
-        if (
-            parseData.children_.at(-1)?.htmlType_ !== MarkdownType.EmptyP &&
-            parseData.children_.at(-1)?.htmlType_ !== MarkdownType.P
-        ) {
-            const temp = createEmptyP()[0];
+        // Trailing-paragraph invariant — see lacksTrailingParagraph above.
+        // (This site historically omitted isAutoFill_; unified deliberately:
+        // the flag is what keys the separator-splicing autofill promotion.)
+        if (lacksTrailingParagraph(parseData)) {
             parseData = produce(parseData, (draft) => {
-                draft.children_.push(temp);
+                draft.children_.push(createTrailingParagraph());
             });
         }
         if (

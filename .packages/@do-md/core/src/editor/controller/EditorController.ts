@@ -1304,6 +1304,33 @@ export class EditorController {
             return;
         }
 
+        // Belt-and-braces for any root-level caret that reached the input
+        // stage anyway (handleClick_ repairs the click-born ones): NEVER let
+        // the browser default-edit at the root layer — it writes a bare text
+        // node directly under the root that no model node owns (a "root
+        // ghost": visible in the DOM, absent from toMarkdown, lost on save).
+        // Repair the caret, re-route a plain character through the model
+        // (normalizeRootCaret_ has just written the store cursor
+        // synchronously, so insertText lands at the repaired position), and
+        // drop anything else. Placed after the history branches on purpose —
+        // undo/redo are caret-independent and must not be swallowed.
+        const rootSelection = document.getSelection();
+        if (
+            rootSelection &&
+            rootSelection.isCollapsed &&
+            rootSelection.anchorNode === this._textAreaDom_
+        ) {
+            e.preventDefault();
+            if (
+                this.normalizeRootCaret_() &&
+                e.inputType === "insertText" &&
+                e.data != null
+            ) {
+                this._editorStore_.insertText(e.data);
+            }
+            return;
+        }
+
         // Inline format shortcuts (Cmd/Ctrl+B/I, strikethrough) surface as
         // beforeinput format* inputTypes in contenteditable. Take them over:
         // native formatting would wrap DOM nodes and corrupt the data layer.
@@ -1840,9 +1867,133 @@ export class EditorController {
 
     private handleKeyUp_ = async () => { };
 
+    /**
+     * Clicks are where root-level carets are born: a click on the root
+     * contenteditable's own padding, or on the margin gap between blocks
+     * (below the last block included), makes Chrome park the collapsed caret
+     * on the root node itself. Repair it at mouseup time, before any typing
+     * can happen. Range selections are untouched — the guard inside
+     * normalizeRootCaret_ only acts on a collapsed caret anchored on root.
+     */
     private handleClick_ = async () => {
-
+        this.normalizeRootCaret_();
     };
+
+    /**
+     * Repair a collapsed caret the browser parked on the ROOT contenteditable
+     * node itself. Such a caret belongs to no block, so the model cannot
+     * address it — getSelectionOffsets() reports null and every
+     * offset-addressed command goes dead — and browser-default typing there
+     * inserts a bare text node directly under the root that no model node
+     * owns (the same "root ghost" family as the focus() ghost). The
+     * selectionchange sync deliberately discards root readings, so without
+     * this repair the store cursor stays stale indefinitely.
+     *
+     * The root child offset sits between root.childNodes[offset - 1] and
+     * [offset]: normalize to the START of the first addressable block at or
+     * after it, else to the END of the last addressable block before it.
+     * Line-break scaffolding (LineBr / LineBrBr) is not addressable.
+     *
+     * The store is written first, then the DOM selection is placed
+     * synchronously — closing the window between the click and the first
+     * keystroke during which typing would still hit the root layer. The
+     * render layer's replayCursor_ pass afterwards is idempotent ("do not
+     * replay if the DOM is already in place"), so the double write is safe.
+     */
+    private normalizeRootCaret_(): boolean {
+        const selection = document.getSelection();
+        if (
+            !selection ||
+            !selection.isCollapsed ||
+            selection.anchorNode !== this._textAreaDom_
+        ) {
+            return false;
+        }
+        const root = this._textAreaDom_;
+        const nodes = root.childNodes;
+        const at = Math.min(selection.anchorOffset, nodes.length);
+
+        const addressableUuid = (node: Node): string | null => {
+            if (!(node instanceof HTMLElement)) return null;
+            const uuid = node.getAttribute("data-render-id");
+            if (!uuid) return null;
+            const data = getRenderDataById(
+                uuid,
+                this._editorStore_.renderData_,
+            );
+            if (
+                !data ||
+                data.htmlType_ === MarkdownType.LineBr ||
+                data.htmlType_ === MarkdownType.LineBrBr
+            ) {
+                return null;
+            }
+            return uuid;
+        };
+
+        let uuid: string | null = null;
+        let placeAtStart = true;
+        for (let i = at; i < nodes.length && !uuid; i++) {
+            uuid = addressableUuid(nodes[i]);
+        }
+        if (!uuid) {
+            placeAtStart = false;
+            for (let i = at - 1; i >= 0 && !uuid; i--) {
+                uuid = addressableUuid(nodes[i]);
+            }
+        }
+        if (!uuid) return false;
+
+        // Clicking BELOW a document whose last block is structural or atomic
+        // (a code fence, a table, a rule, an image) must NOT park the caret
+        // inside that block — the caret would live in code/table space, every
+        // offset-addressed command would see a guarded line, and typing would
+        // write INTO the block. What the user clicked toward is a fresh line
+        // below it: create the empty paragraph through the kernel's own
+        // primitive (blank-line separator included, cursor set via marker),
+        // and let the render pass place the DOM caret. An existing empty
+        // paragraph is entered instead (its visible text is empty, so the
+        // generic placement below lands at offset 0), so repeated clicks do
+        // not pile up empties.
+        const data = getRenderDataById(uuid, this._editorStore_.renderData_);
+        if (!data) return false;
+        if (
+            !placeAtStart &&
+            (data.htmlType_ === MarkdownType.Pre ||
+                data.htmlType_ === MarkdownType.PreEmpty ||
+                data.htmlType_ === MarkdownType.Table ||
+                data.htmlType_ === MarkdownType.Hr ||
+                data.htmlType_ === MarkdownType.Img)
+        ) {
+            const structuralUuid = uuid;
+            this._editorStore_.chainProduceParsedData_((chain) => {
+                chain.addEmptyPToNext_(structuralUuid, true);
+            });
+            return true;
+        }
+
+        const blockDom = getRenderDomByID(uuid, root);
+        if (!blockDom) return false;
+        const offset = placeAtStart
+            ? 0
+            : (getVisibleDomText(blockDom) || "").length;
+
+        // A pure caret placement, not the tail of an edit → disableRecord,
+        // the same opt-out setSelection takes (no pure-cursor undo entries).
+        this._editorStore_.setCursorInfo_(
+            { uuid, offset },
+            null,
+            CursorSource.Model,
+            true,
+        );
+        const { node, offset: domOffset } = getDomByCursor(blockDom, offset);
+        const range = document.createRange();
+        range.setStart(node ?? blockDom, node ? domOffset : 0);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return true;
+    }
 
     private handleCompositionStart_ = () => {
         // Pending format marks are deliberately not cleared here: during
