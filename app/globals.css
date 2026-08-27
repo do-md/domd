@@ -296,3 +296,83 @@ body {
     background: oklch(85% 0.08 90 / 0.6);
     border-bottom-style: solid;
 }
+/* ── Print (desktop "Export PDF" + web Cmd+P) ─────────────────────────────
+ * The desktop export (src-tauri/src/print.rs) prints the LIVE DOM through
+ * WKWebView's native print operation, so the editor's app-shell layout must
+ * unlock into a plain document flow for pagination to work: a fixed,
+ * overflow-hidden viewport prints exactly one screenful otherwise. The same
+ * rules make the browser's own Cmd+P produce a sane document on the web.
+ * (The web "Export PDF" menu item keeps its dedicated iframe path with
+ * per-page padding — these rules are inert there: the iframe clone contains
+ * none of the domd-editor-* anchors.) Page margins come from the native
+ * print info (desktop) or the browser print dialog (web), not from CSS. */
+@media print {
+    html,
+    body {
+        background: #fff !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    /* Unlock the app shell: static positioning, natural height, no inner
+     * scrolling. The viewport layer carries inline top/height styles (the
+     * soft-keyboard pin), hence the !important. */
+    .domd-editor-shell {
+        position: static !important;
+        overflow: visible !important;
+    }
+    /* display:block throughout: WebKit paginates plain blocks reliably;
+     * flex/grid containers have a history of clipping at page boundaries. */
+    .domd-editor-viewport {
+        position: static !important;
+        height: auto !important;
+        display: block !important;
+    }
+    .domd-editor-scroll {
+        overflow: visible !important;
+        height: auto !important;
+    }
+    /* The side-panel drawer host is a grid; collapse it to plain flow and
+     * drop the panel itself. */
+    .domd-editor-shell .drawer,
+    .domd-editor-shell .drawer-content {
+        display: block !important;
+    }
+    .domd-editor-shell .drawer-side {
+        display: none !important;
+    }
+    /* Editing chrome must not print: the CustomCursor overlay is identified
+     * by its distinctive `contain: strict` (same trick as export-pdf.ts). */
+    .domd-editor-shell [style*="contain: strict"],
+    .domd-editor-shell [style*="contain:strict"] {
+        display: none !important;
+    }
+    /* Markdown syntax markers only surface near the caret; force them off so
+     * the print reads as a rendered document. */
+    .DOMD-MdSymbol {
+        display: none !important;
+    }
+    /* Keep code-block backgrounds, marks and syntax colors. */
+    * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    /* Don't slice atomic blocks across pages where they fit on one. */
+    pre,
+    blockquote,
+    table,
+    img,
+    figure,
+    .DOMD-Pre,
+    .DOMD-Table,
+    .DOMD-Blockquote {
+        break-inside: avoid;
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        break-after: avoid;
+    }
+}

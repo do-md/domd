@@ -341,6 +341,7 @@ export function RemoteCursors({ peers }: { peers: RealtimePeer[] }) {
                     {v.selection.map((r, i) => (
                         <div
                             key={i}
+                            className="print:hidden"
                             style={{
                                 position: "absolute",
                                 left: r.x,
@@ -355,6 +356,7 @@ export function RemoteCursors({ peers }: { peers: RealtimePeer[] }) {
                         />
                     ))}
                     <div
+                        className="print:hidden"
                         style={{
                             position: "absolute",
                             left: v.rect.x,

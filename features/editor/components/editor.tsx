@@ -486,13 +486,17 @@ export function Editor({
         // quick-input bar rides the keyboard's top edge. --kb-safe-bottom
         // zeroes the safe-area padding while the keyboard covers the home
         // indicator.
-        <div className="fixed inset-0 bg-base-100 overflow-hidden">
+        // The domd-editor-* classes are print anchors: the `@media print`
+        // rules in globals.css unlock this fixed/overflow layout into a
+        // plain document flow so native printing (desktop Export PDF, web
+        // Cmd+P) paginates the whole document instead of one viewport.
+        <div className="domd-editor-shell fixed inset-0 bg-base-100 overflow-hidden">
             {/* Format shortcuts (⌘1/⌘K/⌥⌘C/…) live outside the top bar: the
                 desktop build renders no web top bar, and they must work
                 there too. */}
             <FormatShortcuts />
             <div
-                className="absolute inset-x-0 flex flex-col"
+                className="domd-editor-viewport absolute inset-x-0 flex flex-col"
                 style={
                     keyboardPin
                         ? ({
@@ -511,7 +515,7 @@ export function Editor({
                     // trapped inside it — and the cluster itself is only
                     // z-auto, which the table renderer's `relative` root
                     // (later in DOM order) paints straight over.
-                    <div className="relative z-40 shrink-0 h-10 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-content/15 select-none">
+                    <div className="relative z-40 shrink-0 h-10 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-content/15 select-none print:hidden">
                         <BrandMark />
                         {/* "New" sits on the left next to the brand: it is a
                             document-lifecycle action, not a per-document one,
@@ -693,7 +697,7 @@ export function Editor({
                 <SidePanelHost id="editor-side-panel" panel={sidePanel}>
                     <div
                         ref={scrollAreaRef}
-                        className="flex-1 min-h-0 overflow-y-auto"
+                        className="domd-editor-scroll flex-1 min-h-0 overflow-y-auto"
                         onClick={(e) => {
                             if (domdRef.current?.contains(e.target as Node))
                                 return;

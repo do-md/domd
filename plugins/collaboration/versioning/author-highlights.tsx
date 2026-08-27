@@ -80,5 +80,9 @@ export function AuthorHighlights({
     }, [targets]);
 
     if (!css) return null;
-    return <style data-domd-author-highlights="">{css}</style>;
+    // Screen-only: authorship tinting is a review aid, not document content —
+    // it must not survive into print/PDF output.
+    return (
+        <style data-domd-author-highlights="">{`@media not print{${css}}`}</style>
+    );
 }

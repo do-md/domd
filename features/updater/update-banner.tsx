@@ -13,7 +13,7 @@ export function UpdateBanner() {
     if (!version) return null;
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg bg-base-200 px-4 py-2 shadow-lg border border-base-300">
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg bg-base-200 px-4 py-2 shadow-lg border border-base-300 print:hidden">
             <span className="text-sm">
                 {t("updater.bannerReady", { version })}
             </span>
