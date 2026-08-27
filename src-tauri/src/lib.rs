@@ -10,6 +10,8 @@ mod cli_server;
 mod collab_db;
 mod file_watch;
 #[cfg(target_os = "macos")]
+mod print;
+#[cfg(target_os = "macos")]
 mod titlebar;
 #[cfg(target_os = "macos")]
 mod untitled_doc;
@@ -571,14 +573,89 @@ fn force_close_window(window: Window) {
     let _ = window.destroy();
 }
 
-/// FE mirrors the collaboration session state (active + online peer count)
-/// so the native titlebar buttons can reflect it. No-op off macOS.
+/// FE mirrors the collaboration session state (live room + online peer count
+/// + version-history availability) so the native titlebar buttons can
+/// reflect it. No-op off macOS.
 #[tauri::command]
-fn set_collab_state(window: Window, active: bool, peers: u32) {
+fn set_collab_state(window: Window, active: bool, peers: u32, versioning: bool) {
     #[cfg(target_os = "macos")]
-    titlebar::set_state(&window, active, peers);
+    titlebar::set_state(&window, active, peers, versioning);
     #[cfg(not(target_os = "macos"))]
-    let _ = (window, active, peers);
+    let _ = (window, active, peers, versioning);
+}
+
+/// FE mirrors the AI collaboration state (enabled with at least one agent)
+/// so the titlebar's sparkles button can show its status tint. No-op off
+/// macOS.
+#[tauri::command]
+fn set_ai_state(window: Window, active: bool) {
+    #[cfg(target_os = "macos")]
+    titlebar::set_ai_state(&window, active);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, active);
+}
+
+/// FE mirrors whether formatting is possible (editable + cursor present) so
+/// the titlebar's Aa button greys out exactly when the web trigger would.
+/// No-op off macOS.
+#[tauri::command]
+fn set_format_enabled(window: Window, enabled: bool) {
+    #[cfg(target_os = "macos")]
+    titlebar::set_format_enabled(&window, enabled);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, enabled);
+}
+
+/// FE answers a `titlebar-format-request` with the finished menu description
+/// (labels, shortcuts, enabled/active); this renders it as a native NSMenu
+/// under the Aa button. No-op off macOS.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn show_format_menu(window: tauri::WebviewWindow, entries: Vec<titlebar::FormatMenuEntry>) {
+    titlebar::show_format_menu(&window, entries);
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn show_format_menu() {}
+
+/// FE mirrors the editor display mode so the native titlebar's "more" menu
+/// shows the current checkmark. No-op off macOS.
+#[tauri::command]
+fn set_editor_mode(window: Window, markdown: bool) {
+    #[cfg(target_os = "macos")]
+    titlebar::set_mode(&window, markdown);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (window, markdown);
+}
+
+/// Export the window's document as a PDF at `path` (chosen by the frontend
+/// via the save dialog). macOS-only: prints the live WKWebView DOM straight
+/// to disk — see print.rs.
+#[tauri::command]
+async fn export_pdf(window: tauri::WebviewWindow, path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        window
+            .with_webview(move |webview| {
+                let result = unsafe { print::print_to_pdf(webview.inner().cast(), &path) };
+                let _ = tx.send(result);
+            })
+            .map_err(|e| e.to_string())?;
+        // with_webview dispatches to the main thread; park a worker thread
+        // (not the async runtime) until the print job reports back.
+        tauri::async_runtime::spawn_blocking(move || {
+            rx.recv().map_err(|e| e.to_string())?
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, path);
+        Err("PDF export is not supported on this platform yet".into())
+    }
 }
 
 fn domd_assets_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
@@ -586,6 +663,44 @@ fn domd_assets_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let dir = home.join(".domd").join("assets");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
+}
+
+fn ai_config_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let home = app.path().home_dir().map_err(|e| e.to_string())?;
+    Ok(home.join(".domd").join("ai.json"))
+}
+
+/// AI collaboration config (agents, provider API keys, enabled flag) for the
+/// desktop build. The web build keeps it in localStorage; on desktop it
+/// lives with the rest of the app's data at ~/.domd/ai.json — user-visible,
+/// backupable, and not tied to webview site data. Returns None when the file
+/// doesn't exist yet (first run — the frontend then migrates any old
+/// localStorage config over).
+#[tauri::command]
+fn load_ai_config(app: AppHandle) -> Result<Option<String>, String> {
+    let path = ai_config_path(&app)?;
+    match std::fs::read_to_string(&path) {
+        Ok(content) => Ok(Some(content)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Persist the AI config JSON at ~/.domd/ai.json. Owner-only permissions:
+/// the file carries provider API keys in plain text.
+#[tauri::command]
+fn save_ai_config(app: AppHandle, content: String) -> Result<(), String> {
+    let path = ai_config_path(&app)?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    }
+    Ok(())
 }
 
 /// Save image bytes to ~/.domd/assets/<name>, skipping the write if a file
@@ -1090,6 +1205,13 @@ pub fn run() {
             get_system_locale,
             set_locale,
             set_collab_state,
+            set_editor_mode,
+            set_ai_state,
+            set_format_enabled,
+            show_format_menu,
+            export_pdf,
+            load_ai_config,
+            save_ai_config,
             collab_db::collab_put_room,
             collab_db::collab_get_room,
             collab_db::collab_active_host_room,

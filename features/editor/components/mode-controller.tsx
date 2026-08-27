@@ -14,6 +14,8 @@
 import { useEffect } from "react";
 import { useEditorStore, useEditorStoreApi } from "@do-md/core-react";
 import { useApplePlatform } from "@/common/hooks/use-apple-platform";
+import { isTauri } from "@/common/lib/platform";
+import { tauriCore } from "@/common/lib/tauri";
 import { useLatest } from "@/common/lib/use-latest";
 import {
     loadEditorMode,
@@ -54,6 +56,17 @@ export function ModeController() {
         window.addEventListener("keydown", handler);
         return () => window.removeEventListener("keydown", handler);
     }, [storeApi, mac, modeRef]);
+
+    // Desktop: mirror the mode to Rust so the native titlebar's "more" menu
+    // renders the current checkmark (src-tauri/src/titlebar.rs MODES).
+    useEffect(() => {
+        if (!isTauri()) return;
+        tauriCore().then(({ invoke }) => {
+            invoke("set_editor_mode", {
+                markdown: mode === "markdown",
+            }).catch(() => {});
+        });
+    }, [mode]);
 
     return null;
 }

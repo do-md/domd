@@ -1,7 +1,12 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { DOMDProvider, useEditorStoreApi } from "@do-md/core-react";
+import {
+    DOMDProvider,
+    useEditorStore,
+    useEditorStoreApi,
+    useFormatState,
+} from "@do-md/core-react";
 import { insertTable, toggleTodoList } from "@do-md/commands";
 import { useTranslation } from "react-i18next";
 import { track } from "@vercel/analytics";
@@ -17,6 +22,13 @@ import { beautify } from "@/common/lib/beautify";
 import { isTauri } from "@/common/lib/platform";
 import { useIsTauri } from "@/common/lib/use-is-tauri";
 import { tauriApp, tauriCore } from "@/common/lib/tauri";
+import { useLatest } from "@/common/lib/use-latest";
+import { toggleEditorMode } from "../lib/editor-mode";
+import { exportToPdfDesktop } from "../lib/export-pdf-desktop";
+import {
+    buildFormatMenuEntries,
+    runNativeFormatCommand,
+} from "../lib/native-format-menu";
 import type {
     RealtimePeer,
     RealtimeSyncHandle,
@@ -26,6 +38,7 @@ import {
     AiCollab,
     AiPanel,
     LocalAiBridge,
+    hydrateAiConfig,
     loadAgents,
     loadAiEnabled,
     localSelfClientId,
@@ -86,14 +99,136 @@ const COLLAB_DRAFT_KEY = "collab:draft";
 const collabKeyForDoc = (docId: string) => `collab:${docId}`;
 
 /**
- * Bridges the native macOS titlebar insert buttons to the editor store.
- * Rendered only on desktop, and only inside the DOMDProvider so it can reach
- * the store. Mirrors the web InsertToolbar's actions 1:1.
+ * Bridges the native macOS titlebar buttons to the editor store. Rendered
+ * only on desktop, and only inside the DOMDProvider so it can reach the
+ * store. The insert buttons mirror the web InsertToolbar's actions 1:1, the
+ * "more" menu items mirror the web "…" dropdown (mode toggle + PDF export),
+ * the sparkles button mirrors the web AI trigger, and the Aa button serves
+ * the web FormatDropdown as a NATIVE menu: the request/response round-trip
+ * snapshots the same state sources at open time and dispatches clicks
+ * through the same command-layer functions (see lib/native-format-menu.ts).
  */
-function TitlebarInsertBridge() {
+function TitlebarBridge({
+    docName,
+    aiActive,
+}: {
+    docName: string;
+    aiActive: boolean;
+}) {
+    const { t } = useTranslation();
     const storeApi = useEditorStoreApi();
-    useTauriEvent("titlebar-insert-table", () => insertTable(storeApi));
-    useTauriEvent("titlebar-insert-checklist", () => toggleTodoList(storeApi));
+    const sidePanelApi = useSidePanelApi();
+    const mode = useEditorStore((s) => s.mode);
+    const modeRef = useLatest(mode);
+    const docNameRef = useLatest(docName);
+    const formatState = useFormatState();
+    const formatStateRef = useLatest(formatState);
+
+    // Editor-mutating titlebar actions. Clicking native chrome can leave the
+    // window's key focus outside the webview while the editor's model cursor
+    // (and the blinking CustomCursor) survive — the Rust side hands the
+    // responder back before emitting (see titlebar.rs restore_webview_focus),
+    // and store.focus() restores the DOM focus on top so typing continues
+    // right after the action. The warn is a tripwire for the reported
+    // "cursor blinks but inserts do nothing" state: it fires exactly when
+    // the command layer will refuse (stale/no cursor), with the focus facts
+    // needed to diagnose why.
+    const runEditorAction = (label: string, action: () => void) => {
+        const offsets = storeApi?.getSelectionOffsets() ?? null;
+        if (!offsets) {
+            console.warn(
+                `[titlebar] ${label}: no usable cursor — command will no-op`,
+                {
+                    hasFocus: document.hasFocus(),
+                    activeElement: document.activeElement?.tagName ?? null,
+                },
+            );
+        }
+        action();
+        if (offsets) storeApi?.focus();
+    };
+
+    // A mousedown on the title bar's BLANK area blurs the editor — the
+    // desktop analogue of clicking outside the document on the web.
+    // WKWebView never delivers a DOM blur for native responder changes, so
+    // without this the editor sat half-alive after such a click: caret
+    // blinking, keystrokes misrouted, inserts refusing. Button clicks do
+    // NOT emit this (filtered in Rust) — they must keep the cursor.
+    // store.blur() is the kernel's model-level blur (the dual of focus()):
+    // pending text commits and the awareness gate closes immediately, and
+    // the render layer turns the intent into the real DOM blur that runs
+    // the ordinary chain (CustomCursor hides) — deterministic regardless of
+    // where the DOM focus happens to sit.
+    useTauriEvent("titlebar-blank-mousedown", () => {
+        storeApi?.blur();
+    });
+
+    useTauriEvent("titlebar-insert-table", () =>
+        runEditorAction("insert-table", () => insertTable(storeApi)),
+    );
+    useTauriEvent("titlebar-insert-checklist", () =>
+        runEditorAction("insert-checklist", () => toggleTodoList(storeApi)),
+    );
+    useTauriEvent("titlebar-toggle-mode", () => {
+        if (storeApi) toggleEditorMode(storeApi, modeRef.current);
+    });
+    useTauriEvent("titlebar-export-pdf", () => {
+        let title = "";
+        try {
+            title = storeApi?.getTitle() ?? "";
+        } catch {
+            // getTitle can throw on a degenerate doc — fall back to the name.
+        }
+        exportToPdfDesktop(title || docNameRef.current).catch((err) => {
+            console.error("[export-pdf] failed:", err);
+        });
+    });
+
+    // AI panel toggle — the imperative half of the side-panel store, same
+    // panel the web top-bar trigger opens.
+    useTauriEvent("titlebar-ai", () => sidePanelApi.toggle("ai"));
+
+    // Aa: answer the button click with the finished menu description. Built
+    // on demand — the block half costs a full toMarkdown(), which is exactly
+    // why the native menu pulls instead of the frontend pushing on every
+    // selection change.
+    useTauriEvent("titlebar-format-request", () => {
+        const entries = buildFormatMenuEntries({
+            storeApi,
+            formatState: formatStateRef.current,
+            t,
+        });
+        tauriCore().then(({ invoke }) => {
+            invoke("show_format_menu", { entries }).catch(() => {});
+        });
+    });
+    useTauriEvent<string>("titlebar-format-command", (id) => {
+        runEditorAction(`format:${id}`, () =>
+            runNativeFormatCommand(storeApi, id),
+        );
+    });
+
+    // Mirror "can format" (editable + cursor present) to the Aa button's
+    // enabled state — the boolean only flips rarely, so this effect fires
+    // far less often than the selection changes feeding it.
+    const canFormat = useEditorStore(
+        (store) => store.isEditable && store.startCursorInfo !== null,
+    );
+    useEffect(() => {
+        tauriCore().then(({ invoke }) => {
+            invoke("set_format_enabled", { enabled: canFormat }).catch(
+                () => {},
+            );
+        });
+    }, [canFormat]);
+
+    // Mirror the AI status light (enabled with at least one agent).
+    useEffect(() => {
+        tauriCore().then(({ invoke }) => {
+            invoke("set_ai_state", { active: aiActive }).catch(() => {});
+        });
+    }, [aiActive]);
+
     return null;
 }
 
@@ -169,8 +304,14 @@ function EditorAppContent() {
         null,
     );
     useEffect(() => {
-        setAiAgents(loadAgents());
-        setAiEnabled(loadAiEnabled());
+        // Desktop reads config from ~/.domd/ai.json — hydrate the storage
+        // cache first (a web no-op), then the synchronous loads are correct
+        // on both platforms.
+        void (async () => {
+            await hydrateAiConfig();
+            setAiAgents(loadAgents());
+            setAiEnabled(loadAiEnabled());
+        })();
     }, []);
     const handleAgentsChange = useCallback((agents: AgentConfig[]) => {
         setAiAgents(agents);
@@ -418,17 +559,20 @@ function EditorAppContent() {
         if (versioningHandleRef.current) sidePanelApi.toggle("versioning");
     });
 
-    // Mirror session state to Rust so the titlebar buttons can reflect it
-    // (share button tint + manage button visibility).
+    // Mirror session state to Rust so the titlebar buttons can reflect it:
+    // share tint follows the live room, manage visibility follows version
+    // history availability (any collaboration session — a live room or the
+    // local AI one), exactly like the web top bar's versioningAvailable.
     useEffect(() => {
         if (!isTauri()) return;
         tauriCore().then(({ invoke }) => {
             invoke("set_collab_state", {
                 active: collabRoom !== null,
                 peers: collabPeers.length,
+                versioning: versioningHandle !== null,
             }).catch(() => {});
         });
-    }, [collabRoom, collabPeers]);
+    }, [collabRoom, collabPeers, versioningHandle]);
 
     const tauriDragging = useTauriDragDrop((path) => {
         detachSharing();
@@ -532,10 +676,15 @@ function EditorAppContent() {
                     runtimes) call the same toggle. */}
                 <ModeController />
                 {/* Desktop has no web top bar; the native titlebar's
-                    table/checklist buttons emit these events (see
+                    buttons and "more" menu emit these events (see
                     src-tauri/src/titlebar.rs). This bridge lives inside the
                     provider so it can reach the editor store. */}
-                {!isWeb ? <TitlebarInsertBridge /> : null}
+                {!isWeb ? (
+                    <TitlebarBridge
+                        docName={meta.name}
+                        aiActive={aiEnabled && aiAgents.length > 0}
+                    />
+                ) : null}
                 {collabRoom ? (
                     <CollabBridge
                         key={collabRoom.id}
