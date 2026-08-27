@@ -236,6 +236,13 @@ export interface EditorState {
      *  row must both take effect (a boolean would not notify subscribers, since
      *  its value never changed). */
     focusRequest_: number;
+    /** Blur-intent counter — the exact dual of focusRequest_. store.blur()
+     *  increments it; the render layer turns the intent into a real DOM blur
+     *  on the contenteditable, so the ordinary blur chain (interaction
+     *  layer, host cursor overlays) runs. Needed where the platform hides
+     *  focus changes from the page (e.g. macOS WKWebView delivers no DOM
+     *  blur when native chrome takes the first responder). */
+    blurRequest_: number;
     paddingMdSymbols_: null | string[];
     mode_: EditorMode;
     pendingFormatMarks_: PendingFormatMarks | null;

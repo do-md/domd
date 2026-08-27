@@ -121,6 +121,23 @@ export class EditorController {
         }
     }
 
+    /** Drop DOM focus if the editor (or a descendant) currently holds it —
+     *  the render layer calls this when store.blur() bumps blurRequest_. The
+     *  real blur event then runs the normal chain: handleBlur_ commits
+     *  pending text and closes the awareness gate, and host-level cursor
+     *  overlays hide. A no-op when the editor is not focused (the store has
+     *  already applied the model-side effects itself). */
+    public blur() {
+        const active = document.activeElement;
+        if (
+            active instanceof HTMLElement &&
+            (active === this._textAreaDom_ ||
+                this._textAreaDom_.contains(active))
+        ) {
+            active.blur();
+        }
+    }
+
     public focus() {
         this._textAreaDom_.focus();
         // focus() means "restore input focus", and it must **never destroy a live

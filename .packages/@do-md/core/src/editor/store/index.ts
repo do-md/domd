@@ -130,6 +130,7 @@ export class EditorStore extends ZenithStore<StoreState> {
             renderData_: initialParsed,
             editorState_: {
                 focusRequest_: 0,
+                blurRequest_: 0,
                 paddingMdSymbols_: null,
                 activeAtomicUUID_: null,
                 mode_: mode,
@@ -447,6 +448,39 @@ export class EditorStore extends ZenithStore<StoreState> {
      *  focus() instead of reading this. */
     public get focusRequest_() {
         return this.state.editorState_.focusRequest_;
+    }
+
+    /** Give up input focus — the inverse of focus(). The model half lands
+     *  immediately and DOM-free: pending speculative text commits, and the
+     *  awareness gate closes so collaborative peers hide this cursor. The DOM
+     *  half is an intent counter the render layer translates into a real blur
+     *  on the contenteditable, which fires the ordinary blur chain
+     *  (interaction layer, host cursor overlays) — all idempotent with the
+     *  model half. The internal cursorInfo_ never moves, so a later focus()
+     *  restores the caret where it was.
+     *
+     *  Hosts need this where the platform hides focus changes from the page:
+     *  macOS WKWebView delivers no DOM blur when native chrome (a titlebar
+     *  click) takes the window's first responder, leaving the editor
+     *  half-alive — a blinking caret that no longer receives keys. Calling
+     *  blur() keeps the page's focus state honest.
+     *
+     *  disableRecord: giving up focus is not a document edit. */
+    public blur() {
+        this.applyPendingText_();
+        this.setCursorFocused_(false);
+        this.produce(
+            (draft) => {
+                draft.editorState_.blurRequest_ += 1;
+            },
+            { disableRecord: true },
+        );
+    }
+
+    /** Blur-intent counter. For the render layer to subscribe to — hosts call
+     *  blur() instead of reading this. */
+    public get blurRequest_() {
+        return this.state.editorState_.blurRequest_;
     }
 
     public setEditable(editable: boolean) {

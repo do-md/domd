@@ -34,6 +34,8 @@ const EditorProvider = ({ children }: { children: React.ReactNode }) => {
     // touches no DOM); turning that intent into an actual focus call happens here,
     // so the host only ever talks to the store and never needs the editor instance.
     const focusRequest = useEditorStore((store) => store.focusRequest_);
+    // Blur intent -> real DOM blur, the exact dual of focusRequest above.
+    const blurRequest = useEditorStore((store) => store.blurRequest_);
 
     useEffect(() => {
         let editorController: EditorController;
@@ -57,6 +59,11 @@ const EditorProvider = ({ children }: { children: React.ReactNode }) => {
         if (!focusRequest || !editor) return;
         editor.focus();
     }, [focusRequest, editor]);
+
+    useEffect(() => {
+        if (!blurRequest || !editor) return;
+        editor.blur();
+    }, [blurRequest, editor]);
 
     return (
         <EditorDomContext.Provider value={{ textAreaDomRef }}>
