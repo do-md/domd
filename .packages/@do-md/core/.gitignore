@@ -79,3 +79,4 @@ scripts/verify-img-group/out.mjs
 scripts/verify-img-group/out.css
 scripts/verify-empty-blocks/out.mjs
 scripts/verify-table-after-paragraph/out.mjs
+scripts/verify-resolve-ranges/out.mjs

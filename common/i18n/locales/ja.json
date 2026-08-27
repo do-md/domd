@@ -111,6 +111,23 @@
             "modeTitle": "リッチモードと Markdown モード",
             "modeBody": "現在はリッチモードで、入力した Markdown は即座に整形されたテキストになります。Markdown モードも同じく WYSIWYG——書式はリアルタイムで反映されたまま、Markdown 記号も表示されるため細かな調整がしやすくなります。**⋯** メニューまたは **{{shortcut}}** でいつでも切り替えられ、選択は記憶されます。",
             "outro": "よい執筆を！"
+        },
+        "find": {
+            "menuTitle": "検索と置換",
+            "placeholder": "検索",
+            "replacePlaceholder": "置換",
+            "count": "{{total}} 件中 {{current}} 件目",
+            "noResults": "結果なし",
+            "caseSensitive": "大文字と小文字を区別する",
+            "wholeWord": "単語単位で検索する",
+            "regex": "正規表現を使用する",
+            "preserveCase": "大文字小文字を保持する",
+            "previous": "前の一致項目 (⇧Enter)",
+            "next": "次の一致項目 (Enter)",
+            "close": "閉じる (Esc)",
+            "replaceOne": "置換",
+            "replaceAll": "すべて置換",
+            "toggleReplace": "置換の切り替え"
         }
     },
     "updater": {

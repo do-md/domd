@@ -94,6 +94,8 @@ export type {
     SelectionSearchTarget,
     SelectionRangeTarget,
     SelectionResult,
+    ResolvedRange,
+    ResolvedRangeAnchor,
 } from "./editor/model/selection/resolve";
 
 // RenderData sync seam (for CRDT / persistence plugins; stable public keys, immune

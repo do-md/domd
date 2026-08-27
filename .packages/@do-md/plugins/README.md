@@ -9,6 +9,7 @@ The kernel ships **mechanisms** (text replacement, selection addressing, an op s
 | Package | Description |
 |---|---|
 | [`commands`](./commands) | Named editing commands — heading/list/quote/code-block toggles, table & divider insertion, links, clear-formatting, a block-format state reader, and a keyboard shortcut binder. The `prosemirror-schema-list` of DoMD. |
+| [`search`](./search) | Headless find & replace — VSCode-semantics matching over the markdown source, a zenith store orchestrating navigate/replace through the replace family, and CSS Custom Highlight painting of every match. Bring your own widget UI. |
 | [`toc`](./toc) | Headless document outline (table of contents) — a flat heading list extracted from the model snapshot, kept in sync through the op stream, plus scroll spy and click-to-jump over the block uuid DOM contract. |
 
 More to come: realtime sync (Yjs binding), table renderer with row/column affordances, custom cursor overlay.

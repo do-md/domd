@@ -384,3 +384,13 @@ body {
         break-after: avoid;
     }
 }
+
+/* Find & replace match painting (@do-md/search, CSS Custom Highlight API).
+ * Muted amber for the field, a stronger tone for the current match — kept
+ * translucent so they read on both light surfaces and code blocks. */
+::highlight(domd-search) {
+    background-color: rgb(203 161 53 / 0.28);
+}
+::highlight(domd-search-active) {
+    background-color: rgb(199 116 48 / 0.5);
+}

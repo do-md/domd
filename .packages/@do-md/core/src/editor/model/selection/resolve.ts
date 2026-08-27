@@ -98,6 +98,23 @@ export interface SelectionResult {
     end?: number;
 }
 
+/**
+ * One resolved endpoint: a block-level cursor coordinate — the vocabulary
+ * CursorSnapshot already speaks (block uuid + in-block text offset), so a
+ * consumer positions it in the DOM the same way it draws a remote cursor
+ * (`[data-render-id]` + a text walk).
+ */
+export interface ResolvedRangeAnchor {
+    uuid: string;
+    offset: number;
+}
+
+/** An absolute markdown range resolved to block coordinates (resolveRanges). */
+export interface ResolvedRange {
+    start: ResolvedRangeAnchor;
+    end: ResolvedRangeAnchor;
+}
+
 /** Parser injections threaded from the store so the reparse of step 2 builds
  *  the same tree shape the live document was built with. */
 export interface SelectionParseOptions {

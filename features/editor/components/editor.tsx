@@ -29,6 +29,11 @@ import {
     TocController,
     TOC_TOGGLE_SHORTCUT,
 } from "@/features/editor/components/toc-panel";
+import {
+    FindBar,
+    FindMenuItem,
+} from "@/features/editor/components/find-bar";
+import { SearchStoreProvider } from "@do-md/search";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
 import { useApplePlatform } from "@/common/hooks/use-apple-platform";
 import { isTauri } from "@/common/lib/platform";
@@ -517,12 +522,13 @@ export function Editor({
         // rules in globals.css unlock this fixed/overflow layout into a
         // plain document flow so native printing (desktop Export PDF, web
         // Cmd+P) paginates the whole document instead of one viewport.
-        // TocStoreProvider scopes one outline store to this editor: the
-        // trigger button (top bar), TocController (engine + scroll-spy
-        // wiring) and TocPanel (the side-panel occupant, resolved by
-        // editor-app) share it. Context only, no DOM wrapper — same posture
-        // as DOMDProvider.
+        // TocStoreProvider scopes one outline store to this editor (trigger
+        // button, TocController, TocPanel); SearchStoreProvider scopes one
+        // find/replace store (FindBar in the scroll container, FindMenuItem
+        // in the ⋯ menu — the menu entry IS the keyboard shortcut). Both are
+        // context only, no DOM wrapper — same posture as DOMDProvider.
         <TocStoreProvider>
+        <SearchStoreProvider>
         <div className="domd-editor-shell fixed inset-0 bg-base-100 overflow-hidden">
             {/* Format shortcuts (⌘1/⌘K/⌥⌘C/…) live outside the top bar: the
                 desktop build renders no web top bar, and they must work
@@ -706,6 +712,12 @@ export function Editor({
                                         />
                                     </label>
                                 </li>
+                                {/* Find & replace: the only entry point on
+                                    touch devices (no ⌘F). Shares the
+                                    SearchStore with FindBar through the
+                                    provider — literally the same openFind()
+                                    call the keyboard shortcut makes. */}
+                                {isEditable ? <FindMenuItem /> : null}
                                 <li>
                                     <button
                                         onClick={(e) => {
@@ -763,6 +775,12 @@ export function Editor({
                             store?.focus();
                         }}
                     >
+                        {/* Find & replace widget: a zero-height sticky layer
+                            inside the scroll container, so it pins to the top
+                            of the document column and tracks its width when
+                            the side panel squeezes it. Works on desktop too —
+                            no dependency on the web top bar. */}
+                        {isEditable ? <FindBar /> : null}
                         <div className="max-w-3xl mx-auto px-6 py-8">
                             <div ref={domdRef}>
                                 <DOMD />
@@ -775,6 +793,7 @@ export function Editor({
                 <QuickInputBar pin={keyboardPin} />
             </div>
         </div>
+        </SearchStoreProvider>
         </TocStoreProvider>
     );
 }

@@ -66,6 +66,8 @@ import {
     blockTextOf,
     resolveOffsetToCursor,
     resolveSelectionTarget,
+    ResolvedRange,
+    SelectionRangeTarget,
     SelectionResult,
     SelectionTarget,
 } from "../model/selection/resolve";
@@ -1906,6 +1908,70 @@ export class EditorStore extends ZenithStore<StoreState> {
         }
         this.setCursorInfo_(start, end, CursorSource.Model, true);
         return { applied: true, start: resolved.start_, end: resolved.end_ };
+    }
+
+    /**
+     * Resolve absolute markdown ranges into block-level coordinates — the
+     * batch, side-effect-free companion of `setSelection`. Addressing is the
+     * replace family's, verbatim: offsets into the current `toMarkdown()`
+     * serialization. Pending speculative input is flushed first (the same
+     * hygiene as every sibling API), so ranges computed against a fresh
+     * `toMarkdown()` call always index the text this call resolves.
+     *
+     * Each range resolves independently to `{ start, end }` block coordinates
+     * (`{ uuid, offset }` — CursorSnapshot's vocabulary). Position them in the
+     * DOM the way remote cursors are drawn: `[data-render-id="${uuid}"]` +
+     * a text-node walk to the offset. A collapsed range (`end` omitted or
+     * equal to `start`) echoes the start anchor at both endpoints.
+     *
+     * An unresolvable entry — malformed, out of bounds, or a live tree that
+     * lost canonicality — yields `null` in its slot while the rest still
+     * resolve, the `resolveCursorPosition` contract: null means draw nothing.
+     * The result array always matches the argument list by position.
+     *
+     * Pure read: no cursor movement, no cursor event, no history entry, no
+     * ops. Built for decoration overlays that must paint every occurrence
+     * without disturbing the user's caret — search-match highlights, AI edit
+     * previews, external diff markers.
+     */
+    public resolveRanges(
+        ...ranges: SelectionRangeTarget[]
+    ): (ResolvedRange | null)[] {
+        this.applyPendingText_();
+        const map = buildTopLevelSourceMap(this.renderData_);
+        const parseOptions = {
+            codeTokenizer_: this._codeTokenizer_,
+            inlineRules_: this._inlineRules_,
+            imgGroupSeparators_: this._imgGroupSeparators_,
+        };
+        return ranges.map((range): ResolvedRange | null => {
+            const resolved = resolveSelectionTarget(range, map.docText_);
+            if ("reason_" in resolved) return null;
+            const start = resolveOffsetToCursor(
+                this.renderData_,
+                map,
+                resolved.start_,
+                "start",
+                parseOptions,
+            );
+            if (!start) return null;
+            if (resolved.end_ === resolved.start_) {
+                const anchor = { uuid: start.uuid, offset: start.offset };
+                return { start: anchor, end: { ...anchor } };
+            }
+            const end = resolveOffsetToCursor(
+                this.renderData_,
+                map,
+                resolved.end_,
+                "end",
+                parseOptions,
+            );
+            if (!end) return null;
+            return {
+                start: { uuid: start.uuid, offset: start.offset },
+                end: { uuid: end.uuid, offset: end.offset },
+            };
+        });
     }
 
     private _executeReplacePlan_(plan: ReplacePlan) {
