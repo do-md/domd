@@ -332,6 +332,11 @@
             "connectingPeer": "Found a participant — establishing the peer-to-peer connection… If this takes long, a firewall may be blocking WebRTC."
         }
     },
+    "toc": {
+        "title": "Outline",
+        "empty": "No headings yet — start a line with # to add one.",
+        "untitled": "Untitled heading"
+    },
     "versioning": {
         "button": "Collaboration",
         "title": "Collaboration",

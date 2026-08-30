@@ -332,6 +332,11 @@
             "connectingPeer": "已发现参与者，正在建立点对点连接…长时间无进展可能是网络防火墙限制了 WebRTC。"
         }
     },
+    "toc": {
+        "title": "大纲",
+        "empty": "还没有标题——在行首输入 # 来添加一个。",
+        "untitled": "无标题"
+    },
     "versioning": {
         "button": "协作管理",
         "title": "协作管理",

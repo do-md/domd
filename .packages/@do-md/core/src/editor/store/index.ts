@@ -1516,6 +1516,34 @@ export class EditorStore extends ZenithStore<StoreState> {
         };
     }
 
+    /**
+     * Absolute source range a TOP-LEVEL block occupies in the canonical
+     * `toMarkdown()` serialization — the uuid → offset dual of
+     * `setSelection`'s offset addressing (and the block-granularity inverse
+     * of per-range resolution). The returned range feeds `setSelection` /
+     * `replaceRanges` verbatim; an outline panel resolves a heading's
+     * `data-render-id` through this to place the caret on jump.
+     *
+     * Pure read, `setSelection`'s reference frame exactly: the pending
+     * typing burst is committed first (same hygiene as every offset
+     * consumer), one `buildTopLevelSourceMap` pass, no cursor events, no
+     * history, no ops.
+     *
+     * Top-level blocks only — a nested uuid (a span, a blockquote child, a
+     * table cell) returns null, as does a uuid no longer in the tree;
+     * callers should skip the operation rather than guess a position.
+     */
+    public resolveBlockOffset(
+        uuid: string,
+    ): { start: number; end: number } | null {
+        this.applyPendingText_();
+        const children = this.renderData_.children_ || [];
+        const index = children.findIndex((child) => child.uuid_ === uuid);
+        if (index === -1) return null;
+        const entry = buildTopLevelSourceMap(this.renderData_).entries_[index];
+        return { start: entry.start_, end: entry.end_ };
+    }
+
     public getSelectionState(contextChars: number = 800): SelectionState {
         // Select-all terminal state: the selected content IS the full
         // serialization (including the edge scaffolding no coordinate can

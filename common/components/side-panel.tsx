@@ -31,7 +31,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { createReactStore, ZenithStore } from "@do-md/zenith";
 
-export type SidePanelKind = "ai" | "versioning";
+export type SidePanelKind = "ai" | "versioning" | "toc";
 
 interface SidePanelState {
     active: SidePanelKind | null;
@@ -124,12 +124,19 @@ export function SidePanelTrigger({
 export function SidePanelHost({
     id,
     panel,
+    side = "right",
     children,
 }: {
     /** Unique drawer-toggle id (one per host instance on the page). */
     id: string;
     /** Panel content; null = closed (nothing mounted). */
     panel: ReactNode;
+    /** Which edge the panel occupies. Same mechanics either way (in-flow
+     *  column on lg, overlay drawer below); DaisyUI's `drawer-end` class is
+     *  the only difference. The store holds ONE slot, so left and right can
+     *  never be open at once — the side is a property of the ACTIVE panel,
+     *  resolved by the app (outline lives left, AI/versioning right). */
+    side?: "left" | "right";
     /** The document surface. */
     children: ReactNode;
 }) {
@@ -138,7 +145,9 @@ export function SidePanelHost({
     const open = panel !== null && panel !== undefined;
     return (
         <div
-            className={`drawer drawer-end flex-1 min-h-0 grid-rows-[minmax(0,1fr)]${
+            className={`drawer ${
+                side === "right" ? "drawer-end " : ""
+            }flex-1 min-h-0 grid-rows-[minmax(0,1fr)]${
                 open ? " lg:drawer-open" : ""
             }`}
         >

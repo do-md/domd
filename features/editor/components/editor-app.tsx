@@ -48,6 +48,7 @@ import {
     type AiSession,
     type LocalAiControl,
 } from "@/features/ai";
+import { TocPanel } from "@/features/editor/components/toc-panel";
 import type { VersioningHandle } from "@/plugins/collaboration/versioning";
 import {
     AuthorHighlights,
@@ -187,6 +188,11 @@ function TitlebarBridge({
     // AI panel toggle — the imperative half of the side-panel store, same
     // panel the web top-bar trigger opens.
     useTauriEvent("titlebar-ai", () => sidePanelApi.toggle("ai"));
+
+    // Outline panel toggle — the leading-edge titlebar button; same panel
+    // the ⇧⌘O keystroke opens (bound in the webview by TocController, so
+    // the shortcut works on desktop without native accelerator plumbing).
+    useTauriEvent("titlebar-toc", () => sidePanelApi.toggle("toc"));
 
     // Aa: answer the button click with the finished menu description. Built
     // on demand — the block half costs a full toMarkdown(), which is exactly
@@ -624,7 +630,9 @@ function EditorAppContent() {
     // lg. Closed = null = unmounted (the versioning panel clears its
     // highlights in its own unmount cleanup).
     const sidePanel =
-        sidePanelActive === "ai" ? (
+        sidePanelActive === "toc" ? (
+            <TocPanel onClose={() => sidePanelApi.close("toc")} />
+        ) : sidePanelActive === "ai" ? (
             <AiPanel
                 agents={aiAgents}
                 onAgentsChange={handleAgentsChange}
