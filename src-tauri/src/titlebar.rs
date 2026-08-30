@@ -52,7 +52,7 @@ use std::sync::{Mutex, OnceLock};
 
 use objc2::rc::Retained;
 use objc2::runtime::{AnyClass, AnyObject, Sel};
-use objc2::{sel, MainThreadMarker, MainThreadOnly};
+use objc2::{sel, MainThreadMarker, MainThreadOnly, Message};
 use objc2_app_kit::{
     NSButton, NSColor, NSImage, NSLayoutAttribute, NSTitlebarAccessoryViewController, NSView,
 };
@@ -72,6 +72,11 @@ struct WinButtons {
     manage: usize,
     share: usize,
     more: usize,
+    /// The window's WKWebView (wry's instance), retained once at install
+    /// time through tauri's official `with_webview` handle. 0 until the
+    /// cache closure has run. Focus restoration uses THIS — never a walk of
+    /// wry's private view tree (see restore_webview_focus).
+    webview: usize,
 }
 
 /// window label -> button pointers.
@@ -612,15 +617,40 @@ fn install_on_main(win: &tauri::WebviewWindow, label: String) {
 
         buttons_map(|m| {
             m.insert(
-                label,
+                label.clone(),
                 WinButtons {
                     format: Retained::into_raw(format) as usize,
                     ai: Retained::into_raw(ai) as usize,
                     manage: Retained::into_raw(manage) as usize,
                     share: Retained::into_raw(share) as usize,
                     more: Retained::into_raw(more) as usize,
+                    webview: 0,
                 },
             );
+        });
+        // Cache the window's WKWebView through the OFFICIAL handle (wry's
+        // `inner()` via tauri's with_webview) and retain it for the window's
+        // lifetime, exactly like the button pointers above. The closure runs
+        // on the main thread on a later event-loop turn; until then focus
+        // restoration is a graceful no-op.
+        //
+        // This replaced a depth-first walk of the content view tree: the
+        // walk's transient retain/release traffic over wry's PRIVATE views
+        // over-released WryWebViewParent in release builds — on the third
+        // titlebar click the container hit dealloc while still in the view
+        // hierarchy and the AppKit assertion aborted the app.
+        let cache_label = label;
+        let _ = win.with_webview(move |webview| {
+            let ptr = webview.inner() as *const NSView;
+            if ptr.is_null() {
+                return;
+            }
+            let retained = (*ptr).retain();
+            buttons_map(|m| {
+                if let Some(entry) = m.get_mut(&cache_label) {
+                    entry.webview = Retained::into_raw(retained) as usize;
+                }
+            });
         });
         // The accessory VCs must outlive this scope; the window does not take
         // ownership of our Rust handles. Leak them — one set per window,
@@ -746,20 +776,6 @@ fn window_for_sender(sender: *mut AnyObject) -> Option<tauri::WebviewWindow> {
         .find(|win| win.ns_window().is_ok_and(|ptr| ptr == sender_window_ptr))
 }
 
-/// Depth-first search for the WKWebView inside a window's view tree.
-unsafe fn find_webview_view(view: &NSView) -> Option<Retained<NSView>> {
-    use objc2::Message;
-    if view.class().name().to_bytes().windows(9).any(|w| w == b"WKWebView") {
-        return Some(view.retain());
-    }
-    for sub in view.subviews().iter() {
-        if let Some(found) = find_webview_view(&sub) {
-            return Some(found);
-        }
-    }
-    None
-}
-
 /// Hand key focus back to the editor webview. Every titlebar action operates
 /// on the editor's cursor, and interacting with native chrome (a click that
 /// landed on the titlebar, a popup menu run) can leave the window's first
@@ -767,18 +783,29 @@ unsafe fn find_webview_view(view: &NSView) -> Option<Retained<NSView>> {
 /// though the page's DOM focus (and the model cursor) survived. Restoring
 /// the responder before emitting makes a titlebar action equivalent to
 /// "click back into the document, then act".
+///
+/// The webview is the handle cached at install time (WinButtons.webview,
+/// obtained from wry through tauri's with_webview). Never rediscover it by
+/// walking the content view tree: the walk's retain/release traffic over
+/// wry's private views over-released WryWebViewParent in release builds —
+/// the third titlebar click deallocated it mid-hierarchy and the AppKit
+/// NSView assertion aborted the whole app (NSInternalInconsistencyException
+/// unwinding into tao's non-unwind sendEvent boundary).
 fn restore_webview_focus(win: &tauri::WebviewWindow) {
+    let Some(buttons) = buttons_for(win.label()) else {
+        return;
+    };
+    if buttons.webview == 0 {
+        return;
+    }
     let Ok(ns_window_ptr) = win.ns_window() else {
         return;
     };
     unsafe {
         let ns_window: &objc2_app_kit::NSWindow =
             &*(ns_window_ptr as *const objc2_app_kit::NSWindow);
-        if let Some(content) = ns_window.contentView() {
-            if let Some(webview) = find_webview_view(&content) {
-                ns_window.makeFirstResponder(Some(&webview));
-            }
-        }
+        let webview: &NSView = &*(buttons.webview as *const NSView);
+        ns_window.makeFirstResponder(Some(webview));
     }
 }
 
