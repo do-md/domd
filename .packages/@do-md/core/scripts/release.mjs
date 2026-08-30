@@ -1,6 +1,6 @@
-// Release script: enter a version → build → print the npm publish instructions.
-// It does not run npm publish itself; that last step is manual (the script prints the
-// command).
+// Release script: enter a version → build → commit the bump → print the push +
+// npm publish instructions. It does not push or run npm publish itself; those
+// last steps are manual (the script prints the commands).
 //
 // The kernel lives at .packages/@do-md/core/ inside the app repo: the app consumes this
 // source directly through tsconfig paths (no release needed to develop against it), so
@@ -10,6 +10,15 @@
 // script rewrites it, and at build time vite's copy-dist-assets plugin injects it into
 // dist/package.json. Publishing happens from dist/ (a complete package on its own — build
 // output only, no src), so bumping the root version is the only edit needed.
+//
+// Git integration:
+// - Releases cut from `main` only — checked up front, before anything is
+//   mutated (a version published off a feature branch strands the release
+//   commit when the branch is deleted; it happened).
+// - After a successful build the version bump is committed automatically
+//   (this file's package.json only — unrelated working-tree changes are
+//   left alone), so the release flow is: npm run release → git push →
+//   cd dist && npm publish.
 //
 // Usage: npm run release
 
@@ -35,6 +44,26 @@ function bump(version, kind) {
 }
 
 const isSemver = (v) => /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(v);
+
+function git(args) {
+    return spawnSync("git", args, { cwd: rootDir, encoding: "utf8" });
+}
+
+// Guard: releases are cut from main, before anything is mutated. The kernel
+// directory lives inside the app repo, so this resolves the APP repo's branch.
+const branchResult = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+if (branchResult.status !== 0) {
+    console.error(`\n✗ Could not determine the git branch:\n${branchResult.stderr}`);
+    process.exit(1);
+}
+const branch = branchResult.stdout.trim();
+if (branch !== "main") {
+    console.error(
+        `\n✗ Releases are cut from main; current branch is "${branch}".` +
+            `\n  Merge your work into main first, then release from there.`,
+    );
+    process.exit(1);
+}
 
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 const current = pkg.version;
@@ -85,14 +114,33 @@ if (build.status !== 0) {
     process.exit(build.status ?? 1);
 }
 
-// 3) Print the manual publish step (publish from dist/: it is a complete package on its
-//    own, build output only, no src)
 if (!existsSync(distDir)) {
     console.error(`\n✗ dist directory not found: ${distDir}`);
     process.exit(1);
 }
+
+// 3) Commit the bump — package.json only, by pathspec, so unrelated
+//    working-tree changes are never swept into the release commit.
+const commit = git([
+    "commit",
+    "-m",
+    `Release ${pkg.name} v${next}`,
+    "--",
+    "package.json",
+]);
+if (commit.status !== 0) {
+    console.error(
+        `\n✗ Commit failed — the bump to ${next} is built but uncommitted:\n${commit.stderr || commit.stdout}`,
+    );
+    process.exit(1);
+}
+console.log(`✓ Committed: Release ${pkg.name} v${next}`);
+
+// 4) Print the manual steps: push, then publish from dist/ (a complete
+//    package on its own — build output only, no src)
 console.log(`\n${"─".repeat(56)}`);
-console.log(`Next, publish to npm by hand (from the dist directory, build output only):`);
+console.log(`Next, push the release commit and publish to npm by hand:`);
+console.log(`\n  git push`);
 console.log(`\n  cd ${distDir}`);
 console.log(`  npm publish\n`);
 console.log(
