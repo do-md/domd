@@ -59,6 +59,17 @@ import { beautify } from "@/common/lib/beautify";
 import { ImageDropHandler } from "@/features/editor/hooks/use-image-drop";
 import { ModeController } from "@/features/editor/components/mode-controller";
 import {
+    FindBar,
+    FindMenuItem,
+} from "@/features/editor/components/find-bar";
+import {
+    TocController,
+    TocPanel,
+    TOC_TOGGLE_SHORTCUT,
+} from "@/features/editor/components/toc-panel";
+import { SearchStoreProvider } from "@do-md/search";
+import { TocStoreProvider } from "@do-md/toc";
+import {
     MODE_TOGGLE_SHORTCUT,
     toggleEditorMode,
 } from "@/features/editor/lib/editor-mode";
@@ -138,6 +149,22 @@ function EllipsisVerticalIcon({ className }: { className?: string }) {
     );
 }
 
+function TocListIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            className={className}
+            aria-hidden="true"
+        >
+            <path d="M4 6h16M9 12h11M4 18h16" />
+        </svg>
+    );
+}
+
 /** How long the "Downloaded" confirmation label lingers on the menu entry. */
 const SAVED_LABEL_MS = 2000;
 
@@ -155,6 +182,7 @@ function CollabMoreMenu({
     const { t } = useTranslation();
     const store = useEditorStoreApi();
     const mode = useEditorStore((s) => s.mode);
+    const isEditable = useEditorStore((s) => s.isEditable);
     const renderData = useRenderData();
     const mac = useApplePlatform();
     const [saving, setSaving] = useState(false);
@@ -234,6 +262,10 @@ function CollabMoreMenu({
                         />
                     </label>
                 </li>
+                {/* Find & replace: the only entry point on touch devices
+                    (no ⌘F). Shares the SearchStore with FindBar through the
+                    provider — same wiring as the host editor's ⋯ menu. */}
+                {isEditable ? <FindMenuItem /> : null}
                 <li>
                     <button
                         disabled={saving}
@@ -270,15 +302,17 @@ function CollabMoreMenu({
 function GuestEditorSurface({
     keyboardPin,
     contentRef,
+    scrollAreaRef,
 }: {
     keyboardPin: ViewportPin | null;
     /** Owned by the parent so the "more" menu can export the rendered DOM. */
     contentRef: React.RefObject<HTMLDivElement | null>;
+    /** Owned by the parent so TocController can bind the scroll spy. */
+    scrollAreaRef: React.RefObject<HTMLDivElement | null>;
 }) {
     const store = useEditorStoreApi();
     const isEditable = useEditorStore((store) => store.isEditable);
     const renderData = useRenderData();
-    const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     // Same debugging affordance the host editor exposes (window.toMarkdown).
     useEffect(() => {
@@ -304,7 +338,7 @@ function GuestEditorSurface({
         } else if (rect.top < box.top + 8) {
             container.scrollBy({ top: rect.top - (box.top + 8) - 24 });
         }
-    }, [keyboardPin]);
+    }, [keyboardPin, scrollAreaRef]);
 
     return (
         <div
@@ -315,6 +349,10 @@ function GuestEditorSurface({
                 store?.focus();
             }}
         >
+            {/* Find & replace widget: a zero-height sticky layer inside the
+                scroll container, pinned to the top of the document column —
+                same placement as the host editor. */}
+            {isEditable ? <FindBar /> : null}
             <div className="max-w-3xl mx-auto px-6 py-8">
                 <div ref={contentRef}>
                     <DOMD />
@@ -418,8 +456,14 @@ function CollabAppContent() {
     const [versioningHandle, setVersioningHandle] =
         useState<VersioningHandle | null>(null);
     // Panel open-state lives in the side-panel store (provider above).
-    const versioningOpen = useSidePanelActive() === "versioning";
+    const sidePanelActive = useSidePanelActive();
+    const versioningOpen = sidePanelActive === "versioning";
+    // Which edge the single panel slot occupies is a property of the ACTIVE
+    // panel (same rule as the host editor): outline left, versioning right.
+    const sidePanelSide =
+        sidePanelActive === "toc" ? ("left" as const) : ("right" as const);
     const sidePanelApi = useSidePanelApi();
+    const mac = useApplePlatform();
     const [highlightTargets, setHighlightTargets] = useState<
         HighlightTarget[]
     >([]);
@@ -427,6 +471,9 @@ function CollabAppContent() {
     // export it to PDF while the surface component keeps using it for
     // click-to-focus hit-testing.
     const contentRef = useRef<HTMLDivElement>(null);
+    // Scroll container of the editor surface, owned here so TocController
+    // can bind the outline scroll spy (same split as the host editor).
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
     // null = room open. Otherwise the room is dead ("dissolved" by the host
     // or "expired" past its link lifetime — the banner wording differs) and
     // `restored` says how the editor got its content: false = it went dead
@@ -779,17 +826,55 @@ function CollabAppContent() {
                 renderComponent={CustomRender}
                 mode="rich"
             >
+                {/* TocStoreProvider scopes one outline store to this editor
+                    (header trigger, TocController, TocPanel);
+                    SearchStoreProvider scopes one find/replace store (FindBar
+                    in the scroll container, FindMenuItem in the ⋯ menu). Both
+                    are context only, no DOM wrapper — same posture as the
+                    host editor. */}
+                <TocStoreProvider>
+                <SearchStoreProvider>
                 {/* Same input affordances as the host editor: format
                     keystrokes (viewer-safe — they bail on a read-only store)
                     and the persisted rich/markdown mode + Cmd+/ toggle. */}
                 <FormatShortcuts />
                 <ModeController />
+                {/* Outline engine + scroll spy (⇧⌘O toggle included);
+                    renders nothing, active only while the TOC panel is
+                    open. */}
+                <TocController scrollAreaRef={scrollAreaRef} />
                 {/* z-40 lifts the bar above the document layer: the centered
                     `-translate-*` cluster opens a local stacking context, so
                     without it the format popover loses to the table plugin's
                     `relative` root (same fix as the host editor's bar). */}
                 <header className="relative z-40 shrink-0 h-10 flex items-center justify-between gap-2 px-3 bg-base-200 border-b border-base-content/15 select-none">
-                    <BrandMark />
+                    <div className="flex items-center gap-2 min-w-0">
+                        <BrandMark />
+                        <span
+                            aria-hidden
+                            className="h-3.5 w-px bg-base-content/15"
+                        />
+                        {/* Outline (TOC) toggle sits on the left, matching
+                            the side its panel opens from — viewers get it
+                            too (outline is read-only navigation). */}
+                        <div
+                            className="tooltip tooltip-bottom"
+                            data-tip={`${t("toc.title")} ${
+                                mac
+                                    ? TOC_TOGGLE_SHORTCUT.mac
+                                    : TOC_TOGGLE_SHORTCUT.other
+                            }`}
+                        >
+                            <SidePanelTrigger panel="toc">
+                                <button
+                                    className="btn btn-xs btn-soft btn-square"
+                                    aria-label={t("toc.title")}
+                                >
+                                    <TocListIcon className="size-3.5" />
+                                </button>
+                            </SidePanelTrigger>
+                        </div>
+                    </div>
                     {/* macOS Notes-style centered cluster, aligned with the
                         host editor: format menu + insert entries. Viewers are
                         read-only, so they get none. Hidden on small screens
@@ -891,8 +976,13 @@ function CollabAppContent() {
                 )}
                 <SidePanelHost
                     id="collab-side-panel"
+                    side={sidePanelSide}
                     panel={
-                        versioningOpen && versioningHandle ? (
+                        sidePanelActive === "toc" ? (
+                            <TocPanel
+                                onClose={() => sidePanelApi.close("toc")}
+                            />
+                        ) : versioningOpen && versioningHandle ? (
                             <VersioningPanel
                                 handle={versioningHandle}
                                 selfClientId={room.clientId}
@@ -906,6 +996,7 @@ function CollabAppContent() {
                     <GuestEditorSurface
                         keyboardPin={keyboardPin}
                         contentRef={contentRef}
+                        scrollAreaRef={scrollAreaRef}
                     />
                 </SidePanelHost>
                 <RemoteCursors peers={roomClosed ? [] : peers} />
@@ -913,6 +1004,8 @@ function CollabAppContent() {
                     <AuthorHighlights targets={highlightTargets} />
                 ) : null}
                 {!isViewer ? <QuickInputBar pin={keyboardPin} /> : null}
+                </SearchStoreProvider>
+                </TocStoreProvider>
             </DOMDProvider>
             </div>
         </div>
