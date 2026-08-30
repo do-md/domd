@@ -111,6 +111,23 @@
             "modeTitle": "Rich mode & Markdown mode",
             "modeBody": "You are in rich mode: Markdown turns into clean formatted text as you type. Markdown mode is WYSIWYG too — formatting still renders live, but the Markdown marks stay visible for precise control. Toggle any time via the **⋯** menu or **{{shortcut}}** — your choice is remembered.",
             "outro": "Happy writing!"
+        },
+        "find": {
+            "menuTitle": "Find & replace",
+            "placeholder": "Find",
+            "replacePlaceholder": "Replace",
+            "count": "{{current}} of {{total}}",
+            "noResults": "No results",
+            "caseSensitive": "Match case",
+            "wholeWord": "Match whole word",
+            "regex": "Use regular expression",
+            "preserveCase": "Preserve case",
+            "previous": "Previous match (⇧Enter)",
+            "next": "Next match (Enter)",
+            "close": "Close (Esc)",
+            "replaceOne": "Replace",
+            "replaceAll": "Replace all",
+            "toggleReplace": "Toggle replace"
         }
     },
     "updater": {

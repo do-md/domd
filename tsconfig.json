@@ -35,6 +35,9 @@
             "@do-md/core-react/style.css": [
                 "./.packages/@do-md/core/src/style.css"
             ],
+            "@do-md/search": [
+                "./.packages/@do-md/plugins/search/src"
+            ],
             "@do-md/toc": [
                 "./.packages/@do-md/plugins/toc/src"
             ],
