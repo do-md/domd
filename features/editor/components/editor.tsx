@@ -20,9 +20,15 @@ import { InsertToolbar } from "@/common/components/insert-toolbar";
 import {
     SidePanelHost,
     SidePanelTrigger,
+    useSidePanelActive,
 } from "@/common/components/side-panel";
 import { FormatDropdown } from "@/common/components/format-dropdown";
 import { FormatShortcuts } from "@/common/components/format-shortcuts";
+import { TocStoreProvider } from "@do-md/toc";
+import {
+    TocController,
+    TOC_TOGGLE_SHORTCUT,
+} from "@/features/editor/components/toc-panel";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
 import { useApplePlatform } from "@/common/hooks/use-apple-platform";
 import { isTauri } from "@/common/lib/platform";
@@ -42,6 +48,22 @@ import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 import { QuickInputBar } from "@/plugins/toolbar/quick-input-bar";
 import { useVisualViewportPin } from "@/plugins/shared/use-visual-viewport-pin";
 import { PlusIcon } from "@/features/icons/plus-icon";
+
+function TocListIcon({ className }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            className={className}
+            aria-hidden="true"
+        >
+            <path d="M4 6h16M9 12h11M4 18h16" />
+        </svg>
+    );
+}
 
 function EllipsisVerticalIcon({ className }: { className?: string }) {
     return (
@@ -158,6 +180,11 @@ export function Editor({
     const isEditable = useEditorStore((store) => store.isEditable);
     const mode = useEditorStore((store) => store.mode);
     const mac = useApplePlatform();
+    // Which edge the single panel slot occupies is a property of the ACTIVE
+    // panel: the outline opens from the left (matching its trigger's spot in
+    // the bar), AI / versioning keep the right.
+    const sidePanelSide =
+        useSidePanelActive() === "toc" ? ("left" as const) : ("right" as const);
 
     const metaRef = useLatest(meta);
     const domdRef = useRef<HTMLDivElement>(null);
@@ -490,11 +517,20 @@ export function Editor({
         // rules in globals.css unlock this fixed/overflow layout into a
         // plain document flow so native printing (desktop Export PDF, web
         // Cmd+P) paginates the whole document instead of one viewport.
+        // TocStoreProvider scopes one outline store to this editor: the
+        // trigger button (top bar), TocController (engine + scroll-spy
+        // wiring) and TocPanel (the side-panel occupant, resolved by
+        // editor-app) share it. Context only, no DOM wrapper — same posture
+        // as DOMDProvider.
+        <TocStoreProvider>
         <div className="domd-editor-shell fixed inset-0 bg-base-100 overflow-hidden">
             {/* Format shortcuts (⌘1/⌘K/⌥⌘C/…) live outside the top bar: the
                 desktop build renders no web top bar, and they must work
                 there too. */}
             <FormatShortcuts />
+            {/* Outline engine + scroll spy; renders nothing, active only
+                while the TOC panel is open. */}
+            <TocController scrollAreaRef={scrollAreaRef} />
             <div
                 className="domd-editor-viewport absolute inset-x-0 flex flex-col"
                 style={
@@ -517,24 +553,43 @@ export function Editor({
                     // (later in DOM order) paints straight over.
                     <div className="relative z-40 shrink-0 h-10 flex items-center gap-2 px-3 text-xs text-base-content/50 bg-base-200 border-b border-base-content/15 select-none print:hidden">
                         <BrandMark />
+                        <span
+                            aria-hidden
+                            className="h-3.5 w-px bg-base-content/15"
+                        />
+                        {/* Outline (TOC) toggle sits on the left, matching
+                            the side its panel opens from. DaisyUI tooltip
+                            (not a native title) so the shortcut shows on
+                            hover alongside the name. */}
+                        <div
+                            className="tooltip tooltip-bottom"
+                            data-tip={`${t("toc.title")} ${
+                                mac
+                                    ? TOC_TOGGLE_SHORTCUT.mac
+                                    : TOC_TOGGLE_SHORTCUT.other
+                            }`}
+                        >
+                            <SidePanelTrigger panel="toc">
+                                <button
+                                    className="btn btn-xs btn-soft btn-square"
+                                    aria-label={t("toc.title")}
+                                >
+                                    <TocListIcon className="size-3.5" />
+                                </button>
+                            </SidePanelTrigger>
+                        </div>
                         {/* "New" sits on the left next to the brand: it is a
                             document-lifecycle action, not a per-document one,
                             and the right cluster (AI / history / share / more)
                             is already crowded. */}
                         {onRequestNew ? (
-                            <>
-                                <span
-                                    aria-hidden
-                                    className="h-3.5 w-px bg-base-content/15"
-                                />
-                                <button
-                                    onClick={onRequestNew}
-                                    className="btn btn-xs btn-soft"
-                                >
-                                    <PlusIcon className="size-3" />
-                                    {/* {t("editor.newDoc")} */}
-                                </button>
-                            </>
+                            <button
+                                onClick={onRequestNew}
+                                className="btn btn-xs btn-soft"
+                            >
+                                <PlusIcon className="size-3" />
+                                {/* {t("editor.newDoc")} */}
+                            </button>
                         ) : null}
                         {/* macOS Notes-style centered insert entries: absolute
                             so left brand / right actions never shove them off
@@ -694,7 +749,11 @@ export function Editor({
                     </div>
                 ) : null}
 
-                <SidePanelHost id="editor-side-panel" panel={sidePanel}>
+                <SidePanelHost
+                    id="editor-side-panel"
+                    panel={sidePanel}
+                    side={sidePanelSide}
+                >
                     <div
                         ref={scrollAreaRef}
                         className="domd-editor-scroll flex-1 min-h-0 overflow-y-auto"
@@ -716,5 +775,6 @@ export function Editor({
                 <QuickInputBar pin={keyboardPin} />
             </div>
         </div>
+        </TocStoreProvider>
     );
 }

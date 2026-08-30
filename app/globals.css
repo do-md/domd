@@ -296,6 +296,14 @@ body {
     background: oklch(85% 0.08 90 / 0.6);
     border-bottom-style: solid;
 }
+/* ── Outline (TOC) jump target offset ─────────────────────────────────────
+ * @do-md/toc's scrollToHeading uses scrollIntoView(block:"start"); the
+ * breathing room between the container top and the landed heading is a
+ * style concern, so it lives here rather than in the package. */
+.domd-editor-scroll :is(h1, h2, h3, h4, h5, h6)[data-render-id] {
+    scroll-margin-top: 1rem;
+}
+
 /* ── Print (desktop "Export PDF" + web Cmd+P) ─────────────────────────────
  * The desktop export (src-tauri/src/print.rs) prints the LIVE DOM through
  * WKWebView's native print operation, so the editor's app-shell layout must

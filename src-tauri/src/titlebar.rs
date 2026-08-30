@@ -20,6 +20,14 @@
 //!    toggle (emits `titlebar-toggle-mode`) and "Export PDF…" (emits
 //!    `titlebar-export-pdf`)
 //!
+//! A second accessory on the LEADING edge (left of the window title, the
+//! sidebar-toggle convention) carries the outline button:
+//!
+//!  - toc       (list.bullet.indent)     -> emits `titlebar-toc`; the
+//!    frontend toggles the outline side panel (same panel the web top bar's
+//!    left-cluster button and the ⇧⌘O keystroke open — the keystroke works
+//!    on desktop too, bound in the webview by TocController)
+//!
 //! The buttons mirror the web top bar (which the desktop app doesn't render
 //! — the native titlebar IS its top bar). The frontend handles the emitted
 //! events by calling the editor store (see
@@ -300,6 +308,15 @@ pub fn setup(handle: &AppHandle) {
             >(format_item_clicked),
             c"v@:@".as_ptr(),
         );
+        objc2::ffi::class_addMethod(
+            cls_ptr,
+            sel!(domdTitlebarToc:),
+            std::mem::transmute::<
+                extern "C-unwind" fn(*mut AnyObject, Sel, *mut AnyObject),
+                unsafe extern "C-unwind" fn(),
+            >(toc_clicked),
+            c"v@:@".as_ptr(),
+        );
     }
 }
 
@@ -426,6 +443,43 @@ fn vertical_ellipsis_image() -> Retained<NSImage> {
     image
 }
 
+/// Outline glyph drawn to match the web top bar's TocListIcon (viewBox 24:
+/// full-width rules at y 6 and 18, an indented one at y 12, stroke 1.8,
+/// round caps). SF Symbols' closest matches (list.bullet.indent and
+/// friends) are denser and visually heavier than the neighboring buttons;
+/// a custom vector template image keeps the two platforms' outline entries
+/// identical and lets AppKit tint it like the SF-symbol buttons.
+fn outline_image() -> Retained<NSImage> {
+    use objc2::runtime::Bool;
+    use objc2_app_kit::{NSBezierPath, NSLineCapStyle};
+
+    const GLYPH: f64 = 15.0;
+    const SCALE: f64 = GLYPH / 24.0;
+    // (x0, x1, y) in the web icon's 24pt viewBox coordinates.
+    const RULES: [(f64, f64, f64); 3] =
+        [(4.0, 20.0, 6.0), (9.0, 20.0, 12.0), (4.0, 20.0, 18.0)];
+
+    let handler = block2::RcBlock::new(|_rect: NSRect| -> Bool {
+        NSColor::blackColor().setStroke();
+        let path = NSBezierPath::bezierPath();
+        path.setLineWidth(1.8 * SCALE);
+        path.setLineCapStyle(NSLineCapStyle::Round);
+        for (x0, x1, y) in RULES {
+            path.moveToPoint(NSPoint::new(x0 * SCALE, y * SCALE));
+            path.lineToPoint(NSPoint::new(x1 * SCALE, y * SCALE));
+        }
+        path.stroke();
+        Bool::YES
+    });
+    let image = NSImage::imageWithSize_flipped_drawingHandler(
+        NSSize::new(GLYPH, GLYPH),
+        false,
+        &handler,
+    );
+    image.setTemplate(true);
+    image
+}
+
 fn install_on_main(win: &tauri::WebviewWindow, label: String) {
     let Some(mtm) = MainThreadMarker::new() else {
         return;
@@ -535,6 +589,27 @@ fn install_on_main(win: &tauri::WebviewWindow, label: String) {
         vc.setLayoutAttribute(NSLayoutAttribute::Trailing);
         ns_window.addTitlebarAccessoryViewController(&vc);
 
+        // Leading accessory: the outline toggle, left of the window title —
+        // the macOS sidebar-toggle spot (its panel opens from the left, so
+        // the entry sits on the left, mirroring the web top bar). Tooltip
+        // carries the keystroke, which the webview binds on desktop too.
+        let toc_container = NSView::initWithFrame(
+            NSView::alloc(mtm),
+            NSRect::new(NSPoint::new(0.0, 0.0), container_size(1)),
+        );
+        let toc = image_button(
+            mtm,
+            &outline_image(),
+            sel!(domdTitlebarToc:),
+            slot_rect(0),
+            &format!("{} \u{21E7}\u{2318}O", menu_i18n::t(locale, "toc.title")),
+        );
+        toc_container.addSubview(&toc);
+        let toc_vc = NSTitlebarAccessoryViewController::new(mtm);
+        toc_vc.setView(&toc_container);
+        toc_vc.setLayoutAttribute(NSLayoutAttribute::Leading);
+        ns_window.addTitlebarAccessoryViewController(&toc_vc);
+
         buttons_map(|m| {
             m.insert(
                 label,
@@ -547,10 +622,11 @@ fn install_on_main(win: &tauri::WebviewWindow, label: String) {
                 },
             );
         });
-        // The accessory VC must outlive this scope; the window does not take
-        // ownership of our Rust handle. Leak it — one per window, freed with
-        // the process.
+        // The accessory VCs must outlive this scope; the window does not take
+        // ownership of our Rust handles. Leak them — one set per window,
+        // freed with the process.
         let _ = Retained::into_raw(vc);
+        let _ = Retained::into_raw(toc_vc);
     }
 }
 
@@ -844,6 +920,10 @@ extern "C-unwind" fn export_pdf_clicked(_this: *mut AnyObject, _sel: Sel, _sende
 
 extern "C-unwind" fn ai_clicked(_this: *mut AnyObject, _sel: Sel, sender: *mut AnyObject) {
     emit_for_sender(sender, "titlebar-ai");
+}
+
+extern "C-unwind" fn toc_clicked(_this: *mut AnyObject, _sel: Sel, sender: *mut AnyObject) {
+    emit_for_sender(sender, "titlebar-toc");
 }
 
 /// "Aa" button: ask the frontend for the menu. It answers with the
