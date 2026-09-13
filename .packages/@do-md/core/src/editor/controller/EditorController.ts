@@ -27,7 +27,8 @@ import { getVisibleDomText } from "./lib/getVisibleDomText";
 import { getOffsetTop } from "./lib/getOffsetTop";
 import { getDomByCursor } from "./lib/getDomByCursor";
 import { getRenderDomByID } from "./lib/getRenderDomByID";
-import { commandKey } from "./lib/commandKey";
+import { commandKey, foreignCommandKey } from "./lib/commandKey";
+
 import { matchesNewlineKey } from "./lib/matchesNewlineKey";
 import { matchesLetterKey } from "./lib/matchesLetterKey";
 
@@ -1527,6 +1528,110 @@ export class EditorController {
     };
 
     /**
+     * Build the whole-document DOM selection ourselves — the select-all
+     * terminal state's DOM projection.
+     * -------------------------------------------------------------------
+     * Why not the engine's own SelectAll: WebKit's native command collapses
+     * to the document tail when the editable root's first child is a
+     * non-editable overlay (custom caret / remote-cursor layers, which hosts
+     * legitimately portal into the root) — measured on WebKit 26 with a
+     * minimal contenteditable; Blink is unaffected.
+     * Why visible-leaf endpoints and not container boundaries: WebKit keeps
+     * a container-endpoint range (selectNodeContents) as selection DATA but
+     * paints no highlight for it at all — pixel-verified on the system
+     * WKWebView, the user experiences "Cmd+A does nothing". Endpoints must
+     * sit on text nodes for WebKit to paint, and they must be *visible* text
+     * nodes: coordinates resolved blindly from the model would land inside
+     * hidden syntax runs (the display:none MdSymbol "# " of a heading).
+     * Blink paints either form; the visible-leaf range measures stable on
+     * both engines.
+     * Used by the Cmd/Ctrl+A keydown and by the replay pass to restore the
+     * terminal state after undo / a re-render dropped the anchors.
+     * The DOM write is deferred by one macrotask: WebKit keeps a selection
+     * installed synchronously inside a (trusted, preventDefaulted) keydown
+     * handler as DATA but never paints its highlight — the exact same range
+     * re-applied outside the key event paints fine (pixel-verified on the
+     * system WKWebView; Blink paints both). One task of delay stays under a
+     * frame, so there is no visible unselected window.
+     */
+    /**
+     * First and last render block among the root's children. Skips
+     * non-content scaffolding (overlay divs hosts portal into the root —
+     * custom caret, remote-cursor layers): a whole-document range built from
+     * visible leaves legitimately excludes them, so any coverage probe using
+     * first/lastElementChild would fail against our own selection.
+     */
+    private firstLastRenderBlocks_(): {
+        firstBlock: Element | null;
+        lastBlock: Element | null;
+    } {
+        let firstBlock: Element | null = null;
+        let lastBlock: Element | null = null;
+        for (const el of this._textAreaDom_.children) {
+            if (!el.hasAttribute("data-render-id")) continue;
+            if (!firstBlock) firstBlock = el;
+            lastBlock = el;
+        }
+        return { firstBlock, lastBlock };
+    }
+
+    private selectAllDom_() {
+        setTimeout(() => this.applySelectAllDom_(), 0);
+    }
+
+    private applySelectAllDom_() {
+        // The deferral window is one task; if the terminal state was already
+        // cancelled in between (a click landed an ordinary cursor), applying
+        // the select-all projection now would stomp on the user's action.
+        if (!this._editorStore_.cursorInfo_.all_) return;
+        const selection = document.getSelection();
+        if (!selection) return;
+        const rootEl = this._textAreaDom_;
+        const { firstBlock, lastBlock } = this.firstLastRenderBlocks_();
+        const range = document.createRange();
+        if (firstBlock && lastBlock) {
+            // First/last VISIBLE text leaf. The parentElement display check
+            // matches how MdSymbol hides syntax (display:none directly on
+            // the leaf's parent span); checkVisibility additionally covers
+            // hidden ancestors where supported.
+            const isVisible = (el: Element) =>
+                (el as HTMLElement).checkVisibility?.() ??
+                window.getComputedStyle(el).display !== "none";
+            const visibleTextIn = (scope: Element, last: boolean) => {
+                const walker = document.createTreeWalker(
+                    scope,
+                    NodeFilter.SHOW_TEXT,
+                    {
+                        acceptNode: (n) =>
+                            n.parentElement && isVisible(n.parentElement)
+                                ? NodeFilter.FILTER_ACCEPT
+                                : NodeFilter.FILTER_REJECT,
+                    },
+                );
+                if (!last) return walker.nextNode();
+                let found: Node | null = null;
+                while (walker.nextNode()) found = walker.currentNode;
+                return found;
+            };
+            const firstText = visibleTextIn(firstBlock, false);
+            const lastText = visibleTextIn(lastBlock, true);
+            if (firstText && lastText) {
+                range.setStart(firstText, 0);
+                range.setEnd(lastText, lastText.textContent?.length ?? 0);
+            } else {
+                // Empty blocks (<p><br></p>) hold no text leaves — fall back
+                // to block boundaries.
+                range.setStartBefore(firstBlock);
+                range.setEndAfter(lastBlock);
+            }
+        } else {
+            range.selectNodeContents(rootEl);
+        }
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    /**
      * Reads the cursor position; skipped after a composition input.
      * * */
     private handleKeyDown_ = async (e: KeyboardEvent) => {
@@ -1547,8 +1652,18 @@ export class EditorController {
         // Enter, Tab, IME). Command-level shortcuts are registered on window keydown
         // by the commands layer or by the host application.
 
-        // undo/redo
-        if ((e.metaKey || e.ctrlKey) && matchesLetterKey(e, "z")) {
+        // undo/redo — the platform's primary command modifier only. The old
+        // (metaKey || ctrlKey) form swallowed macOS's Ctrl+letter system
+        // bindings and Windows's Win+letter chords alike; shiftKey stays free
+        // (Cmd/Ctrl+Shift+Z = redo), every other extra modifier opts out.
+        // The letter matches by key cap (matchesLetterKey), not by position,
+        // so the binding survives non-QWERTY layouts.
+        if (
+            commandKey(e) &&
+            !foreignCommandKey(e) &&
+            !e.altKey &&
+            matchesLetterKey(e, "z")
+        ) {
             e.preventDefault();
             if (this._editorStore_.duringComposition) {
                 return;
@@ -1561,32 +1676,93 @@ export class EditorController {
             return;
         }
 
-        // Select-all, Cmd/Ctrl+A — enter the select-all terminal state
-        // (cursorInfo_.all_).
-        // We deliberately do not preventDefault: let the browser select everything
-        // natively and keep its selection highlight (CustomCursor hides itself
-        // whenever the selection is not collapsed, leaving the highlight to the
-        // browser). The store side only flags the terminal state: subsequent editing
-        // operations (delete / typing / paste / cut / Enter / IME) go through the
-        // whole-document primitive replaceAllContent_ and no longer depend on DOM
-        // coordinates — DOM coordinates cannot address the leading / trailing
-        // serialization scaffolding (deleting through them leaves stubs behind), and
-        // during a chunked load they do not cover the unparsed part at all.
-        // getCursorInfo() cannot be reused here: on select-all the start container
-        // lands on the root node, so the marker cannot be inserted into the first
-        // block (see the handleCopy / handleCut comments). setSelectAll_ reads
-        // straight from renderData instead — start = the first render block at
-        // offset 0, end = the full length of the last render leaf.
-        // Known gap: the mobile long-press menu's "Select All" does not go through
-        // keydown, so it does not enter the terminal state yet (left as is until we
-        // can observe the real path and settle on an inference rule).
-        if ((e.metaKey || e.ctrlKey) && matchesLetterKey(e, "a")) {
+        // Select-all (⌘A on macOS, Ctrl+A elsewhere) — enter the select-all
+        // terminal state (cursorInfo_.all_).
+        // The modifier check is platform-exact. On macOS, Ctrl+A is the
+        // system's "move to beginning of paragraph" text binding; the old
+        // (metaKey || ctrlKey) form hijacked it into the terminal state, and
+        // the replayed whole-document range then polluted the selection the
+        // native caret motion acted on — teleporting the caret to the start
+        // of the document (issue #27, first report). Shift/Alt variants
+        // (⌘⇧A …) have no select-all semantics anywhere and must not raise
+        // the flag either: the browser performs no native select-all for
+        // them, so the echo handshake would dangle on a non-selected
+        // document. The letter matches by key cap (matchesLetterKey), not by
+        // position, so the binding survives non-QWERTY layouts.
+        // We preventDefault and build the whole-document selection ourselves
+        // (selectAllDom_). The engine's own SelectAll used to be trusted here,
+        // but it is not trustworthy: WebKit's native SelectAll command
+        // collapses the selection to the document tail whenever the editable
+        // root's first child is a non-editable overlay — exactly what hosts
+        // mount (custom caret, remote-cursor layers) — which the user sees as
+        // "Cmd+A flashes, then the selection vanishes" on the desktop
+        // WKWebView (issue #27, second report; feature-isolated in a minimal
+        // contenteditable: plain/hidden-syntax DOMs select fine, adding a
+        // contenteditable=false absolute first child alone breaks it; Blink
+        // is unaffected). preventDefault also stops the key equivalent from
+        // reaching the desktop menu's native selectAll: — the same broken
+        // engine command via another door.
+        // The store side flags the terminal state: subsequent editing
+        // operations (delete / typing / paste / cut / Enter / IME) go through
+        // the whole-document primitive replaceAllContent_ and do not depend
+        // on DOM coordinates — DOM coordinates cannot address the leading /
+        // trailing serialization scaffolding (deleting through them leaves
+        // stubs behind), and during a chunked load they do not cover the
+        // unparsed part at all.
+        // getCursorInfo() cannot be reused here: on select-all the start
+        // container lands on the root node, so the marker cannot be inserted
+        // into the first block (see the handleCopy / handleCut comments).
+        // setSelectAll_ reads straight from renderData instead — start = the
+        // first render block at offset 0, end = the full length of the last
+        // render leaf.
+        // Known gap: the mobile long-press menu's "Select All" does not go
+        // through keydown, so it does not enter the terminal state yet (left
+        // as is until we can observe the real path and settle on an
+        // inference rule); a desktop menu-item "Select All" click does not
+        // either — hosts should route their menu item through the store
+        // (the DOMD desktop Edit menu does exactly that).
+        if (
+            commandKey(e) &&
+            !foreignCommandKey(e) &&
+            !e.shiftKey &&
+            !e.altKey &&
+            matchesLetterKey(e, "a")
+        ) {
+            // During IME composition the DOM belongs to compositionSnapshot_ —
+            // hands off entirely, matching the previous behaviour (the store
+            // setters below are composition-guarded no-ops anyway).
+            if (this._editorStore_.duringComposition) return;
+            e.preventDefault();
             this._editorStore_.applyPendingText_();
             this._editorStore_.setSelectAll_();
+            this.selectAllDom_();
+            return;
         }
 
+        // System text-navigation chords (NSStandardKeyBindingResponding:
+        // Ctrl+A/E = paragraph start/end, Ctrl+N/P = next/previous line,
+        // Ctrl+F/B = forward/backward), implemented natively by WebKit and
+        // partially by Blink on macOS. They move the caret exactly like the
+        // bare keys in keysThatMoveCursor but arrive as Ctrl+letter chords,
+        // so they need the same speculative-input flush — without it the
+        // armed pending timer wakes up after the caret has left and writes
+        // the stale snapshot's cursor back (issue #27: "Ctrl+N/P land
+        // unreliably and interfere with ↑/↓"). Editing-type bindings
+        // (Ctrl+K/D/H/T/O/Y) mutate the DOM and travel through the
+        // beforeinput machinery instead; they are deliberately not listed.
+        // No platform gate: where a chord has no system binding the flush is
+        // a no-op (applyPendingText_ short-circuits on empty pending; Ctrl+A
+        // on Windows never reaches this point — the select-all branch above
+        // flushes and returns).
+        const isSystemNavigationChord =
+            e.ctrlKey &&
+            !e.metaKey &&
+            !e.altKey &&
+            !e.shiftKey &&
+            ["a", "e", "n", "p", "f", "b"].includes(e.key);
+
         // Check whether this is one of the cursor-moving keys
-        if (keysThatMoveCursor.includes(e.key)) {
+        if (keysThatMoveCursor.includes(e.key) || isSystemNavigationChord) {
             this._editorStore_.applyPendingText_();
         }
 
@@ -1764,14 +1940,20 @@ export class EditorController {
         if (this._editorStore_.selectAllEchoPending_) {
             this._editorStore_.selectAllEchoPending_ = false;
             if (this._editorStore_.cursorInfo_.all_ && info.length === 2) {
-                const rootEl = this._textAreaDom_;
-                const firstEl = rootEl.firstElementChild;
-                const lastEl = rootEl.lastElementChild;
+                // Probe the first/last RENDER blocks, not
+                // first/lastElementChild: the selection being echoed is the
+                // one selectAllDom_ builds from visible text leaves, which
+                // legitimately excludes the root's non-content scaffolding
+                // (overlay divs) — probing scaffolding would fail against our
+                // own selection and let this very reading demote the terminal
+                // state to a plain range.
+                const { firstBlock, lastBlock } =
+                    this.firstLastRenderBlocks_();
                 if (
-                    firstEl &&
-                    lastEl &&
-                    selection.containsNode(firstEl, true) &&
-                    selection.containsNode(lastEl, true)
+                    firstBlock &&
+                    lastBlock &&
+                    selection.containsNode(firstBlock, true) &&
+                    selection.containsNode(lastBlock, true)
                 ) {
                     return;
                 }
@@ -2418,6 +2600,39 @@ export class EditorController {
             !liveSelection.isCollapsed &&
             this._textAreaDom_.contains(liveSelection.anchorNode);
         if (cursorInfo.source_ === CursorSource.Dom && liveRangeInEditor) {
+            return;
+        }
+
+        // —— Select-all terminal state: whole-container terms only ——
+        // all_'s (uuid, offset) pair only approximates "the whole document",
+        // so replaying it through the leaf-coordinate machinery below is
+        // wrong twice over: the strict endpoint-equality check can never
+        // confirm an existing whole-document selection (its endpoints snap
+        // to visible positions, ours resolve into hidden syntax runs), and
+        // the rebuilt range would then fight the selection built at keydown
+        // — every replay pass rewriting the live selection is exactly the
+        // flicker class issue #27 reported.
+        // 1. Already in place — a live range touching both the first and the
+        //    last render block (the same coverage geometry the
+        //    selectionchange echo guard uses; the probe must skip the root's
+        //    non-content scaffolding divs, which a rebuilt range
+        //    legitimately excludes) → zero side effects.
+        // 2. Otherwise (undo restored the terminal state, a re-render
+        //    dropped the selection anchors) rebuild via selectAllDom_.
+        // No scrolling either way: select-all must not move the viewport.
+        if (cursorInfo.all_) {
+            const { firstBlock, lastBlock } = this.firstLastRenderBlocks_();
+            if (
+                liveRangeInEditor &&
+                liveSelection &&
+                firstBlock &&
+                lastBlock &&
+                liveSelection.containsNode(firstBlock, true) &&
+                liveSelection.containsNode(lastBlock, true)
+            ) {
+                return;
+            }
+            this.selectAllDom_();
             return;
         }
 
