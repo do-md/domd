@@ -81,6 +81,10 @@ type Phase = "idle" | "waiting" | "streaming";
 interface PopoverState {
     /** Caret rect at the trigger (viewport coords). */
     anchor: AnchorRect;
+    /** Timestamp of the "@" event that opened this popover. Keys pressed
+     *  at or before it belong to the trigger itself, not to the user
+     *  answering the picker — see PickPane. */
+    openedAt: number;
     /** null = agent pick phase; set = composer phase. */
     agent: AgentConfig | null;
     needKey: boolean;
@@ -203,6 +207,7 @@ export function AiCollab({
             setComposerError(null);
             setPopover({
                 anchor,
+                openedAt: e.timeStamp,
                 agent: null,
                 needKey: false,
                 invocationCursor: null,
@@ -502,6 +507,7 @@ export function AiCollab({
                     agents={agents}
                     agent={popover.agent}
                     anchor={popover.anchor}
+                    openedAt={popover.openedAt}
                     needKey={popover.needKey}
                     waiting={phase === "waiting"}
                     error={composerError}
@@ -542,6 +548,7 @@ function AgentPopover({
     agents,
     agent,
     anchor,
+    openedAt,
     needKey,
     waiting,
     error,
@@ -552,6 +559,7 @@ function AgentPopover({
     agents: AgentConfig[];
     agent: AgentConfig | null;
     anchor: AnchorRect;
+    openedAt: number;
     needKey: boolean;
     waiting: boolean;
     error: string | null;
@@ -724,7 +732,12 @@ function AgentPopover({
                     onClose={onClose}
                 />
             ) : (
-                <PickPane agents={agents} onPick={onPick} onClose={onClose} />
+                <PickPane
+                    agents={agents}
+                    openedAt={openedAt}
+                    onPick={onPick}
+                    onClose={onClose}
+                />
             )}
         </div>,
         document.body,
@@ -738,16 +751,20 @@ function AgentPopover({
  *  the picker and flows to the editor untouched. */
 function PickPane({
     agents,
+    openedAt,
     onPick,
     onClose,
 }: {
     agents: AgentConfig[];
+    /** Timestamp of the "@" that opened the picker. */
+    openedAt: number;
     onPick: (agent: AgentConfig) => void;
     onClose: (opts?: CloseOptions) => void;
 }) {
     const { t } = useTranslation();
     const [index, setIndex] = useState(0);
     const indexRef = useLatest(index);
+    const openedAtRef = useLatest(openedAt);
     const agentsRef = useLatest(agents);
     const activeRef = useRef<HTMLButtonElement | null>(null);
 
@@ -757,6 +774,15 @@ function PickPane({
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
+            // The "@" that opened this picker can deliver its own keydown
+            // AFTER the beforeinput that triggered us: with an IME active
+            // WebKit holds the keydown back until the composition engine
+            // releases the character (keyCode 229), so it lands a few ms
+            // late and would instantly dismiss the picker it just opened.
+            // Only keys pressed after the picker appeared may dismiss it.
+            if (e.timeStamp <= openedAtRef.current) return;
+            // Keys consumed by an active composition belong to the IME.
+            if (e.isComposing) return;
             const bare =
                 !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey;
             if (bare && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
@@ -794,7 +820,7 @@ function PickPane({
         };
         document.addEventListener("keydown", onKey, true);
         return () => document.removeEventListener("keydown", onKey, true);
-    }, [onPick, onClose, agentsRef, indexRef]);
+    }, [onPick, onClose, agentsRef, indexRef, openedAtRef]);
 
     return (
         <div className="w-56 p-1">
@@ -884,7 +910,9 @@ function ComposerPane({
                     disabled={waiting}
                     onChange={(e) => setInstruction(e.target.value)}
                     onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                        // Enter while an IME composition is open confirms
+                        // the candidate — it is not a send.
+                        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
                             e.preventDefault();
                             submit();
                         }
