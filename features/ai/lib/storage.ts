@@ -1,7 +1,7 @@
 /**
- * Persistence for AI collaboration config (agents, provider API keys,
- * enabled flag, local collaborator id). Two backends behind one synchronous
- * API:
+ * Persistence for AI collaboration config (agents, custom endpoints,
+ * provider API keys, enabled flag, local collaborator id). Two backends
+ * behind one synchronous API:
  *
  *  - Web: plain localStorage (same pattern as features/chat — try/catch for
  *    private mode, defaults first so SSR and the first client render agree).
@@ -20,9 +20,17 @@
  */
 import { isTauri } from "@/common/lib/platform";
 import { tauriCore } from "@/common/lib/tauri";
-import { AI_PROVIDERS, type AgentConfig, type AiProvider } from "./types";
+import {
+    BUILTIN_PROVIDERS,
+    isCustomProvider,
+    normalizeChatEndpoint,
+    type AgentConfig,
+    type AiProvider,
+    type CustomProvider,
+} from "./types";
 
 const LS_AGENTS = "domd-ai:agents";
+const LS_PROVIDERS = "domd-ai:providers";
 const LS_ENABLED = "domd-ai:enabled";
 const LS_SELF_ID = "domd-ai:selfId";
 const lsKeyFor = (provider: AiProvider) => `domd-ai:key:${provider}`;
@@ -51,10 +59,10 @@ const lsRemove = (key: string) => {
     }
 };
 
-const parseAgents = (raw: string | null): AgentConfig[] => {
+const parseList = <T,>(raw: string | null): T[] => {
     if (!raw) return [];
     try {
-        const parsed = JSON.parse(raw) as AgentConfig[];
+        const parsed = JSON.parse(raw) as T[];
         return Array.isArray(parsed) ? parsed : [];
     } catch {
         return [];
@@ -66,7 +74,9 @@ const parseAgents = (raw: string | null): AgentConfig[] => {
 interface DesktopAiConfig {
     enabled?: boolean;
     agents?: AgentConfig[];
-    keys?: Partial<Record<AiProvider, string>>;
+    /** User-defined OpenAI-compatible endpoints, keyed into by agents. */
+    providers?: CustomProvider[];
+    keys?: Record<AiProvider, string>;
     selfId?: string;
 }
 
@@ -110,22 +120,29 @@ export async function hydrateAiConfig(): Promise<void> {
         // holds from before the file backend existed, then clear it — the
         // file is the single source of truth now (and API keys should not
         // linger in two places).
-        const keys: Partial<Record<AiProvider, string>> = {};
-        for (const { id } of AI_PROVIDERS) {
+        const providers = parseList<CustomProvider>(lsGet(LS_PROVIDERS));
+        const providerIds = [
+            ...BUILTIN_PROVIDERS.map((p) => p.id),
+            ...providers.map((p) => p.id),
+        ];
+        const keys: Record<AiProvider, string> = {};
+        for (const id of providerIds) {
             const key = lsGet(lsKeyFor(id));
             if (key) keys[id] = key;
         }
         desktopConfig = {
             enabled: lsGet(LS_ENABLED) === "1",
-            agents: parseAgents(lsGet(LS_AGENTS)),
+            agents: parseList<AgentConfig>(lsGet(LS_AGENTS)),
+            providers,
             keys,
             selfId: lsGet(LS_SELF_ID) ?? undefined,
         };
         persistDesktop();
         lsRemove(LS_AGENTS);
+        lsRemove(LS_PROVIDERS);
         lsRemove(LS_ENABLED);
         lsRemove(LS_SELF_ID);
-        for (const { id } of AI_PROVIDERS) lsRemove(lsKeyFor(id));
+        for (const id of providerIds) lsRemove(lsKeyFor(id));
     } catch (err) {
         console.warn(
             "[ai-config] hydrate failed; falling back to localStorage:",
@@ -141,7 +158,7 @@ export const loadAgents = (): AgentConfig[] => {
     if (desktopConfig) {
         return Array.isArray(desktopConfig.agents) ? desktopConfig.agents : [];
     }
-    return parseAgents(lsGet(LS_AGENTS));
+    return parseList<AgentConfig>(lsGet(LS_AGENTS));
 };
 
 export const saveAgents = (agents: AgentConfig[]) => {
@@ -152,6 +169,65 @@ export const saveAgents = (agents: AgentConfig[]) => {
     }
     lsSet(LS_AGENTS, JSON.stringify(agents));
 };
+
+/** User-defined endpoints only — the built-in presets are code, not config. */
+export const loadProviders = (): CustomProvider[] => {
+    if (desktopConfig) {
+        return Array.isArray(desktopConfig.providers)
+            ? desktopConfig.providers
+            : [];
+    }
+    return parseList<CustomProvider>(lsGet(LS_PROVIDERS));
+};
+
+export const saveProviders = (providers: CustomProvider[]) => {
+    if (desktopConfig) {
+        desktopConfig.providers = providers;
+        persistDesktop();
+        return;
+    }
+    lsSet(LS_PROVIDERS, JSON.stringify(providers));
+};
+
+/** Insert or update one custom endpoint, keeping list order stable. */
+export const upsertProvider = (provider: CustomProvider) => {
+    const providers = loadProviders();
+    const index = providers.findIndex((p) => p.id === provider.id);
+    if (index === -1) saveProviders([...providers, provider]);
+    else
+        saveProviders(
+            providers.map((p) => (p.id === provider.id ? provider : p)),
+        );
+};
+
+/** Drop a custom endpoint and its key. Callers do this once no agent
+ *  references it, so a deleted agent leaves no orphan credentials behind. */
+export const removeProvider = (id: AiProvider) => {
+    if (!isCustomProvider(id)) return;
+    saveProviders(loadProviders().filter((p) => p.id !== id));
+    if (desktopConfig) {
+        if (desktopConfig.keys) delete desktopConfig.keys[id];
+        persistDesktop();
+        return;
+    }
+    lsRemove(lsKeyFor(id));
+};
+
+/** The chat-completions URL an agent's provider resolves to, or "" when the
+ *  custom endpoint it points at is gone or has no base URL. */
+export const resolveEndpoint = (provider: AiProvider): string => {
+    const builtin = BUILTIN_PROVIDERS.find((p) => p.id === provider);
+    if (builtin) return builtin.endpoint;
+    const custom = loadProviders().find((p) => p.id === provider);
+    return custom ? normalizeChatEndpoint(custom.baseUrl) : "";
+};
+
+/** Display name for a provider id (custom endpoints fall back to their id
+ *  so a dangling reference stays diagnosable). */
+export const providerLabel = (provider: AiProvider): string =>
+    BUILTIN_PROVIDERS.find((p) => p.id === provider)?.label ??
+    loadProviders().find((p) => p.id === provider)?.label ??
+    provider;
 
 export const loadAiEnabled = (): boolean => {
     if (desktopConfig) return desktopConfig.enabled === true;

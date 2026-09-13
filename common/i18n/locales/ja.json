@@ -392,6 +392,10 @@
         "model": "モデル",
         "apiKeySet": "API キーは保存済み——空欄のままで維持",
         "apiKeyFor": "{{provider}} の API キー",
+        "customEndpoint": "カスタムエンドポイント",
+        "addEndpoint": "エンドポイントを追加",
+        "endpointName": "エンドポイント名（例: DeepSeek）",
+        "baseUrlHint": "OpenAI 互換のベース URL——省略時は /v1/chat/completions を補完します。ブラウザからのリクエスト（CORS）を許可している必要があります。",
         "keyNote": "設定とキーはこのブラウザ（localStorage）にのみ保存され、選択したプロバイダーにのみ送信されます。モデルに \"mock\" と入力するとオフラインで試せます。",
         "promptPlaceholder": "このエージェントへの常設プロンプト（任意）",
         "pickerTitle": "エージェントを呼び出す",
@@ -403,6 +407,7 @@
             "auth": "API キーが無効です",
             "generic": "エージェントのリクエストに失敗しました",
             "noKey": "このプロバイダーの API キーがありません——AI パネルで設定してください",
+            "noEndpoint": "この Agent のカスタムエンドポイントにベース URL がありません——AI パネルで設定してください",
             "locate": "編集対象のテキストを特定できませんでした——言い換えてみてください"
         },
         "localSelf": "自分"

@@ -392,6 +392,10 @@
         "model": "Model",
         "apiKeySet": "API key saved — leave blank to keep",
         "apiKeyFor": "API key for {{provider}}",
+        "customEndpoint": "Custom endpoint",
+        "addEndpoint": "Add endpoint",
+        "endpointName": "Endpoint name (e.g. DeepSeek)",
+        "baseUrlHint": "OpenAI-compatible base URL — /v1/chat/completions is appended when missing. The endpoint must allow browser requests (CORS).",
         "keyNote": "Config and keys stay in this browser (localStorage) and are sent only to the provider. Model \"mock\" runs offline for testing.",
         "promptPlaceholder": "Standing instructions for this agent (optional)",
         "pickerTitle": "Ask an agent",
@@ -403,6 +407,7 @@
             "auth": "Invalid API key",
             "generic": "The agent request failed",
             "noKey": "No API key for this provider — add one in the AI panel",
+            "noEndpoint": "This agent's custom endpoint has no base URL — set one in the AI panel",
             "locate": "Could not locate the text to edit — try rephrasing"
         },
         "localSelf": "Me"

@@ -68,7 +68,12 @@ import {
     computePanelPosition,
     type AnchorRect,
 } from "../lib/popover-position";
-import { loadApiKey, saveApiKey } from "../lib/storage";
+import {
+    loadApiKey,
+    providerLabel,
+    resolveEndpoint,
+    saveApiKey,
+} from "../lib/storage";
 import { agentClientId, type AgentConfig } from "../lib/types";
 
 type Phase = "idle" | "waiting" | "streaming";
@@ -303,6 +308,7 @@ export function AiCollab({
             let complete: () => Promise<string>;
             let messages: LlmMessage[] | null = null;
             let apiKey = "";
+            let endpoint = "";
             if (agent.model === "mock") {
                 complete = () => mockAgentComplete(agent.name, instruction);
             } else {
@@ -312,6 +318,13 @@ export function AiCollab({
                     return "no key";
                 }
                 apiKey = key;
+                // Empty when the agent points at a custom endpoint the user
+                // has since deleted or left without a base URL.
+                endpoint = resolveEndpoint(agent.provider);
+                if (!endpoint) {
+                    setComposerError(t("ai.errors.noEndpoint"));
+                    return "no endpoint";
+                }
                 let documentWithCursor: string;
                 try {
                     const sel = store.getSelectionState(1_000_000);
@@ -331,10 +344,11 @@ export function AiCollab({
                     instruction,
                 });
                 const boundMessages = messages;
+                const boundEndpoint = endpoint;
                 complete = () =>
                     completeAgentChat(
                         key,
-                        agent.provider,
+                        boundEndpoint,
                         agent.model,
                         boundMessages,
                     );
@@ -402,7 +416,7 @@ export function AiCollab({
                         complete: () =>
                             completeAgentChat(
                                 apiKey,
-                                agent.provider,
+                                endpoint,
                                 agent.model,
                                 retryMessages,
                             ),
@@ -893,7 +907,7 @@ function ComposerPane({
                     type="password"
                     className="input input-sm input-bordered mt-2 w-full"
                     placeholder={t("ai.apiKeyFor", {
-                        provider: agent.provider,
+                        provider: providerLabel(agent.provider),
                     })}
                     value={keyInput}
                     disabled={waiting}
