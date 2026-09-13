@@ -11,8 +11,10 @@
     "menu": {
         "about": "About DOMD",
         "checkUpdates": "Check for Updates...",
+        "newTab": "New Tab",
         "newWindow": "New Window",
         "openUrl": "Open URL...",
+        "closeTab": "Close Tab",
         "closeWindow": "Close Window",
         "save": "Save",
         "installCli": "Install 'domd-cli' Command in PATH",
@@ -404,5 +406,16 @@
             "locate": "Could not locate the text to edit — try rephrasing"
         },
         "localSelf": "Me"
+    },
+    "tabs": {
+        "newTab": "New tab",
+        "closeTab": "Close tab",
+        "shrinkToFit": "Shrink to fit",
+        "scrollHorizontally": "Scroll horizontally",
+        "unsavedTitle": "Unsaved changes",
+        "unsavedBody": "Save changes to “{{name}}” before closing?",
+        "unsavedSave": "Save",
+        "unsavedDontSave": "Don't Save",
+        "unsavedCancel": "Cancel"
     }
 }

@@ -155,6 +155,8 @@ export function Editor({
     aiAvailable = false,
     aiActive = false,
     sidePanel = null,
+    embedded = false,
+    onDirtyChange,
 }: {
     meta: FileMeta;
     onMetaUpdate: (meta: FileMeta) => void;
@@ -176,6 +178,13 @@ export function Editor({
     /** Side panel content for the SidePanelHost slot, resolved by the app
      *  from the side-panel store's active kind. Null = closed. */
     sidePanel?: React.ReactNode;
+    /** Render as a flex child filling the space under the tab bar instead of
+     *  covering the viewport. */
+    embedded?: boolean;
+    /** Notified (debounced, same cadence as the Rust content push) whenever
+     *  the unsaved-changes state flips. The tabbed shell mirrors it into the
+     *  tab store so the tab bar can badge modified documents. */
+    onDirtyChange?: (isDirty: boolean) => void;
 }) {
     const { t } = useTranslation();
     const renderData = useRenderData();
@@ -353,12 +362,25 @@ export function Editor({
         [onMetaUpdate, metaRef, getTitle],
     );
 
+    /** Unmount-time flush for useAutoSave: write the pending edit, touch
+     *  nothing else. No onMetaUpdate (the active tab may already be a
+     *  different one — reporting would stamp this document's meta onto it),
+     *  no setSaving (the component is gone). saveDocument is self-contained
+     *  and, for the path-backed docs autosave applies to, changes no meta. */
+    const flushSave = useCallback(
+        async (data: ReturnType<typeof useRenderData>) => {
+            const md = toMarkdown(data) ?? "";
+            await saveDocument(metaRef.current, md);
+        },
+        [metaRef],
+    );
+
     const doSaveRef = useRef(doSave);
     doSaveRef.current = doSave;
     const renderDataRef = useRef(renderData);
     renderDataRef.current = renderData;
 
-    useAutoSave(meta, renderData, doSave);
+    useAutoSave(meta, renderData, doSave, flushSave);
     useLocalDraft(meta, renderData);
 
     useEffect(() => {
@@ -444,7 +466,12 @@ export function Editor({
 
     // Tauri: CLI → push full content + dirty flag whenever the doc changes.
     // Debounced (150ms) since this serializes the whole renderData to markdown.
+    // Desktop-only wholesale: every consumer (update_content, the tab dirty
+    // badge, the close gates) is Tauri-side, so the web build must bail
+    // BEFORE the serialization — a large web document paying a full
+    // toMarkdown per typing pause for an unread flag is pure waste.
     const lastSavedMdRef = useRef<string>("");
+    const onDirtyChangeRef = useLatest(onDirtyChange);
     useEffect(() => {
         if (!isTauri()) return;
         // Treat the initial loaded content as the baseline for dirty detection.
@@ -457,6 +484,7 @@ export function Editor({
         const handle = setTimeout(() => {
             const md = toMarkdown(renderData) ?? "";
             const isDirty = md !== lastSavedMdRef.current;
+            onDirtyChangeRef.current?.(isDirty);
             tauriCore().then(({ invoke }) => {
                 invoke("update_content", { content: md, isDirty }).catch(
                     () => { },
@@ -464,12 +492,13 @@ export function Editor({
             });
         }, 150);
         return () => clearTimeout(handle);
-    }, [renderData]);
+    }, [renderData, onDirtyChangeRef]);
 
     // Tauri: CLI just saved this window to disk on our behalf. Update the
     // baseline so subsequent dirty checks compare against the saved content.
     useTauriEvent<string>("saved-by-cli", () => {
         lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
+        onDirtyChangeRef.current?.(false);
         // Push an immediate clean-state update so AI sees has_unsaved_changes
         // flip to false without waiting for the debounce.
         tauriCore().then(({ invoke }) => {
@@ -487,9 +516,13 @@ export function Editor({
     useEffect(() => {
         if (prevSavingRef.current && !saving) {
             lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
+            // Clear the tab badge now rather than waiting for the next
+            // keystroke — a save does not itself change renderData, so the
+            // debounced effect above would not re-run.
+            onDirtyChangeRef.current?.(false);
         }
         prevSavingRef.current = saving;
-    }, [saving]);
+    }, [saving, onDirtyChangeRef]);
 
     // Web: Cmd/Ctrl+S
     useEffect(() => {
@@ -529,7 +562,17 @@ export function Editor({
         // context only, no DOM wrapper — same posture as DOMDProvider.
         <TocStoreProvider>
         <SearchStoreProvider>
-        <div className="domd-editor-shell fixed inset-0 bg-base-100 overflow-hidden">
+        {/* `embedded` (tabbed desktop shell) swaps the viewport-covering
+            root for a flex child so the tab bar keeps its row. The inner
+            layer is absolute either way, so it needs a positioned ancestor —
+            the embedded root is `relative` for exactly that reason. */}
+        <div
+            className={
+                embedded
+                    ? "domd-editor-shell relative flex-1 min-h-0 bg-base-100 overflow-hidden"
+                    : "domd-editor-shell fixed inset-0 bg-base-100 overflow-hidden"
+            }
+        >
             {/* Format shortcuts (⌘1/⌘K/⌥⌘C/…) live outside the top bar: the
                 desktop build renders no web top bar, and they must work
                 there too. */}

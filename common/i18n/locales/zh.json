@@ -11,8 +11,10 @@
     "menu": {
         "about": "关于 DOMD",
         "checkUpdates": "检查更新...",
+        "newTab": "新建标签页",
         "newWindow": "新建窗口",
         "openUrl": "打开 URL...",
+        "closeTab": "关闭标签页",
         "closeWindow": "关闭窗口",
         "save": "保存",
         "installCli": "安装 'domd-cli' 命令到 PATH",
@@ -404,5 +406,16 @@
             "locate": "未能定位要修改的文本——换个说法试试"
         },
         "localSelf": "我"
+    },
+    "tabs": {
+        "newTab": "新建标签页",
+        "closeTab": "关闭标签页",
+        "shrinkToFit": "自适应宽度",
+        "scrollHorizontally": "横向滚动",
+        "unsavedTitle": "未保存的更改",
+        "unsavedBody": "关闭前保存对“{{name}}”的更改吗？",
+        "unsavedSave": "保存",
+        "unsavedDontSave": "不保存",
+        "unsavedCancel": "取消"
     }
 }

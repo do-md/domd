@@ -15,7 +15,8 @@
  */
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve as resolvePath } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 
 const ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CANDIDATE_SUFFIXES = [".ts", ".tsx", "/index.ts", "/index.tsx"];
@@ -91,4 +92,23 @@ async function tryCandidates(base, context, nextResolve, original) {
         }
     }
     return nextResolve(original, context);
+}
+
+// `--experimental-strip-types` refuses the `.tsx` EXTENSION outright, which
+// blocks harnesses whose import graph merely passes through one — zenith's
+// `react/createStore.tsx` is plain TypeScript that happens to use the
+// extension (createElement calls, no JSX syntax). Strip its types here and
+// hand Node a module. Files containing ACTUAL JSX still cannot run under
+// the harnesses (the transform does not lower JSX); they fail at evaluation
+// with a syntax error pointing at the offending file, same as before.
+export async function load(url, context, nextLoad) {
+    if (url.endsWith(".tsx")) {
+        const source = readFileSync(fileURLToPath(url), "utf8");
+        const code = stripTypeScriptTypes(source, {
+            mode: "transform",
+            sourceUrl: url,
+        });
+        return { format: "module", source: code, shortCircuit: true };
+    }
+    return nextLoad(url, context);
 }

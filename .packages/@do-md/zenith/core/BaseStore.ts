@@ -1,4 +1,5 @@
-import { produce, applyPatches, Patch } from "immer";
+import { produce, applyPatches } from "immer";
+import type { Patch } from "immer";
 
 export class BaseStore<T extends object> {
     // ===== Core State =====
