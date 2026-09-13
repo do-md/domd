@@ -1,4 +1,5 @@
-import { enablePatches, Patch } from "immer";
+import { enablePatches } from "immer";
+import type { Patch } from "immer";
 import { BaseStore } from "../../core/BaseStore";
 
 interface History {

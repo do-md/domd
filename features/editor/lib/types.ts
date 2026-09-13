@@ -30,11 +30,12 @@ export type View = "loading" | "editor";
  * frozen store is a broken one. The runtime is the source of truth for
  * content, undo history, selection, focus and scroll; a view attaches to it
  * when the tab is active and detaches when it is not, and neither side is
- * reconstructed in the process.
+ * reconstructed on a SWITCH.
  *
- * That is why there is no `content`, `scrollTop` or `docEpoch` here: nothing
- * is serialized out on switch, so nothing can go stale and need a generation
- * counter to guard it.
+ * That is why there is no `content` or `scrollTop` here: nothing is
+ * serialized out on switch, so nothing can go stale and need a generation
+ * counter to guard it. `docEpoch` below is not that counter — it does not
+ * guard data, it identifies which DOCUMENT the tab currently holds.
  */
 export interface Tab {
     id: string;
@@ -46,11 +47,17 @@ export interface Tab {
     isDirty: boolean;
     /** Set when the file watcher reported an external write while this tab
      *  was not the active one. Consumed on activation: a clean tab adopts the
-     *  disk content, a dirty tab gets a forced reconcile pass. */
+     *  disk content, a dirty tab gets a forced reconcile pass (see
+     *  DiskReconciler's `stale` prop). */
     diskStale: boolean;
-    /** Bumped to force the mounted DiskReconciler to run a pass — reuses the
-     *  same trigger mechanism as the collab attach. */
-    reconcileEpoch: number;
+    /** Which document generation this tab holds. Bumped whenever a DIFFERENT
+     *  document replaces the tab's runtime (open-into-tab, File > New, disk
+     *  re-read) — never on a switch. Part of the editor mount key: a new
+     *  document must remount the view over a FRESH runtime, because undo
+     *  history, the autosave first-tick guard and the collaboration teardown
+     *  are all per-document. Resetting a runtime in place kept the previous
+     *  document's undo stack alive against the new tree. */
+    docEpoch: number;
 }
 
 export interface TabStoreState {

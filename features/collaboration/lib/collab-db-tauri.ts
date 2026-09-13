@@ -22,8 +22,9 @@ import type { RoomRecord } from "./types";
 /** Frontmatter domd-id of the document collaboration currently applies to.
  *  A window can hold several documents in tabs, but only the ACTIVE one has
  *  a mounted editor for a session to attach to — so there is still exactly
- *  one at a time and module-level state stays safe. The tabbed desktop shell
- *  re-points this on every tab switch (see tabbed-editor-app). */
+ *  one at a time and module-level state stays safe. The desktop shell
+ *  re-points this whenever the active document changes (see the tauriDocId
+ *  effect in editor-app). */
 let currentDocId: string | null = null;
 
 export const setCollabDocId = (docId: string): void => {

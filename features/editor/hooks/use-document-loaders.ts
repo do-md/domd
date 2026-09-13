@@ -41,15 +41,17 @@ export function useDocumentLoaders() {
      *  `store`. With it, every construction-time prop is ignored — the
      *  runtime already carries them. */
     const runtime = active ? (store.runtimeOf(active.id) ?? null) : null;
-    /** Editor mount identity: the TAB, and nothing more.
+    /** Editor mount identity: the tab AND the document generation it holds.
      *
-     *  The provider captures its store once on mount, so switching tabs has
-     *  to remount the view. Replacing the DOCUMENT inside a tab must not —
-     *  that resets the runtime in place, and remounting would discard the
-     *  view state (selection, focus, scroll) the kernel just preserved. The
-     *  old `${id}:${docEpoch}` key did exactly that, which is why the epoch
-     *  is gone along with the serialize-and-remount model it belonged to. */
-    const version = active?.id ?? "loading";
+     *  The provider captures its store once on mount, so anything that puts
+     *  a different runtime under the view has to remount it. That is two
+     *  events: switching tabs (id changes) and replacing the document inside
+     *  a tab (docEpoch changes — replaceTabDoc builds a fresh runtime, see
+     *  tab-store for why in-place reset is not an option). A switch remounts
+     *  over the OTHER tab's long-lived runtime — an attach, not a re-parse —
+     *  so the expensive path is still only paid when a new document loads,
+     *  exactly as the pre-tabs shell did. */
+    const version = active ? `${active.id}:${active.docEpoch}` : "loading";
     const view: View = active && runtime ? "editor" : "loading";
 
     const setMeta = useCallback(
@@ -105,17 +107,6 @@ export function useDocumentLoaders() {
         [store],
     );
 
-    // Drag-drop onto a Tauri window: claim the path in Rust's WindowFiles so
-    // close-behavior and open_or_reuse stay consistent, then load it.
-    const claimAndLoadTauriPath = useCallback(
-        async (path: string) => {
-            const { invoke } = await tauriCore();
-            await invoke("set_window_path", { path });
-            await loadTauriPath(path);
-        },
-        [loadTauriPath],
-    );
-
     const loadRemote = useCallback(
         async (input: string) => {
             const doc = await readRemoteDoc(input);
@@ -151,7 +142,6 @@ export function useDocumentLoaders() {
         applyBlank,
         applyLocal,
         loadTauriPath,
-        claimAndLoadTauriPath,
         loadRemote,
         loadFromFile,
     };
@@ -173,14 +163,23 @@ export interface LoadedDoc {
  * the active one, where committing to React state would be wrong.
  */
 export async function readTauriDoc(path: string): Promise<LoadedDoc> {
+    const doc = await readDiskDoc(path);
+    if (doc) return doc;
+    // Unreadable file: open blank, without a doc identity. Do NOT write
+    // anything back — the read failure may be transient.
+    const name = path.split("/").pop() ?? path;
+    return { meta: { kind: "tauri", path, name, docId: null }, content: "" };
+}
+
+/** The shared core of readTauriDoc / rereadTauriDoc: read, guarantee a
+ *  domd-id (self-healing a file whose frontmatter an external tool dropped —
+ *  the identity keys collaboration data in ~/.domd/collab.db, so adopting
+ *  `docId: null` from a re-read would strand the document's rooms), register
+ *  the disk ground truth, split. Null when the file cannot be read. */
+async function readDiskDoc(path: string): Promise<LoadedDoc | null> {
     const { invoke } = await tauriCore();
     const raw = await invoke<string>("read_file", { path }).catch(() => null);
-    const name = path.split("/").pop() ?? path;
-    if (raw === null) {
-        // Unreadable file: open blank, without a doc identity. Do NOT write
-        // anything back — the read failure may be transient.
-        return { meta: { kind: "tauri", path, name, docId: null }, content: "" };
-    }
+    if (raw === null) return null;
     const ensured = ensureDomdId(raw);
     markKnownDiskContent(path, ensured.changed ? ensured.content : raw);
     if (ensured.changed) {
@@ -189,6 +188,7 @@ export async function readTauriDoc(path: string): Promise<LoadedDoc> {
         );
     }
     const { prefix, body } = splitFrontmatter(ensured.content);
+    const name = path.split("/").pop() ?? path;
     return {
         meta: {
             kind: "tauri",
@@ -250,16 +250,11 @@ export function blankTauriDoc(): LoadedDoc {
  * Re-read a backgrounded tab's file wholesale. Only ever called for tabs with
  * no unsaved edits: a dirty tab's divergence has to be merged, not
  * overwritten, which is the mounted DiskReconciler's job.
+ *
+ * Same pipeline as the first read — in particular the domd-id guarantee. An
+ * external rewrite that dropped the frontmatter (formatter, git checkout,
+ * sync-conflict copy) must not strip the document's identity on re-read.
  */
 export async function rereadTauriDoc(path: string): Promise<LoadedDoc | null> {
-    const { invoke } = await tauriCore();
-    const raw = await invoke<string>("read_file", { path }).catch(() => null);
-    if (raw === null) return null;
-    markKnownDiskContent(path, raw);
-    const { prefix, body, id } = splitFrontmatter(raw);
-    const name = path.split("/").pop() ?? path;
-    return {
-        meta: { kind: "tauri", path, name, docId: id, frontmatter: prefix },
-        content: body,
-    };
+    return readDiskDoc(path);
 }

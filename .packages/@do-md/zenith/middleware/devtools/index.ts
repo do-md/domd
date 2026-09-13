@@ -1,5 +1,5 @@
 import { BaseStore } from '../../core/BaseStore';
-import { Patch } from 'immer';
+import type { Patch } from 'immer';
 
 // Redux DevTools Extension interface
 interface ReduxDevtoolsExtension {

@@ -154,12 +154,19 @@ fn build_app_menu<R: tauri::Runtime, M: tauri::Manager<R>>(
         true,
         Some("Cmd+O"),
     )?;
+    let close_tab_item = MenuItem::with_id(
+        manager,
+        "close-tab",
+        menu_i18n::t(locale, "menu.closeTab"),
+        true,
+        Some("Cmd+W"),
+    )?;
     let close_window_item = MenuItem::with_id(
         manager,
         "close-window",
         menu_i18n::t(locale, "menu.closeWindow"),
         true,
-        Some("Cmd+W"),
+        Some("Shift+Cmd+W"),
     )?;
     let save_item = MenuItem::with_id(
         manager,
@@ -183,6 +190,7 @@ fn build_app_menu<R: tauri::Runtime, M: tauri::Manager<R>>(
             &new_tab_item,
             &new_window_item,
             &open_url_item,
+            &close_tab_item,
             &close_window_item,
             &PredefinedMenuItem::separator(manager)?,
             &save_item,
@@ -467,9 +475,18 @@ pub struct TabInfo {
     /// None for a document that has never been saved.
     pub path: Option<String>,
     pub is_dirty: bool,
-    /// Sent ONLY for tabs that are dirty AND never saved — the only ones the
-    /// native save sheet can be asked to review, and the only ones whose
-    /// content the Rust side has any reason to hold.
+    /// The tab currently on screen. Its text also streams through
+    /// `update_content` every 150ms, so for the ACTIVE tab that stream is
+    /// the fresher source and the close gates prefer it (see
+    /// `unsaved_untitled_contents`). A background tab's snapshot here is
+    /// exact: nothing edits a background runtime, so it cannot go stale.
+    pub is_active: bool,
+    /// Sent for every DIRTY tab — the tabs whose text a close could be
+    /// asked to preserve. A never-saved tab carries the document BODY (what
+    /// the native save sheet writes to the user's chosen path); a
+    /// path-backed tab carries the FULL file, frontmatter included, because
+    /// `flush_dirty_saved_tabs` writes these bytes verbatim and a body-only
+    /// write would strip the document's identity block.
     pub content: Option<String>,
 }
 
@@ -515,32 +532,82 @@ impl WindowTabs {
         self.0.lock().unwrap().contains_key(label)
     }
 
-    /// Content of the first tab holding work no autosave will ever write:
-    /// dirty AND never saved. This is what the close/quit gates ask about,
-    /// and the point of reporting per-tab state at all — a window must not be
-    /// able to close over unsaved work sitting in a tab you cannot see.
-    pub fn first_unsaved_content(&self, label: &str) -> Option<String> {
+    /// How many tabs the frontend last reported for this window (0 when it
+    /// has not reported yet). Drives the ⌘W menu routing: with one tab the
+    /// frontend's close-tab handler would just close the window anyway, so
+    /// Rust closes it directly and the shortcut can never go dead.
+    pub fn tab_count(&self, label: &str) -> usize {
         self.0
             .lock()
             .unwrap()
-            .get(label)?
-            .iter()
-            .find(|t| t.is_dirty && t.path.is_none())
-            .map(|t| t.content.clone().unwrap_or_default())
+            .get(label)
+            .map(|tabs| tabs.len())
+            .unwrap_or(0)
+    }
+
+    /// Every (path, full file content) pair for dirty PATH-BACKED tabs — the
+    /// documents autosave would have written moments later, whose pending
+    /// debounce a window close would otherwise discard. Content includes the
+    /// frontmatter block (see TabInfo::content); callers write it verbatim.
+    pub fn dirty_saved_files(&self, label: &str) -> Vec<(String, String)> {
+        self.0
+            .lock()
+            .unwrap()
+            .get(label)
+            .map(|tabs| {
+                tabs.iter()
+                    .filter(|t| t.is_dirty)
+                    .filter_map(|t| match (&t.path, &t.content) {
+                        (Some(p), Some(c)) => Some((p.clone(), c.clone())),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 
-/// Does this window hold unsaved, never-saved work — and if so, what should
-/// the save sheet show?
+/// The content of EVERY tab holding unsaved, never-saved work in this
+/// window, in strip order — what the close/quit review has to walk before
+/// the window may be destroyed. One entry per dirty untitled tab: reviewing
+/// only the first and then destroying the window would discard the rest
+/// without a prompt, which is the exact hole per-tab reporting exists to
+/// close.
 ///
 /// Tab state is authoritative once the frontend has reported it, because it
 /// covers every document in the window rather than just the one on screen.
-/// The per-window snapshot remains the fallback for anything that has not
-/// reported tabs (a window still starting up).
-pub(crate) fn unsaved_untitled_content(app: &AppHandle, label: &str) -> Option<String> {
-    let tabs = app.state::<WindowTabs>();
-    if tabs.knows(label) {
-        return tabs.first_unsaved_content(label);
+/// For the ACTIVE tab the `update_content` stream (150ms cadence) is fresher
+/// than the tab snapshot — the snapshot only refreshes when tab STATE
+/// changes, not while text is typed into an already-dirty document — so it
+/// wins. The per-window snapshot remains the fallback for anything that has
+/// not reported tabs (a window still starting up).
+pub(crate) fn unsaved_untitled_contents(app: &AppHandle, label: &str) -> Vec<String> {
+    let tabs_state = app.state::<WindowTabs>();
+    if tabs_state.knows(label) {
+        let fresh_active: Option<String> = app
+            .state::<WindowContents>()
+            .get(label)
+            .map(|c| c.content);
+        return tabs_state
+            .0
+            .lock()
+            .unwrap()
+            .get(label)
+            .map(|tabs| {
+                tabs.iter()
+                    .filter(|t| t.is_dirty && t.path.is_none())
+                    .map(|t| {
+                        let snapshot =
+                            t.content.clone().unwrap_or_default();
+                        if t.is_active {
+                            fresh_active.clone().unwrap_or(snapshot)
+                        } else {
+                            snapshot
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
     }
     let has_path = app
         .state::<WindowFiles>()
@@ -549,13 +616,30 @@ pub(crate) fn unsaved_untitled_content(app: &AppHandle, label: &str) -> Option<S
         .unwrap()
         .contains_key(label);
     if has_path {
-        return None;
+        return Vec::new();
     }
     let content_state = app.state::<WindowContents>().get(label);
     if content_state.as_ref().map_or(false, |c| c.is_dirty) {
-        return Some(content_state.map(|c| c.content).unwrap_or_default());
+        return vec![content_state.map(|c| c.content).unwrap_or_default()];
     }
-    None
+    Vec::new()
+}
+
+/// Write every dirty path-backed tab's pending text to its own file — the
+/// save autosave was already going to perform, issued now because the window
+/// is closing and the debounce timer will not survive it. Never touches
+/// never-saved documents (those go through the save sheet), and skips writes
+/// whose bytes already match the disk file: rewriting identical content only
+/// bumps mtime and trips other editors' conflict detection (Typora's
+/// "changed by another application").
+pub(crate) fn flush_dirty_saved_tabs(app: &AppHandle, label: &str) {
+    for (path, content) in app.state::<WindowTabs>().dirty_saved_files(label) {
+        match std::fs::read_to_string(&path) {
+            Ok(existing) if existing == content => continue,
+            _ => {}
+        }
+        let _ = std::fs::write(&path, content);
+    }
 }
 
 /// Per-window `UntitledDoc` (NSDocument subclass) used to drive the native
@@ -1216,43 +1300,44 @@ pub(crate) fn open_or_reuse(app: &AppHandle, path: String) -> OpenOutcome {
 // ── native (macOS) close flow ────────────────────────────────────────────────
 
 #[cfg(target_os = "macos")]
-fn start_native_close_flow(app: AppHandle, label: String, content: String) {
-    start_native_close_flow_with(app, label, content, None);
-}
-
-/// Like `start_native_close_flow`, but runs `then(should_close)` once the user
-/// resolves the save sheet (after the window has been destroyed on Save / Don't
-/// Save, or left untouched on Cancel). Used by the quit flow to review each
-/// untitled-dirty window in turn.
+/// Present ONE native "save changes?" sheet for one document's content, and
+/// hand the outcome to `on_resolved(proceed, saved_path)`. Presentation
+/// only: it does not destroy the window and does not decide what happens
+/// next — that belongs to `review_untitled_then_destroy`, which may have
+/// more documents to review before the window can go.
+///
+/// `on_resolved` runs on the main thread, on the runloop tick AFTER the
+/// sheet's own doc has been dropped from WindowDocs. That ordering is what
+/// makes chaining safe: the next sheet inserts a fresh doc under the same
+/// window label, and running the continuation before the removal would let
+/// the deferred cleanup of sheet N remove the doc of sheet N+1 mid-flight.
+///
+/// If the sheet cannot be presented at all (window gone, not on the main
+/// thread), resolves as "proceed" so a review sequence keeps advancing
+/// rather than stalling.
 #[cfg(target_os = "macos")]
-fn start_native_close_flow_with(
+fn present_save_sheet(
     app: AppHandle,
     label: String,
     content: String,
-    then: Option<Box<dyn FnOnce(bool)>>,
+    // `Send` because resolution hops through run_on_main_thread (whose
+    // closure must be Send even when already on the main thread).
+    on_resolved: Box<dyn FnOnce(bool, Option<String>) + Send>,
 ) {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSWindow;
 
-    // If we can't start the native flow (window gone, not on main thread),
-    // treat it as "nothing to confirm" so a quit sequence keeps advancing
-    // rather than stalling.
-    let bail = |then: Option<Box<dyn FnOnce(bool)>>| {
-        if let Some(t) = then {
-            t(true);
-        }
-    };
     let mtm = match MainThreadMarker::new() {
         Some(m) => m,
-        None => return bail(then),
+        None => return on_resolved(true, None),
     };
     let webview_window = match app.get_webview_window(&label) {
         Some(w) => w,
-        None => return bail(then),
+        None => return on_resolved(true, None),
     };
     let ns_window_ptr = match webview_window.ns_window() {
         Ok(p) => p as *mut NSWindow,
-        Err(_) => return bail(then),
+        Err(_) => return on_resolved(true, None),
     };
 
     let suggested = suggest_name_from_content(&content);
@@ -1268,7 +1353,8 @@ fn start_native_close_flow_with(
             // Clean up the doc on the next runloop tick — calling
             // `state::remove` synchronously from inside the doc's own
             // selector would decrement its retain count mid-call. We let
-            // AppKit unwind first.
+            // AppKit unwind first, then resolve, in that order (see the
+            // function comment for why the order matters).
             let app_drop = app_for_cb.clone();
             let label_drop = label_for_cb.clone();
             let _ = app_for_cb.run_on_main_thread(move || {
@@ -1278,39 +1364,8 @@ fn start_native_close_flow_with(
                     .lock()
                     .unwrap()
                     .remove(&label_drop);
+                on_resolved(should_close, saved_path);
             });
-
-            if !should_close {
-                if let Some(then) = then {
-                    then(false);
-                }
-                return;
-            }
-
-            if let Some(path) = saved_path {
-                app_for_cb
-                    .state::<WindowFiles>()
-                    .0
-                    .lock()
-                    .unwrap()
-                    .insert(label_for_cb.clone(), path.clone());
-                if let Some(win) = app_for_cb.get_webview_window(&label_for_cb) {
-                    let filename = std::path::Path::new(&path)
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("DOMD")
-                        .to_string();
-                    let _ = win.set_title(&filename);
-                }
-            }
-
-            if let Some(win) = app_for_cb.get_webview_window(&label_for_cb) {
-                let _ = win.destroy();
-            }
-
-            if let Some(then) = then {
-                then(true);
-            }
         });
 
     doc.begin_close(content.into_bytes(), callback);
@@ -1322,6 +1377,49 @@ fn start_native_close_flow_with(
         .lock()
         .unwrap()
         .insert(label, untitled_doc::WindowDoc::new(doc));
+}
+
+/// Review EVERY dirty never-saved document in this window through its own
+/// save sheet, in strip order, then destroy the window and report
+/// `done(true)`. Cancelling any sheet aborts the review with the window —
+/// and every document in it — untouched (`done(false)`).
+///
+/// This is the piece that makes per-tab reporting mean something at close
+/// time: resolving one sheet and destroying the window would silently
+/// discard the other never-saved tabs, contradicting the reason tab state
+/// is reported at all.
+#[cfg(target_os = "macos")]
+fn review_untitled_then_destroy(
+    app: AppHandle,
+    label: String,
+    mut contents: Vec<String>,
+    done: Box<dyn FnOnce(bool) + Send>,
+) {
+    if contents.is_empty() {
+        if let Some(win) = app.get_webview_window(&label) {
+            let _ = win.destroy();
+        }
+        done(true);
+        return;
+    }
+    let content = contents.remove(0);
+    let app_next = app.clone();
+    let label_next = label.clone();
+    present_save_sheet(
+        app,
+        label,
+        content,
+        Box::new(move |proceed, _saved_path| {
+            // A saved path is not adopted into WindowFiles: the window is
+            // on its way out either way, and the next sheet (or the
+            // destroy) follows immediately.
+            if proceed {
+                review_untitled_then_destroy(app_next, label_next, contents, done);
+            } else {
+                done(false);
+            }
+        }),
+    );
 }
 
 // ── native (macOS) quit flow ─────────────────────────────────────────────────
@@ -1353,17 +1451,19 @@ fn terminate_now(app: &AppHandle) {
     }
 }
 
-/// Labels of windows that would prompt on close: untitled (no path) + dirty.
-/// These mirror the per-window CloseRequested gate exactly.
+/// Labels of windows that would prompt on close: holding at least one
+/// dirty, never-saved document. These mirror the per-window CloseRequested
+/// gate exactly.
 #[cfg(target_os = "macos")]
 fn dirty_untitled_labels(app: &AppHandle) -> Vec<String> {
     app.webview_windows()
         .into_keys()
-        .filter(|label| unsaved_untitled_content(app, label).is_some())
+        .filter(|label| !unsaved_untitled_contents(app, label).is_empty())
         .collect()
 }
 
-/// Review the remaining `queue` of untitled-dirty windows one at a time, then
+/// Review the remaining `queue` of untitled-dirty windows one at a time —
+/// every never-saved document in each window gets its own sheet — then
 /// `app.exit(0)`. On Cancel, clears `QUITTING` and stops (leaving every
 /// still-open window untouched). Must be called on the main thread.
 #[cfg(target_os = "macos")]
@@ -1381,23 +1481,24 @@ fn review_queue_then_quit(app: AppHandle, mut queue: Vec<String>) {
         if app.get_webview_window(&label).is_none() {
             continue;
         }
-        let Some(content) = unsaved_untitled_content(&app, &label) else {
+        let contents = unsaved_untitled_contents(&app, &label);
+        if contents.is_empty() {
             continue;
-        };
+        }
         let _ = app.get_webview_window(&label).map(|w| w.set_focus());
         let app_for_then = app.clone();
-        start_native_close_flow_with(
+        review_untitled_then_destroy(
             app.clone(),
             label,
-            content,
-            Some(Box::new(move |should_close| {
-                if should_close {
+            contents,
+            Box::new(move |proceed| {
+                if proceed {
                     review_queue_then_quit(app_for_then, queue);
                 } else {
                     // User cancelled — abort the whole quit.
                     QUITTING.store(false, Ordering::SeqCst);
                 }
-            })),
+            }),
         );
         return;
     }
@@ -1478,14 +1579,20 @@ pub fn run() {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     let label = window.label().to_string();
                     let app = window.app_handle();
-                    // Asks about EVERY document in the window, not just the
-                    // one on screen: with tabs, the unsaved work that must
-                    // not be discarded is often in a tab you cannot see.
-                    let Some(content) = unsaved_untitled_content(app, &label)
-                    else {
+                    // Dirty SAVED documents first: write the autosave their
+                    // debounce would have issued moments later. Every
+                    // platform, before any prompting — a cancelled sheet
+                    // leaves these files exactly as autosave would have.
+                    flush_dirty_saved_tabs(app, &label);
+                    // Then ask about EVERY never-saved document in the
+                    // window, not just the one on screen: with tabs, the
+                    // unsaved work that must not be discarded is often in a
+                    // tab you cannot see.
+                    let contents = unsaved_untitled_contents(app, &label);
+                    if contents.is_empty() {
                         // Saved, blank or untouched — let it close.
                         return;
-                    };
+                    }
                     #[cfg(target_os = "macos")]
                     {
                         api.prevent_close();
@@ -1495,8 +1602,20 @@ pub fn run() {
                         let app_clone = app.clone();
                         let label_clone = label.clone();
                         let _ = window.run_on_main_thread(move || {
-                            start_native_close_flow(app_clone, label_clone, content);
+                            review_untitled_then_destroy(
+                                app_clone,
+                                label_clone,
+                                contents,
+                                Box::new(|_| {}),
+                            );
                         });
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        // No native sheet off macOS (pre-existing gap): the
+                        // saved flush above still ran, so only never-saved
+                        // work is at risk and the close proceeds as before.
+                        let _ = (&api, &contents);
                     }
                 }
                 tauri::WindowEvent::Destroyed => {
@@ -1564,11 +1683,34 @@ pub fn run() {
                     }
                 } else if event.id() == "new-window" {
                     new_empty_window(app);
-                } else if event.id() == "close-window" {
+                } else if event.id() == "close-tab" {
                     if let Some(win) = app.webview_windows().values().find(|w| {
                         w.is_focused().unwrap_or(false)
                     }) {
-                        let _ = win.emit_to(win.label(), "menu-close-tab", ());
+                        // The frontend owns tab closing only when there are
+                        // tabs to tell apart. With one tab (or none reported
+                        // yet — a window still booting, where an emit would
+                        // hit an unmounted handler and ⌘W would go dead) its
+                        // close-tab handler routes through the ordinary
+                        // window close anyway, so do that directly. Rust's
+                        // own count keeps the shortcut working in every
+                        // state the frontend can be in.
+                        let label = win.label().to_string();
+                        if app.state::<WindowTabs>().tab_count(&label) >= 2 {
+                            let _ =
+                                win.emit_to(win.label(), "menu-close-tab", ());
+                        } else {
+                            let _ = win.close();
+                        }
+                    }
+                } else if event.id() == "close-window" {
+                    // Always the whole window, whatever the tab state — the
+                    // native close flow reviews every tab (see
+                    // CloseRequested).
+                    if let Some(win) = app.webview_windows().values().find(|w| {
+                        w.is_focused().unwrap_or(false)
+                    }) {
+                        let _ = win.close();
                     }
                 } else if event.id() == "undo"
                     || event.id() == "redo"
@@ -1683,6 +1825,13 @@ pub fn run() {
                 // let it pass through.
                 if QUITTING.load(Ordering::SeqCst) {
                     return;
+                }
+                // Quit skips per-window CloseRequested, so the dirty-saved
+                // flush that closing a window performs must happen here for
+                // EVERY window — a dirty saved document in any window would
+                // otherwise lose its pending autosave to termination.
+                for label in handle.webview_windows().into_keys() {
+                    flush_dirty_saved_tabs(handle, &label);
                 }
                 let dirty = dirty_untitled_labels(handle);
                 if dirty.is_empty() {

@@ -33,7 +33,17 @@ export function TabFocusOnSwitch({ enabled }: { enabled: boolean }) {
         // controller attaches with it, so focusing in the same commit can beat
         // the listeners into place.
         const raf = requestAnimationFrame(() => {
-            textAreaDomRef.current?.focus();
+            // preventScroll is load-bearing. Without it the browser
+            // scroll-into-views the WHOLE contenteditable root — top edge
+            // aligned, viewport yanked to the document top — one frame AFTER
+            // the kernel's scroll-memory restore already positioned it, and
+            // the resulting scroll event then overwrites the stored anchor
+            // with "top of document", destroying the position for every
+            // later switch too. Same failure mode the kernel documents in
+            // EditorController.focus(); this call site bypasses the
+            // controller (deliberately — its focus() carries click-gesture
+            // selection semantics), so it must carry the flag itself.
+            textAreaDomRef.current?.focus({ preventScroll: true });
         });
         return () => cancelAnimationFrame(raf);
     }, [enabled, textAreaDomRef]);

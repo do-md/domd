@@ -75,7 +75,14 @@ async function saveTauri(
         path: selectedPath,
         content: full,
     });
-    await invoke("set_window_path", { path: selectedPath });
+    // Deliberately NOT `set_window_path` here. The window's assigned path
+    // follows the ACTIVE tab (the activePath effect in use-tabs), and this
+    // function cannot know whether the document it just saved is the active
+    // one — the close prompt saves BACKGROUND tabs through this same path,
+    // and assigning the window to a tab that is about to close would retitle
+    // it after a dead document and mislead open_or_reuse. When the saved tab
+    // IS active, its meta update changes activePath and the effect assigns
+    // the window within the same commit.
     const name = selectedPath.split("/").pop() ?? selectedPath;
     return {
         ok: true,

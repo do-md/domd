@@ -94,7 +94,7 @@ export class TabStore extends ZenithStore<TabStoreState> {
                 meta,
                 isDirty: false,
                 diskStale: false,
-                reconcileEpoch: 0,
+                docEpoch: 0,
             });
             draft.activeTabId = id;
         });
@@ -147,19 +147,26 @@ export class TabStore extends ZenithStore<TabStoreState> {
     }
 
     /** Replace a tab's document — a different file loaded into this tab, or a
-     *  disk re-read. The tab keeps its identity and its runtime; only the
-     *  document inside the runtime is reset, so the view does not remount and
-     *  the editor is never reconstructed. */
+     *  disk re-read. The tab keeps its identity; the RUNTIME does not.
+     *
+     *  A fresh EditorStore per document, deliberately. Resetting the old
+     *  runtime in place (`resetMD`) leaves the previous document's undo
+     *  patches in the history stack, and pressing ⌘Z after the swap replays
+     *  them against a tree they were never computed for — immer either throws
+     *  or splices old-document content into the new one. The docEpoch bump
+     *  puts the replacement into the editor mount key, so the view remounts
+     *  over the new runtime exactly as the pre-tabs shell remounted per load:
+     *  the autosave first-tick guard re-arms and no stale view state leaks.
+     *  Only a SWITCH is an attach; a replacement is a new document. */
     replaceTabDoc(tabId: string, meta: FileMeta, content: string) {
-        const runtime = this.runtimes.get(tabId);
-        if (runtime) runtime.resetMD(content);
-        else this.runtimes.set(tabId, this.createRuntime(content));
+        this.runtimes.set(tabId, this.createRuntime(content));
         this.produce((draft) => {
             const tab = draft.tabs.find((t) => t.id === tabId);
             if (!tab) return;
             tab.meta = meta;
             tab.isDirty = false;
             tab.diskStale = false;
+            tab.docEpoch += 1;
         });
     }
 
@@ -188,17 +195,6 @@ export class TabStore extends ZenithStore<TabStoreState> {
         this.produce((draft) => {
             const tab = draft.tabs.find((t) => t.id === tabId);
             if (tab) tab.diskStale = false;
-        });
-    }
-
-    /** Ask the tab's mounted reconciler for a forced pass, and clear the
-     *  stale flag now that it has been handed off. */
-    requestReconcile(tabId: string) {
-        this.produce((draft) => {
-            const tab = draft.tabs.find((t) => t.id === tabId);
-            if (!tab) return;
-            tab.reconcileEpoch += 1;
-            tab.diskStale = false;
         });
     }
 

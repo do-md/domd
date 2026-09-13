@@ -155,7 +155,6 @@ export function Editor({
     aiAvailable = false,
     aiActive = false,
     sidePanel = null,
-    tabId,
     embedded = false,
     onDirtyChange,
 }: {
@@ -179,9 +178,6 @@ export function Editor({
     /** Side panel content for the SidePanelHost slot, resolved by the app
      *  from the side-panel store's active kind. Null = closed. */
     sidePanel?: React.ReactNode;
-    /** Set by the tabbed desktop shell: the tab this editor is showing.
-     *  Dirty state is mirrored to that tab so the tab bar can badge it. */
-    tabId?: string;
     /** Render as a flex child filling the space under the tab bar instead of
      *  covering the viewport. */
     embedded?: boolean;
@@ -366,12 +362,25 @@ export function Editor({
         [onMetaUpdate, metaRef, getTitle],
     );
 
+    /** Unmount-time flush for useAutoSave: write the pending edit, touch
+     *  nothing else. No onMetaUpdate (the active tab may already be a
+     *  different one — reporting would stamp this document's meta onto it),
+     *  no setSaving (the component is gone). saveDocument is self-contained
+     *  and, for the path-backed docs autosave applies to, changes no meta. */
+    const flushSave = useCallback(
+        async (data: ReturnType<typeof useRenderData>) => {
+            const md = toMarkdown(data) ?? "";
+            await saveDocument(metaRef.current, md);
+        },
+        [metaRef],
+    );
+
     const doSaveRef = useRef(doSave);
     doSaveRef.current = doSave;
     const renderDataRef = useRef(renderData);
     renderDataRef.current = renderData;
 
-    useAutoSave(meta, renderData, doSave);
+    useAutoSave(meta, renderData, doSave, flushSave);
     useLocalDraft(meta, renderData);
 
     useEffect(() => {
@@ -457,20 +466,25 @@ export function Editor({
 
     // Tauri: CLI → push full content + dirty flag whenever the doc changes.
     // Debounced (150ms) since this serializes the whole renderData to markdown.
+    // Desktop-only wholesale: every consumer (update_content, the tab dirty
+    // badge, the close gates) is Tauri-side, so the web build must bail
+    // BEFORE the serialization — a large web document paying a full
+    // toMarkdown per typing pause for an unread flag is pure waste.
     const lastSavedMdRef = useRef<string>("");
     const onDirtyChangeRef = useLatest(onDirtyChange);
     useEffect(() => {
+        if (!isTauri()) return;
         // Treat the initial loaded content as the baseline for dirty detection.
         // Re-runs only when meta changes (new doc loaded into this window).
         lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [meta]);
     useEffect(() => {
+        if (!isTauri()) return;
         const handle = setTimeout(() => {
             const md = toMarkdown(renderData) ?? "";
             const isDirty = md !== lastSavedMdRef.current;
             onDirtyChangeRef.current?.(isDirty);
-            if (!isTauri()) return;
             tauriCore().then(({ invoke }) => {
                 invoke("update_content", { content: md, isDirty }).catch(
                     () => { },
@@ -798,10 +812,6 @@ export function Editor({
                     <div
                         ref={scrollAreaRef}
                         className="domd-editor-scroll flex-1 min-h-0 overflow-y-auto"
-                        // Only the ACTIVE tab has a mounted editor, so this
-                        // marks the one scroller whose position
-                        // TabEditorBridge saves and restores across switches.
-                        data-tab-scroll-container={tabId ?? undefined}
                         onClick={(e) => {
                             if (domdRef.current?.contains(e.target as Node))
                                 return;

@@ -460,13 +460,15 @@ async fn handle_close(
     };
     let force = force.unwrap_or(false);
     if !force {
-        // The same gate the window's close flow uses, so it accounts for
-        // EVERY tab rather than the visible one. `destroy()` below bypasses
-        // CloseRequested, so without this an unsaved, never-saved document in
-        // a background tab could be discarded by a close the caller believed
-        // was safe. Saved documents stay closable: autosave already wrote
-        // them.
-        if crate::unsaved_untitled_content(app, &label).is_some() {
+        // Same order as the window's own close flow, covering EVERY tab
+        // rather than the visible one. Dirty SAVED documents are flushed to
+        // their own files first — the pending autosave their debounce owed
+        // them, which `destroy()` below would otherwise discard ("autosave
+        // already wrote them" only holds once this line has run. It used to
+        // be an assumption; now it is an action). Only never-saved work has
+        // no file to flush to, so only it blocks a non-forced close.
+        crate::flush_dirty_saved_tabs(app, &label);
+        if !crate::unsaved_untitled_contents(app, &label).is_empty() {
             return err(
                 "unsaved_changes",
                 format!("window {} has unsaved changes; pass force=true to discard", label),

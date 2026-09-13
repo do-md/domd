@@ -8,7 +8,11 @@ import { useLatest } from "@/common/lib/use-latest";
 // Listens for native Tauri drag-drop events. Returns whether a non-image
 // drag is currently over the window. Image-only drags suppress the overlay
 // because the image-drop hook inserts them inline.
-export function useTauriDragDrop(onDropMd: (path: string) => void) {
+//
+// Hands back EVERY markdown path in the drop, in order — a window holds
+// several documents now, so a multi-file drop opens one tab each instead of
+// silently keeping only the first file.
+export function useTauriDragDrop(onDropMd: (paths: string[]) => void) {
     const [dragging, setDragging] = useState(false);
     const onDropMdRef = useLatest(onDropMd);
 
@@ -36,10 +40,10 @@ export function useTauriDragDrop(onDropMd: (path: string) => void) {
                 } else if (type === "drop") {
                     setDragging(false);
                     suppressOverlay = false;
-                    const p = (e.payload as { paths: string[] }).paths.find(
-                        isMdPath,
-                    );
-                    if (p) onDropMdRef.current(p);
+                    const mds = (
+                        e.payload as { paths: string[] }
+                    ).paths.filter(isMdPath);
+                    if (mds.length > 0) onDropMdRef.current(mds);
                 }
             });
             unlisten.then((fn) => {

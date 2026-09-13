@@ -313,7 +313,6 @@ function EditorAppContent() {
         applyBlank,
         applyLocal,
         loadTauriPath,
-        claimAndLoadTauriPath,
         loadRemote,
         loadFromFile,
     } = useDocumentLoaders();
@@ -557,14 +556,6 @@ function EditorAppContent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Tauri: listen for open-file events (fired when Rust reuses this window
-    // for a file double-clicked elsewhere). Detach (not dissolve) any live
-    // session first — the room stays bound to its document in SQLite.
-    useTauriEvent<string>("open-file", (path) => {
-        detachSharing();
-        loadTauriPath(path);
-    });
-
     // Tauri: menu → "Open URL..." opens the same modal as the web button.
     useTauriEvent("menu-open-url", () => setShowUrlModal(true));
 
@@ -627,10 +618,6 @@ function EditorAppContent() {
         });
     }, [collabRoom, collabPeers, versioningHandle]);
 
-    const tauriDragging = useTauriDragDrop((path) => {
-        detachSharing();
-        void claimAndLoadTauriPath(path);
-    });
     const { dragging: webDragging, dragHandlers } = useWebDragDrop(
         ({ file, handle }) => {
             // Loading a different document dissolves the hosted room and
@@ -648,19 +635,43 @@ function EditorAppContent() {
     // after). Branching on isTauri() here directly caused a hydration
     // mismatch that regenerated the whole tree on desktop.
     const isWeb = !useIsTauri();
-    const dragging = tauriDragging || webDragging;
 
     // Tabs are a desktop concept: a window holds several documents, a web page
     // holds one. Everything below the tab bar is the same editor either way —
     // useDocumentLoaders reads whichever tab is active, so a switch reaches
     // the kernel as an ordinary document swap (`key={version}`).
-    const { markActiveTabDirty, switchedTabs, closeRequest, decideUnsaved } =
-        useTabs({
-            enabled: !isWeb,
-            // A tab switch retires the previous document exactly as loading a
-            // new file into the window does (see the open-file handler above).
-            onDocumentSwitch: detachSharing,
-        });
+    const {
+        markActiveTabDirty,
+        switchedTabs,
+        closeRequest,
+        decideUnsaved,
+        reconcileStale,
+        consumeReconcileStale,
+        openPathInTab,
+    } = useTabs({
+        enabled: !isWeb,
+        // A tab switch — or a different document replacing the active tab's —
+        // retires the previous document: the live session detaches, the room
+        // record stays bound to its doc id in SQLite and resumes on reopen.
+        onDocumentSwitch: detachSharing,
+    });
+
+    // Dropping .md files on a window that already shows a document opens
+    // them as TABS — same routing as a Finder or CLI open (activate the
+    // existing tab, reuse the lone untouched blank one, else a new tab), so
+    // a drop never replaces what the window is showing. Sequential on
+    // purpose: opens mutate the tab strip (the blank-tab-reuse check reads
+    // it), and two concurrent opens racing that check would both claim the
+    // same blank tab. Collab teardown is not called here — the tab layer's
+    // document-switch subscription owns it for every route into a tab.
+    const tauriDragging = useTauriDragDrop((paths) => {
+        void (async () => {
+            for (const path of paths) {
+                await openPathInTab(path);
+            }
+        })();
+    });
+    const dragging = tauriDragging || webDragging;
 
     if (view === "loading" || meta === null || runtime === null) {
         // Loading covers ONLY the content area: the top bar (same classes as
@@ -785,6 +796,8 @@ function EditorAppContent() {
                         meta={meta}
                         onMetaUpdate={setMeta}
                         collabEpoch={collabEpoch}
+                        stale={reconcileStale}
+                        onStaleConsumed={consumeReconcileStale}
                     />
                 ) : null}
                 <Editor
@@ -805,7 +818,6 @@ function EditorAppContent() {
                     aiActive={aiEnabled && aiAgents.length > 0}
                     sidePanel={sidePanel}
                     embedded={!isWeb}
-                    tabId={isWeb ? undefined : version}
                     onDirtyChange={isWeb ? undefined : markActiveTabDirty}
                 />
                 {/* Local collaboration session while AI is on without a

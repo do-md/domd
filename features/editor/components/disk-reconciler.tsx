@@ -49,16 +49,25 @@ export function DiskReconciler({
     meta,
     onMetaUpdate,
     collabEpoch,
+    stale = false,
+    onStaleConsumed,
 }: {
     meta: FileMeta;
     onMetaUpdate: (meta: FileMeta) => void;
     /** Bumped once per successful collab attach (0 = no session). */
     collabEpoch: number;
+    /** The document's file changed on disk while its tab was backgrounded
+     *  AND the tab holds unsaved edits — merge required. Owned by the tab
+     *  layer (Tab.diskStale); consumed here, by the component that runs the
+     *  pass, so the flag can never be cleared without the work happening. */
+    stale?: boolean;
+    onStaleConsumed?: () => void;
 }) {
     const store = useEditorStoreApi();
     const metaRef = useLatest(meta);
     const storeRef = useLatest(store);
     const onMetaUpdateRef = useLatest(onMetaUpdate);
+    const onStaleConsumedRef = useLatest(onStaleConsumed);
 
     /** `force` bypasses the known-disk-content shortcut. The shortcut only
      *  answers "have we already processed this disk state?" — correct for
@@ -128,6 +137,22 @@ export function DiskReconciler({
     useEffect(() => {
         if (collabEpoch > 0) void reconcile(true);
     }, [collabEpoch, reconcile]);
+
+    // Trigger 3: a dirty tab was activated after its file changed on disk —
+    // forced, because the watcher event fired while this component was not
+    // mounted for that document (only the active tab has a view). The
+    // timeout(0) defers past the current commit's mount effects: this
+    // component mounts BEFORE the sibling scratch provider registers its
+    // store, and a synchronous pass would hit canonicalizeMd's not-ready
+    // bail after the flag was already consumed.
+    useEffect(() => {
+        if (!stale) return;
+        const id = setTimeout(() => {
+            onStaleConsumedRef.current?.();
+            void reconcile(true);
+        }, 0);
+        return () => clearTimeout(id);
+    }, [stale, reconcile, onStaleConsumedRef]);
 
     return null;
 }

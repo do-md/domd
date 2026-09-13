@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 interface DragState {
     tabId: string;
@@ -14,6 +14,15 @@ export function useTabDragReorder(
     const [draggingId, setDraggingId] = useState<string | null>(null);
     const dragRef = useRef<DragState | null>(null);
     const tabRectsRef = useRef<Map<string, DOMRect>>(new Map());
+    /** Set when a reorder was issued and the DOM has not been re-measured
+     *  yet. `onReorder` only SCHEDULES the reorder (store -> setState ->
+     *  commit); measuring synchronously after it reads the PRE-reorder
+     *  layout, and every later pointermove would then map ids to the slots
+     *  they used to occupy — dragging across two or more neighbours snaps
+     *  to the wrong slot. So the re-measure waits for the commit (the
+     *  layout effect below, keyed on the new order), and moves in the gap
+     *  are ignored rather than resolved against stale geometry. */
+    const pendingRemeasureRef = useRef<HTMLElement | null>(null);
 
     const captureRects = useCallback((container: HTMLElement) => {
         const rects = new Map<string, DOMRect>();
@@ -24,6 +33,15 @@ export function useTabDragReorder(
         });
         tabRectsRef.current = rects;
     }, []);
+
+    useLayoutEffect(() => {
+        const container = pendingRemeasureRef.current;
+        if (!container) return;
+        pendingRemeasureRef.current = null;
+        captureRects(container);
+        // The order (and with it every tab's rect) just changed under the
+        // pointer.
+    }, [tabIds, captureRects]);
 
     const onPointerDown = useCallback(
         (e: React.PointerEvent, tabId: string, container: HTMLElement) => {
@@ -41,6 +59,7 @@ export function useTabDragReorder(
         (e: React.PointerEvent) => {
             const drag = dragRef.current;
             if (!drag) return;
+            if (pendingRemeasureRef.current) return;
 
             const rects = tabRectsRef.current;
             let targetIndex = drag.currentIndex;
@@ -63,14 +82,17 @@ export function useTabDragReorder(
                 const container = (e.currentTarget as HTMLElement).closest(
                     "[data-tab-bar]",
                 );
-                if (container) captureRects(container as HTMLElement);
+                if (container) {
+                    pendingRemeasureRef.current = container as HTMLElement;
+                }
             }
         },
-        [tabIds, onReorder, captureRects],
+        [tabIds, onReorder],
     );
 
     const onPointerUp = useCallback(() => {
         dragRef.current = null;
+        pendingRemeasureRef.current = null;
         setDraggingId(null);
     }, []);
 
