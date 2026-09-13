@@ -7,12 +7,6 @@
  * failed blocks reflect back for one corrective retry.
  */
 import i18n from "@/common/i18n";
-import type { AiProvider } from "./types";
-
-const ENDPOINTS: Record<AiProvider, string> = {
-    openai: "https://api.openai.com/v1/chat/completions",
-    openrouter: "https://openrouter.ai/api/v1/chat/completions",
-};
 
 export class AgentStreamError extends Error {}
 
@@ -143,17 +137,19 @@ export const buildReflectionMessage = (
 
 /** Non-streaming completion against an OpenAI-compatible endpoint (aider
  *  semantics: fetch the whole reply, then parse and apply — stability over
- *  streaming). Runs entirely in the browser — the key never touches a DOMD
- *  server. */
+ *  streaming). The endpoint is resolved by the caller (a built-in preset or
+ *  a user-defined one — see lib/storage resolveEndpoint), so a reverse proxy
+ *  or a self-hosted server works the same as the presets. Runs entirely in
+ *  the browser — the key never touches a DOMD server. */
 export async function completeAgentChat(
     apiKey: string,
-    provider: AiProvider,
+    endpoint: string,
     model: string,
     messages: LlmMessage[],
 ): Promise<string> {
     let res: Response;
     try {
-        res = await fetch(ENDPOINTS[provider], {
+        res = await fetch(endpoint, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

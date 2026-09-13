@@ -4,6 +4,12 @@
  * add/edit form (name, provider, model, standing prompt, provider API key).
  * Config is device-local (localStorage on web, ~/.domd/ai.json on desktop
  * — see ../lib/storage.ts); keys are stored per provider.
+ *
+ * Besides the built-in presets, the provider picker can create a custom
+ * OpenAI-compatible endpoint (a reverse proxy, DeepSeek, a local server):
+ * the base URL lives in the provider entry, so several agents can share one
+ * endpoint and its key, and deleting the last agent that uses a custom
+ * endpoint takes the endpoint and its key with it.
  * Mirrors the VersioningPanel aside geometry so the two panels feel like
  * one family.
  *
@@ -13,9 +19,18 @@
  */
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { loadApiKey, saveApiKey } from "../lib/storage";
 import {
-    AI_PROVIDERS,
+    loadApiKey,
+    loadProviders,
+    providerLabel,
+    removeProvider,
+    saveApiKey,
+    upsertProvider,
+} from "../lib/storage";
+import {
+    BUILTIN_PROVIDERS,
+    isCustomProvider,
+    newCustomProviderId,
     pickAgentColor,
     type AgentConfig,
     type AiProvider,
@@ -23,10 +38,17 @@ import {
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 
+/** Sentinel <option> that turns the picker into "define a new endpoint". */
+const NEW_CUSTOM = "__new_custom__";
+
 interface Draft {
     id: string | null; // null -> creating
     name: string;
     provider: AiProvider;
+    /** Custom endpoints only: display name and base URL of the provider
+     *  entry the draft creates or edits. */
+    endpointLabel: string;
+    baseUrl: string;
     model: string;
     prompt: string;
     apiKey: string;
@@ -35,8 +57,10 @@ interface Draft {
 const emptyDraft = (): Draft => ({
     id: null,
     name: "",
-    provider: AI_PROVIDERS[0].id,
-    model: AI_PROVIDERS[0].defaultModel,
+    provider: BUILTIN_PROVIDERS[0].id,
+    endpointLabel: "",
+    baseUrl: "",
+    model: BUILTIN_PROVIDERS[0].defaultModel,
     prompt: "",
     apiKey: "",
 });
@@ -56,6 +80,22 @@ export function AiPanel({
 }) {
     const { t } = useTranslation();
     const [draft, setDraft] = useState<Draft | null>(null);
+    // Re-read on every render: the only writer is saveDraft/removeAgent
+    // below, and both close or reopen the form right after.
+    const providers = loadProviders();
+    // Editing a custom endpoint; "pending" until the draft is saved, in
+    // which case the picker needs its own option to stay selected.
+    const isCustom = draft !== null && isCustomProvider(draft.provider);
+    const isPendingCustom =
+        draft !== null &&
+        isCustom &&
+        !providers.some((p) => p.id === draft.provider);
+    const draftProviderLabel =
+        draft === null
+            ? ""
+            : isCustom
+              ? draft.endpointLabel.trim() || t("ai.customEndpoint")
+              : providerLabel(draft.provider);
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -66,18 +106,31 @@ export function AiPanel({
     }, [onClose]);
 
     const startCreate = () => setDraft(emptyDraft());
-    const startEdit = (agent: AgentConfig) =>
+    const startEdit = (agent: AgentConfig) => {
+        const custom = providers.find((p) => p.id === agent.provider);
         setDraft({
             id: agent.id,
             name: agent.name,
             provider: agent.provider,
+            endpointLabel: custom?.label ?? "",
+            baseUrl: custom?.baseUrl ?? "",
             model: agent.model,
             prompt: agent.prompt,
             apiKey: loadApiKey(agent.provider),
         });
+    };
 
     const saveDraft = () => {
         if (!draft || draft.name.trim().length === 0) return;
+        if (isCustomProvider(draft.provider)) {
+            const baseUrl = draft.baseUrl.trim();
+            if (!baseUrl) return;
+            upsertProvider({
+                id: draft.provider,
+                label: draft.endpointLabel.trim() || t("ai.customEndpoint"),
+                baseUrl,
+            });
+        }
         if (draft.apiKey.trim()) {
             saveApiKey(draft.provider, draft.apiKey.trim());
         }
@@ -109,8 +162,16 @@ export function AiPanel({
         setDraft(null);
     };
 
-    const removeAgent = (id: string) =>
-        onAgentsChange(agents.filter((a) => a.id !== id));
+    const removeAgent = (id: string) => {
+        const gone = agents.find((a) => a.id === id);
+        const rest = agents.filter((a) => a.id !== id);
+        onAgentsChange(rest);
+        // A custom endpoint exists only for the agents pointing at it —
+        // don't leave its API key behind once the last one is gone.
+        if (gone && !rest.some((a) => a.provider === gone.provider)) {
+            removeProvider(gone.provider);
+        }
+    };
 
     return (
         <aside className="flex h-full w-72 max-w-[85vw] flex-col border-l border-base-content/10 bg-base-100">
@@ -176,7 +237,8 @@ export function AiPanel({
                                     {agent.name}
                                 </div>
                                 <div className="truncate text-[10px] text-base-content/40">
-                                    {agent.provider} · {agent.model}
+                                    {providerLabel(agent.provider)} ·{" "}
+                                    {agent.model}
                                 </div>
                             </div>
                             <button
@@ -209,29 +271,87 @@ export function AiPanel({
                             className="select select-sm select-bordered w-full"
                             value={draft.provider}
                             onChange={(e) => {
-                                const provider = e.target
-                                    .value as AiProvider;
-                                const info = AI_PROVIDERS.find(
+                                const picked = e.target.value;
+                                if (picked === NEW_CUSTOM) {
+                                    setDraft({
+                                        ...draft,
+                                        provider: newCustomProviderId(),
+                                        endpointLabel: "",
+                                        baseUrl: "",
+                                        apiKey: "",
+                                    });
+                                    return;
+                                }
+                                const provider = picked as AiProvider;
+                                const preset = BUILTIN_PROVIDERS.find(
+                                    (p) => p.id === provider,
+                                );
+                                const custom = providers.find(
                                     (p) => p.id === provider,
                                 );
                                 setDraft({
                                     ...draft,
                                     provider,
+                                    endpointLabel: custom?.label ?? "",
+                                    baseUrl: custom?.baseUrl ?? "",
                                     model:
                                         draft.id === null
-                                            ? (info?.defaultModel ??
+                                            ? (preset?.defaultModel ??
                                               draft.model)
                                             : draft.model,
                                     apiKey: loadApiKey(provider),
                                 });
                             }}
                         >
-                            {AI_PROVIDERS.map((p) => (
+                            {BUILTIN_PROVIDERS.map((p) => (
                                 <option key={p.id} value={p.id}>
                                     {p.label}
                                 </option>
                             ))}
+                            {providers.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                    {p.label}
+                                </option>
+                            ))}
+                            {isPendingCustom ? (
+                                <option value={draft.provider}>
+                                    {draft.endpointLabel.trim() ||
+                                        t("ai.customEndpoint")}
+                                </option>
+                            ) : null}
+                            <option value={NEW_CUSTOM}>
+                                + {t("ai.addEndpoint")}
+                            </option>
                         </select>
+                        {isCustom ? (
+                            <>
+                                <input
+                                    className="input input-sm input-bordered w-full"
+                                    placeholder={t("ai.endpointName")}
+                                    value={draft.endpointLabel}
+                                    onChange={(e) =>
+                                        setDraft({
+                                            ...draft,
+                                            endpointLabel: e.target.value,
+                                        })
+                                    }
+                                />
+                                <input
+                                    className="input input-sm input-bordered w-full"
+                                    placeholder="https://api.example.com/v1"
+                                    value={draft.baseUrl}
+                                    onChange={(e) =>
+                                        setDraft({
+                                            ...draft,
+                                            baseUrl: e.target.value,
+                                        })
+                                    }
+                                />
+                                <div className="text-[10px] leading-snug text-base-content/40">
+                                    {t("ai.baseUrlHint")}
+                                </div>
+                            </>
+                        ) : null}
                         <input
                             className="input input-sm input-bordered w-full"
                             placeholder={t("ai.model")}
@@ -247,7 +367,7 @@ export function AiPanel({
                                 loadApiKey(draft.provider)
                                     ? t("ai.apiKeySet")
                                     : t("ai.apiKeyFor", {
-                                          provider: draft.provider,
+                                          provider: draftProviderLabel,
                                       })
                             }
                             value={draft.apiKey}
@@ -276,7 +396,10 @@ export function AiPanel({
                             </button>
                             <button
                                 className="btn btn-primary btn-xs"
-                                disabled={draft.name.trim().length === 0}
+                                disabled={
+                                    draft.name.trim().length === 0 ||
+                                    (isCustom && draft.baseUrl.trim() === "")
+                                }
                                 onClick={saveDraft}
                             >
                                 {t("common.save")}
