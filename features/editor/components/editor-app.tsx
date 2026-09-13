@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
     DOMDProvider,
+    EditorStore,
     useEditorStore,
     useEditorStoreApi,
     useFormatState,
@@ -80,6 +81,11 @@ import { ModeController } from "./mode-controller";
 import { NewDocModal } from "./new-doc-modal";
 import { ImageDropHandler } from "../hooks/use-image-drop";
 import { useDocumentLoaders } from "../hooks/use-document-loaders";
+import { useTabs } from "../hooks/use-tabs";
+import { TabStoreProvider } from "../stores/tab-store";
+import { TabBar } from "./tab-bar";
+import { TabCloseModal } from "./tab-close-modal";
+import { TabFocusOnSwitch } from "./tab-focus";
 import { useTauriDragDrop } from "../hooks/use-tauri-drag-drop";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { useWebDragDrop } from "../hooks/use-web-drag-drop";
@@ -256,10 +262,38 @@ export function EditorApp() {
     // trigger surface — web top-bar buttons, the native-titlebar event
     // bridge, the drawer overlay — reaches the same store without threading
     // callbacks through props (claude-os nav-drawer pattern).
+    const { t } = useTranslation();
+
+    // Builds the document runtime for a tab. This is the one place the kernel
+    // construction options live now: a tab's store is created here and owned
+    // by the TabStore for the tab's whole life, so these can no longer sit on
+    // DOMDProvider — it ignores every construction prop once handed a store.
+    const createRuntime = useCallback(
+        (initMd: string) =>
+            new EditorStore({
+                editable: true,
+                initMd,
+                placeholder: t("editor.placeholder"),
+                mode: "rich",
+                imageLoader: collabImageLoader,
+                codeTokenizer: tokenize,
+                inlineRules: appInlineRules,
+                codeBeautify: beautify,
+            }),
+        [t],
+    );
+
     return (
-        <SidePanelProvider>
-            <EditorAppContent />
-        </SidePanelProvider>
+        // TabStoreProvider holds the window's open documents and their live
+        // runtimes, and is the document source for BOTH platforms (see
+        // useDocumentLoaders). Web is simply the case where nothing ever opens
+        // a second tab, which keeps one editor tree instead of a tabbed copy
+        // that has to be kept in step with this one.
+        <TabStoreProvider initialProps={{ createRuntime }}>
+            <SidePanelProvider>
+                <EditorAppContent />
+            </SidePanelProvider>
+        </TabStoreProvider>
     );
 }
 
@@ -273,7 +307,7 @@ function EditorAppContent() {
     const {
         meta,
         setMeta,
-        content,
+        runtime,
         version,
         view,
         applyBlank,
@@ -616,7 +650,19 @@ function EditorAppContent() {
     const isWeb = !useIsTauri();
     const dragging = tauriDragging || webDragging;
 
-    if (view === "loading" || meta === null || content === null) {
+    // Tabs are a desktop concept: a window holds several documents, a web page
+    // holds one. Everything below the tab bar is the same editor either way —
+    // useDocumentLoaders reads whichever tab is active, so a switch reaches
+    // the kernel as an ordinary document swap (`key={version}`).
+    const { markActiveTabDirty, switchedTabs, closeRequest, decideUnsaved } =
+        useTabs({
+            enabled: !isWeb,
+            // A tab switch retires the previous document exactly as loading a
+            // new file into the window does (see the open-file handler above).
+            onDocumentSwitch: detachSharing,
+        });
+
+    if (view === "loading" || meta === null || runtime === null) {
         // Loading covers ONLY the content area: the top bar (same classes as
         // the real one in Editor) paints immediately so the page never reads
         // as a slow full-screen blank. Desktop has no web top bar — the
@@ -667,10 +713,16 @@ function EditorAppContent() {
 
     return (
         <div
+            // With tabs the root becomes the column that gives the tab bar its
+            // row; the editor then renders `embedded` (a flex child) instead
+            // of covering the viewport. Without tabs the root stays layout-free
+            // and the editor keeps its own `fixed inset-0`.
+            className={isWeb ? undefined : "fixed inset-0 flex flex-col"}
             onDragOver={isWeb ? dragHandlers.onDragOver : undefined}
             onDragLeave={isWeb ? dragHandlers.onDragLeave : undefined}
             onDrop={isWeb ? dragHandlers.onDrop : undefined}
         >
+            {isWeb ? null : <TabBar />}
             {dragging ? (
                 <div className="fixed inset-0 z-20 flex items-center justify-center bg-accent/90 pointer-events-none">
                     <div className="text-lg font-medium text-accent-content">
@@ -679,19 +731,25 @@ function EditorAppContent() {
                 </div>
             ) : null}
 
+            {/* Bring-your-own-store: the view mounts over the active tab's
+                long-lived runtime instead of constructing one from initMd, so
+                a tab switch is an attach rather than a re-parse. Construction
+                props are deliberately absent — the provider ignores them when
+                handed a store, and the runtime already carries them (see
+                createRuntime in EditorApp). `renderComponent` stays: it is
+                view configuration, not document state. Keyed by tab, because
+                the provider captures its store once on mount. */}
             <DOMDProvider
                 key={version}
-                editable={true}
-                placeholder={t("editor.placeholder")}
-                initMd={content}
-                imageLoader={collabImageLoader}
-                codeTokenizer={tokenize}
-                inlineRules={appInlineRules}
-                codeBeautify={beautify}
+                store={runtime}
                 renderComponent={CustomRender}
-                mode="rich"
             >
                 <ImageDropHandler />
+                {/* Real DOM focus for the document a tab switch just brought
+                    forward — the kernel binds its key handling to the editable
+                    root, so a document focused only in the model is one where
+                    ⌘Z does nothing. */}
+                {isWeb ? null : <TabFocusOnSwitch enabled={switchedTabs} />}
                 {/* Hydrates the persisted display mode + binds Cmd+/ —
                     the "more" menu entry (web) and this keystroke (both
                     runtimes) call the same toggle. */}
@@ -746,6 +804,9 @@ function EditorAppContent() {
                     aiAvailable={isWeb}
                     aiActive={aiEnabled && aiAgents.length > 0}
                     sidePanel={sidePanel}
+                    embedded={!isWeb}
+                    tabId={isWeb ? undefined : version}
+                    onDirtyChange={isWeb ? undefined : markActiveTabDirty}
                 />
                 {/* Local collaboration session while AI is on without a
                     live room: same doc/versioning machinery over a no-op
@@ -813,6 +874,22 @@ function EditorAppContent() {
                     collabActive={collabRoom !== null}
                     onClose={() => setShowNewDocModal(false)}
                     onConfirm={() => void handleNewDoc()}
+                />
+            ) : null}
+
+            {/* Deliberately unkeyed, like the modals above: the conditional
+                already gives each prompt a fresh instance. A key here is not
+                merely redundant, it is a trap — the obvious one to reach for
+                is the tab id, which is exactly what keys the DOMDProvider
+                above (`version` IS the active tab id). Closing the active tab
+                then puts two siblings under one key, and React quietly mounts
+                a second editor shell without removing the first: two stacked
+                documents, no error, since the duplicate-key warning is
+                development-only. */}
+            {closeRequest ? (
+                <TabCloseModal
+                    name={closeRequest.name}
+                    onChoose={decideUnsaved}
                 />
             ) : null}
 

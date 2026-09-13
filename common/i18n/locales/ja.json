@@ -11,6 +11,7 @@
     "menu": {
         "about": "DOMD について",
         "checkUpdates": "アップデートを確認...",
+        "newTab": "新しいタブ",
         "newWindow": "新規ウインドウ",
         "openUrl": "URL を開く...",
         "closeWindow": "ウインドウを閉じる",
@@ -404,5 +405,17 @@
             "locate": "編集対象のテキストを特定できませんでした——言い換えてみてください"
         },
         "localSelf": "自分"
+    },
+    "tabs": {
+        "newTab": "新しいタブ",
+        "closeTab": "タブを閉じる",
+        "shrinkToFit": "幅に合わせる",
+        "scrollHorizontally": "横スクロール",
+        "untitled": "Untitled.md",
+        "unsavedTitle": "未保存の変更",
+        "unsavedBody": "閉じる前に「{{name}}」の変更を保存しますか？",
+        "unsavedSave": "保存",
+        "unsavedDontSave": "保存しない",
+        "unsavedCancel": "キャンセル"
     }
 }

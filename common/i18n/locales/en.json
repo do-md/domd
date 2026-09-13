@@ -11,6 +11,7 @@
     "menu": {
         "about": "About DOMD",
         "checkUpdates": "Check for Updates...",
+        "newTab": "New Tab",
         "newWindow": "New Window",
         "openUrl": "Open URL...",
         "closeWindow": "Close Window",
@@ -404,5 +405,17 @@
             "locate": "Could not locate the text to edit — try rephrasing"
         },
         "localSelf": "Me"
+    },
+    "tabs": {
+        "newTab": "New tab",
+        "closeTab": "Close tab",
+        "shrinkToFit": "Shrink to fit",
+        "scrollHorizontally": "Scroll horizontally",
+        "untitled": "Untitled.md",
+        "unsavedTitle": "Unsaved changes",
+        "unsavedBody": "Save changes to “{{name}}” before closing?",
+        "unsavedSave": "Save",
+        "unsavedDontSave": "Don't Save",
+        "unsavedCancel": "Cancel"
     }
 }

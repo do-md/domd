@@ -19,8 +19,11 @@ import {
 } from "@/plugins/collaboration/crdt-sync";
 import type { RoomRecord } from "./types";
 
-/** Frontmatter domd-id of the document open in this window. One window
- *  hosts one document, so module-level state is safe. */
+/** Frontmatter domd-id of the document collaboration currently applies to.
+ *  A window can hold several documents in tabs, but only the ACTIVE one has
+ *  a mounted editor for a session to attach to — so there is still exactly
+ *  one at a time and module-level state stays safe. The tabbed desktop shell
+ *  re-points this on every tab switch (see tabbed-editor-app). */
 let currentDocId: string | null = null;
 
 export const setCollabDocId = (docId: string): void => {

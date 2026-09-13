@@ -460,12 +460,13 @@ async fn handle_close(
     };
     let force = force.unwrap_or(false);
     if !force {
-        let dirty = app
-            .state::<WindowContents>()
-            .get(&label)
-            .map(|c| c.is_dirty)
-            .unwrap_or(false);
-        if dirty {
+        // The same gate the window's close flow uses, so it accounts for
+        // EVERY tab rather than the visible one. `destroy()` below bypasses
+        // CloseRequested, so without this an unsaved, never-saved document in
+        // a background tab could be discarded by a close the caller believed
+        // was safe. Saved documents stay closable: autosave already wrote
+        // them.
+        if crate::unsaved_untitled_content(app, &label).is_some() {
             return err(
                 "unsaved_changes",
                 format!("window {} has unsaved changes; pass force=true to discard", label),

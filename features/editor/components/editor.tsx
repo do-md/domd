@@ -155,6 +155,9 @@ export function Editor({
     aiAvailable = false,
     aiActive = false,
     sidePanel = null,
+    tabId,
+    embedded = false,
+    onDirtyChange,
 }: {
     meta: FileMeta;
     onMetaUpdate: (meta: FileMeta) => void;
@@ -176,6 +179,16 @@ export function Editor({
     /** Side panel content for the SidePanelHost slot, resolved by the app
      *  from the side-panel store's active kind. Null = closed. */
     sidePanel?: React.ReactNode;
+    /** Set by the tabbed desktop shell: the tab this editor is showing.
+     *  Dirty state is mirrored to that tab so the tab bar can badge it. */
+    tabId?: string;
+    /** Render as a flex child filling the space under the tab bar instead of
+     *  covering the viewport. */
+    embedded?: boolean;
+    /** Notified (debounced, same cadence as the Rust content push) whenever
+     *  the unsaved-changes state flips. The tabbed shell mirrors it into the
+     *  tab store so the tab bar can badge modified documents. */
+    onDirtyChange?: (isDirty: boolean) => void;
 }) {
     const { t } = useTranslation();
     const renderData = useRenderData();
@@ -445,18 +458,19 @@ export function Editor({
     // Tauri: CLI → push full content + dirty flag whenever the doc changes.
     // Debounced (150ms) since this serializes the whole renderData to markdown.
     const lastSavedMdRef = useRef<string>("");
+    const onDirtyChangeRef = useLatest(onDirtyChange);
     useEffect(() => {
-        if (!isTauri()) return;
         // Treat the initial loaded content as the baseline for dirty detection.
         // Re-runs only when meta changes (new doc loaded into this window).
         lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [meta]);
     useEffect(() => {
-        if (!isTauri()) return;
         const handle = setTimeout(() => {
             const md = toMarkdown(renderData) ?? "";
             const isDirty = md !== lastSavedMdRef.current;
+            onDirtyChangeRef.current?.(isDirty);
+            if (!isTauri()) return;
             tauriCore().then(({ invoke }) => {
                 invoke("update_content", { content: md, isDirty }).catch(
                     () => { },
@@ -464,12 +478,13 @@ export function Editor({
             });
         }, 150);
         return () => clearTimeout(handle);
-    }, [renderData]);
+    }, [renderData, onDirtyChangeRef]);
 
     // Tauri: CLI just saved this window to disk on our behalf. Update the
     // baseline so subsequent dirty checks compare against the saved content.
     useTauriEvent<string>("saved-by-cli", () => {
         lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
+        onDirtyChangeRef.current?.(false);
         // Push an immediate clean-state update so AI sees has_unsaved_changes
         // flip to false without waiting for the debounce.
         tauriCore().then(({ invoke }) => {
@@ -487,9 +502,13 @@ export function Editor({
     useEffect(() => {
         if (prevSavingRef.current && !saving) {
             lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
+            // Clear the tab badge now rather than waiting for the next
+            // keystroke — a save does not itself change renderData, so the
+            // debounced effect above would not re-run.
+            onDirtyChangeRef.current?.(false);
         }
         prevSavingRef.current = saving;
-    }, [saving]);
+    }, [saving, onDirtyChangeRef]);
 
     // Web: Cmd/Ctrl+S
     useEffect(() => {
@@ -529,7 +548,17 @@ export function Editor({
         // context only, no DOM wrapper — same posture as DOMDProvider.
         <TocStoreProvider>
         <SearchStoreProvider>
-        <div className="domd-editor-shell fixed inset-0 bg-base-100 overflow-hidden">
+        {/* `embedded` (tabbed desktop shell) swaps the viewport-covering
+            root for a flex child so the tab bar keeps its row. The inner
+            layer is absolute either way, so it needs a positioned ancestor —
+            the embedded root is `relative` for exactly that reason. */}
+        <div
+            className={
+                embedded
+                    ? "domd-editor-shell relative flex-1 min-h-0 bg-base-100 overflow-hidden"
+                    : "domd-editor-shell fixed inset-0 bg-base-100 overflow-hidden"
+            }
+        >
             {/* Format shortcuts (⌘1/⌘K/⌥⌘C/…) live outside the top bar: the
                 desktop build renders no web top bar, and they must work
                 there too. */}
@@ -769,6 +798,10 @@ export function Editor({
                     <div
                         ref={scrollAreaRef}
                         className="domd-editor-scroll flex-1 min-h-0 overflow-y-auto"
+                        // Only the ACTIVE tab has a mounted editor, so this
+                        // marks the one scroller whose position
+                        // TabEditorBridge saves and restores across switches.
+                        data-tab-scroll-container={tabId ?? undefined}
                         onClick={(e) => {
                             if (domdRef.current?.contains(e.target as Node))
                                 return;

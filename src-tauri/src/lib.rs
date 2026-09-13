@@ -130,12 +130,22 @@ fn build_app_menu<R: tauri::Runtime, M: tauri::Manager<R>>(
         ],
     )?;
 
+    // Cmd+N opens a TAB in the current window and Shift+Cmd+N a new window —
+    // the shape every tabbed macOS app uses. Both are menu entries so the
+    // binding is discoverable and so the accelerators are owned in one place.
+    let new_tab_item = MenuItem::with_id(
+        manager,
+        "new-tab",
+        menu_i18n::t(locale, "menu.newTab"),
+        true,
+        Some("Cmd+N"),
+    )?;
     let new_window_item = MenuItem::with_id(
         manager,
         "new-window",
         menu_i18n::t(locale, "menu.newWindow"),
         true,
-        Some("Cmd+N"),
+        Some("Shift+Cmd+N"),
     )?;
     let open_url_item = MenuItem::with_id(
         manager,
@@ -170,6 +180,7 @@ fn build_app_menu<R: tauri::Runtime, M: tauri::Manager<R>>(
         &menu_i18n::t(locale, "menu.file"),
         true,
         &[
+            &new_tab_item,
             &new_window_item,
             &open_url_item,
             &close_window_item,
@@ -436,6 +447,116 @@ mod dock_menu {
 static WIN_ID: AtomicU32 = AtomicU32::new(0);
 
 pub struct WindowFiles(pub Mutex<HashMap<String, String>>);
+
+/// Every file path open as a TAB in each window, pushed from the frontend
+/// whenever the tab set changes.
+///
+/// `WindowFiles` records one path per window — the document the window was
+/// last assigned — which is no longer the whole story now that a window can
+/// hold several. Two things read this instead:
+///
+///  * `open_or_reuse`, so opening a file already present in some window's tab
+///    strip focuses that window and activates the tab rather than opening a
+///    duplicate;
+///  * the file watcher, so background tabs are watched too and not just the
+///    window's last-assigned document.
+/// One open tab, as the frontend sees it.
+#[derive(Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TabInfo {
+    /// None for a document that has never been saved.
+    pub path: Option<String>,
+    pub is_dirty: bool,
+    /// Sent ONLY for tabs that are dirty AND never saved — the only ones the
+    /// native save sheet can be asked to review, and the only ones whose
+    /// content the Rust side has any reason to hold.
+    pub content: Option<String>,
+}
+
+pub struct WindowTabs(pub Mutex<HashMap<String, Vec<TabInfo>>>);
+
+impl WindowTabs {
+    pub fn set(&self, label: &str, tabs: Vec<TabInfo>) {
+        self.0.lock().unwrap().insert(label.to_string(), tabs);
+    }
+
+    pub fn remove(&self, label: &str) {
+        self.0.lock().unwrap().remove(label);
+    }
+
+    /// The window holding this path in a tab, if any.
+    pub fn find_window_with_path(&self, path: &str) -> Option<String> {
+        self.0
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|(_, tabs)| {
+                tabs.iter().any(|t| t.path.as_deref() == Some(path))
+            })
+            .map(|(label, _)| label.clone())
+    }
+
+    /// Snapshot of (window label, tab path) pairs — used by the watcher.
+    pub fn entries(&self) -> Vec<(String, String)> {
+        self.0
+            .lock()
+            .unwrap()
+            .iter()
+            .flat_map(|(label, tabs)| {
+                tabs.iter().filter_map(move |t| {
+                    t.path.as_ref().map(|p| (label.clone(), p.clone()))
+                })
+            })
+            .collect()
+    }
+
+    /// Has the frontend reported tab state for this window yet?
+    pub fn knows(&self, label: &str) -> bool {
+        self.0.lock().unwrap().contains_key(label)
+    }
+
+    /// Content of the first tab holding work no autosave will ever write:
+    /// dirty AND never saved. This is what the close/quit gates ask about,
+    /// and the point of reporting per-tab state at all — a window must not be
+    /// able to close over unsaved work sitting in a tab you cannot see.
+    pub fn first_unsaved_content(&self, label: &str) -> Option<String> {
+        self.0
+            .lock()
+            .unwrap()
+            .get(label)?
+            .iter()
+            .find(|t| t.is_dirty && t.path.is_none())
+            .map(|t| t.content.clone().unwrap_or_default())
+    }
+}
+
+/// Does this window hold unsaved, never-saved work — and if so, what should
+/// the save sheet show?
+///
+/// Tab state is authoritative once the frontend has reported it, because it
+/// covers every document in the window rather than just the one on screen.
+/// The per-window snapshot remains the fallback for anything that has not
+/// reported tabs (a window still starting up).
+pub(crate) fn unsaved_untitled_content(app: &AppHandle, label: &str) -> Option<String> {
+    let tabs = app.state::<WindowTabs>();
+    if tabs.knows(label) {
+        return tabs.first_unsaved_content(label);
+    }
+    let has_path = app
+        .state::<WindowFiles>()
+        .0
+        .lock()
+        .unwrap()
+        .contains_key(label);
+    if has_path {
+        return None;
+    }
+    let content_state = app.state::<WindowContents>().get(label);
+    if content_state.as_ref().map_or(false, |c| c.is_dirty) {
+        return Some(content_state.map(|c| c.content).unwrap_or_default());
+    }
+    None
+}
 
 /// Per-window `UntitledDoc` (NSDocument subclass) used to drive the native
 /// "save changes?" sheet for untitled+dirty docs on macOS. Populated lazily
@@ -793,6 +914,26 @@ fn update_content(
     state.set(window.label(), content, is_dirty);
 }
 
+/// FE pushes the state of all open tabs whenever the tab set changes — paths
+/// for `open_or_reuse` and the file watcher, dirty/untitled for the close and
+/// quit gates.
+#[tauri::command]
+fn update_tabs(window: Window, state: State<WindowTabs>, tabs: Vec<TabInfo>) {
+    state.set(window.label(), tabs);
+}
+
+/// Drop this window's assigned path — the counterpart to `set_window_path`.
+///
+/// With tabs the assignment tracks the ACTIVE document, so activating a
+/// never-saved tab has to clear it. The close flow reads this to decide
+/// whether a window can close silently (a saved document autosaves; an
+/// untitled one needs the "save changes?" sheet), and leaving a stale path
+/// behind would let unsaved work disappear without a prompt.
+#[tauri::command]
+fn clear_window_path(window: Window, state: State<WindowFiles>) {
+    state.0.lock().unwrap().remove(window.label());
+}
+
 // ── window helpers ────────────────────────────────────────────────────────────
 
 pub(crate) fn new_empty_window(app: &AppHandle) -> String {
@@ -942,17 +1083,41 @@ fn notify_user(title: &str, body: &str) {
 /// telling the caller whether that window was already showing this file
 /// (so the AI agent knows "I just opened this" vs "user was already on it").
 pub(crate) fn open_or_reuse(app: &AppHandle, path: String) -> OpenOutcome {
-    let filename = std::path::Path::new(&path)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("DOMD")
-        .to_string();
+    let all_windows = app.webview_windows();
+
+    // Already open as a tab somewhere: focus that window and activate the tab.
+    let tabs = app.state::<WindowTabs>();
+    if let Some(label) = tabs.find_window_with_path(&path) {
+        if let Some(win) = all_windows.get(&label) {
+            if win.is_minimized().unwrap_or(false) {
+                let _ = win.unminimize();
+            }
+            let _ = win.set_focus();
+            // Same reasoning as the open-file-in-tab route below: the window
+            // is about to show a DIFFERENT document, so readiness has to drop
+            // or an immediate `insert` lands in the tab that is on screen now.
+            // This route could not clear it before, because Rust cannot tell
+            // "switch to a background tab" from "re-activate the tab already
+            // showing" — and clearing in the second case left the CLI waiting
+            // for a mark no remount would ever produce. The frontend now
+            // asserts readiness on both, so clearing here is safe.
+            app.state::<WindowReady>().remove(&label);
+            let _ = app.emit_to(label.as_str(), "activate-tab", &path);
+            return OpenOutcome {
+                window_id: label,
+                was_already_open: true,
+            };
+        }
+        // Window is gone but the entry lingers — fall through and re-open.
+        tabs.remove(&label);
+    }
 
     let state = app.state::<WindowFiles>();
     let mut files = state.0.lock().unwrap();
-    let all_windows = app.webview_windows();
 
-    // If this file is already open, just focus that window
+    // Same check against the per-window assignment. Still needed: a window
+    // gets its path from `set_window_path` (save-as, drag-drop) before the
+    // frontend's tab push lands, so this is the authority in that gap.
     if let Some(label) = files.iter().find(|(_, p)| p.as_str() == path).map(|(l, _)| l.clone()) {
         if let Some(win) = all_windows.get(&label) {
             drop(files);
@@ -960,6 +1125,9 @@ pub(crate) fn open_or_reuse(app: &AppHandle, path: String) -> OpenOutcome {
                 let _ = win.unminimize();
             }
             let _ = win.set_focus();
+            // Readiness drops here too — see the tab-registry route above.
+            app.state::<WindowReady>().remove(&label);
+            let _ = app.emit_to(label.as_str(), "activate-tab", &path);
             return OpenOutcome {
                 window_id: label,
                 was_already_open: true,
@@ -968,33 +1136,76 @@ pub(crate) fn open_or_reuse(app: &AppHandle, path: String) -> OpenOutcome {
         // Window was closed but entry remains — remove stale entry and continue
         files.remove(&label);
     }
+    drop(files);
 
-    // Find any open window that hasn't been assigned a file yet
-    let empty_label = all_windows
+    // Not open anywhere: hand it to an existing window as a NEW TAB rather
+    // than spawning another window (that was the one-doc-per-window model).
+    // Prefer the focused window so the file lands where the user is looking.
+    //
+    // Both the focused lookup and the fallback walk a deterministic order:
+    // `webview_windows()` returns a HashMap, so iterating it directly picks an
+    // arbitrary window whenever no window reports focus (or, in principle,
+    // when more than one does). Labels are `w<N>` in creation order, so
+    // sorting on that index makes the fallback "the most recently opened
+    // window" rather than whatever the hash happened to yield.
+    let mut labels: Vec<String> = all_windows.keys().cloned().collect();
+    labels.sort_by_key(|label| {
+        label
+            .trim_start_matches('w')
+            .parse::<u32>()
+            .unwrap_or(u32::MAX)
+    });
+    let target_label = labels
         .iter()
-        .find(|(label, _)| !files.contains_key(label.as_str()))
-        .map(|(label, _)| label.clone());
+        .find(|label| {
+            all_windows
+                .get(*label)
+                .map(|w| w.is_focused().unwrap_or(false))
+                .unwrap_or(false)
+        })
+        .cloned()
+        .or_else(|| labels.last().cloned());
 
-    if let Some(label) = empty_label {
-        files.insert(label.clone(), path.clone());
-        drop(files);
-        // Unmark ready: the empty window was ready, but now we're loading new
-        // content into it; the AI shouldn't see "ready" until the new content
-        // is rendered. benchmark_mark_ready fires again post-mount.
+    if let Some(label) = target_label {
+        // Record the window's assigned document BEFORE emitting.
+        //
+        // The event alone is not enough on a cold start. A Finder open of a
+        // `.md` launches the app, `setup` creates an empty window, and
+        // RunEvent::Opened lands here while the webview is still booting — so
+        // the emit can arrive before anything is listening. The frontend's
+        // first act is to ask `get_my_path` for the document this window is
+        // meant to show, and with no entry here that returns null and the
+        // window blanks itself. Writing it first means the answer is waiting
+        // whether or not the event was heard, which is how the one-document
+        // build has always worked.
+        app.state::<WindowFiles>()
+            .0
+            .lock()
+            .unwrap()
+            .insert(label.clone(), path.clone());
+
+        // The window is about to display a DIFFERENT document, so it is no
+        // longer ready in the sense the CLI cares about. `benchmark_mark_ready`
+        // fires on every editor mount, not just the first, and routing a file
+        // into a tab remounts the editor — so clearing here is both correct
+        // and self-healing. Without it, `domd-cli open` followed immediately
+        // by `insert` races: readiness is still true from the PREVIOUS
+        // document and the insert lands in the wrong one.
         app.state::<WindowReady>().remove(&label);
-        if let Some(win) = app.webview_windows().get(&label) {
-            let _ = win.set_title(&filename);
+        let _ = app.emit_to(label.as_str(), "open-file-in-tab", &path);
+        if let Some(win) = all_windows.get(&label) {
+            if win.is_minimized().unwrap_or(false) {
+                let _ = win.unminimize();
+            }
             let _ = win.set_focus();
-            let _ = win.emit_to(label.as_str(), "open-file", &path);
         }
         return OpenOutcome {
             window_id: label,
             was_already_open: false,
         };
     }
-    drop(files);
 
-    // All windows already have files — open a new one
+    // No windows at all — create one for this file.
     let label = open_file_window(app, path);
     OpenOutcome {
         window_id: label,
@@ -1146,15 +1357,9 @@ fn terminate_now(app: &AppHandle) {
 /// These mirror the per-window CloseRequested gate exactly.
 #[cfg(target_os = "macos")]
 fn dirty_untitled_labels(app: &AppHandle) -> Vec<String> {
-    let files = app.state::<WindowFiles>();
-    let files = files.0.lock().unwrap();
-    let contents = app.state::<WindowContents>();
     app.webview_windows()
         .into_keys()
-        .filter(|label| {
-            !files.contains_key(label)
-                && contents.get(label).map_or(false, |c| c.is_dirty)
-        })
+        .filter(|label| unsaved_untitled_content(app, label).is_some())
         .collect()
 }
 
@@ -1171,23 +1376,14 @@ fn review_queue_then_quit(app: AppHandle, mut queue: Vec<String>) {
             return;
         };
         // Skip windows that vanished or were saved/cleaned since the snapshot.
-        let still_pending = {
-            let files = app.state::<WindowFiles>();
-            let untitled = !files.0.lock().unwrap().contains_key(&label);
-            let dirty = app
-                .state::<WindowContents>()
-                .get(&label)
-                .map_or(false, |c| c.is_dirty);
-            untitled && dirty && app.get_webview_window(&label).is_some()
-        };
-        if !still_pending {
+        // Same gate as CloseRequested, so a window that holds unsaved work in
+        // a BACKGROUND tab is reviewed here too rather than quietly quitting.
+        if app.get_webview_window(&label).is_none() {
             continue;
         }
-        let content = app
-            .state::<WindowContents>()
-            .get(&label)
-            .map(|c| c.content)
-            .unwrap_or_default();
+        let Some(content) = unsaved_untitled_content(&app, &label) else {
+            continue;
+        };
         let _ = app.get_webview_window(&label).map(|w| w.set_focus());
         let app_for_then = app.clone();
         start_native_close_flow_with(
@@ -1240,7 +1436,8 @@ pub fn run() {
         .manage(WindowFiles(Mutex::new(HashMap::new())))
         .manage(WindowReady(Mutex::new(HashMap::new())))
         .manage(WindowSelections(Mutex::new(HashMap::new())))
-        .manage(WindowContents(Mutex::new(HashMap::new())));
+        .manage(WindowContents(Mutex::new(HashMap::new())))
+        .manage(WindowTabs(Mutex::new(HashMap::new())));
     #[cfg(target_os = "macos")]
     let builder = builder.manage(WindowDocs(Mutex::new(HashMap::new())));
     let app = builder
@@ -1255,6 +1452,8 @@ pub fn run() {
             read_file_bytes,
             update_selection,
             update_content,
+            update_tabs,
+            clear_window_path,
             get_system_locale,
             set_locale,
             set_collab_state,
@@ -1279,25 +1478,16 @@ pub fn run() {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     let label = window.label().to_string();
                     let app = window.app_handle();
-                    let has_path =
-                        app.state::<WindowFiles>().0.lock().unwrap().contains_key(&label);
-                    if has_path {
-                        // Saved file — let it close.
+                    // Asks about EVERY document in the window, not just the
+                    // one on screen: with tabs, the unsaved work that must
+                    // not be discarded is often in a tab you cannot see.
+                    let Some(content) = unsaved_untitled_content(app, &label)
+                    else {
+                        // Saved, blank or untouched — let it close.
                         return;
-                    }
-                    // Pathless. Check dirty + content from the FE-pushed
-                    // snapshot.
-                    let content_state = app.state::<WindowContents>().get(&label);
-                    let is_dirty = content_state.as_ref().map_or(false, |c| c.is_dirty);
-                    if !is_dirty {
-                        // Blank or untouched — let it close.
-                        return;
-                    }
+                    };
                     #[cfg(target_os = "macos")]
                     {
-                        let content = content_state
-                            .map(|c| c.content)
-                            .unwrap_or_default();
                         api.prevent_close();
                         // Trigger the native NSDocument flow on the main
                         // thread. Errors are silent — worst case the window
@@ -1316,6 +1506,7 @@ pub fn run() {
                     app.state::<WindowReady>().remove(&label);
                     app.state::<WindowSelections>().remove(&label);
                     app.state::<WindowContents>().remove(&label);
+                    app.state::<WindowTabs>().remove(&label);
                     #[cfg(target_os = "macos")]
                     {
                         app.state::<WindowDocs>().0.lock().unwrap().remove(&label);
@@ -1358,13 +1549,26 @@ pub fn run() {
             *MENU_LOCALE.lock().unwrap() = Some(startup_locale);
 
             app.on_menu_event(|app, event| {
-                if event.id() == "new-window" {
+                // Cmd+N / Cmd+W act on TABS when a window is focused, and fall
+                // back to window granularity when none is (e.g. the app is
+                // active with every window closed). The frontend decides what
+                // closing the last tab means — see the domd-close-tab handler.
+                if event.id() == "new-tab" {
+                    // No focused window means no tab strip to add to.
+                    if let Some(win) = app.webview_windows().values().find(|w| {
+                        w.is_focused().unwrap_or(false)
+                    }) {
+                        let _ = win.emit_to(win.label(), "menu-new-tab", ());
+                    } else {
+                        new_empty_window(app);
+                    }
+                } else if event.id() == "new-window" {
                     new_empty_window(app);
                 } else if event.id() == "close-window" {
                     if let Some(win) = app.webview_windows().values().find(|w| {
                         w.is_focused().unwrap_or(false)
                     }) {
-                        let _ = win.close();
+                        let _ = win.emit_to(win.label(), "menu-close-tab", ());
                     }
                 } else if event.id() == "undo"
                     || event.id() == "redo"
