@@ -27,6 +27,10 @@ import { getVisibleDomText } from "./lib/getVisibleDomText";
 import { getOffsetTop } from "./lib/getOffsetTop";
 import { getDomByCursor } from "./lib/getDomByCursor";
 import { getRenderDomByID } from "./lib/getRenderDomByID";
+import { getClosestRenderDom } from "./lib/getClosestRenderDom";
+import { getIdByRenderDom } from "./lib/getIdByRenderDom";
+import { getVisibleRangeLength } from "./lib/getVisibleRangeLength";
+import { getLineExtent } from "./lib/getLineExtent";
 import { commandKey, foreignCommandKey } from "./lib/commandKey";
 
 import { matchesNewlineKey } from "./lib/matchesNewlineKey";
@@ -1289,6 +1293,7 @@ export class EditorController {
         dom.addEventListener("keydown", this.handleKeyDown_);
         dom.addEventListener("keypress", this.handleKeyPress_);
         dom.addEventListener("keyup", this.handleKeyUp_);
+        dom.addEventListener("mousedown", this.handleMouseDown_);
         dom.addEventListener("click", this.handleClick_);
         dom.addEventListener("compositionstart", this.handleCompositionStart_);
         dom.addEventListener(
@@ -1316,6 +1321,7 @@ export class EditorController {
         dom.removeEventListener("keydown", this.handleKeyDown_);
         dom.removeEventListener("keypress", this.handleKeyPress_);
         dom.removeEventListener("keyup", this.handleKeyUp_);
+        dom.removeEventListener("mousedown", this.handleMouseDown_);
         dom.removeEventListener("click", this.handleClick_);
         dom.removeEventListener(
             "compositionstart",
@@ -1545,6 +1551,12 @@ export class EditorController {
      * hidden syntax runs (the display:none MdSymbol "# " of a heading).
      * Blink paints either form; the visible-leaf range measures stable on
      * both engines.
+     * The leaf search spans the whole document, not just the outermost
+     * blocks: a terminal block without any visible text (a trailing
+     * auto-fill empty paragraph, a leading blank line) must not drag both
+     * endpoints down to the container-boundary fallback — that fallback is
+     * exactly the shape WebKit refuses to paint, and it is reserved for
+     * documents with no visible text anywhere (nothing to paint anyway).
      * Used by the Cmd/Ctrl+A keydown and by the replay pass to restore the
      * terminal state after undo / a re-render dropped the anchors.
      * The DOM write is deferred by one macrotask: WebKit keeps a selection
@@ -1555,24 +1567,84 @@ export class EditorController {
      * frame, so there is no visible unselected window.
      */
     /**
-     * First and last render block among the root's children. Skips
-     * non-content scaffolding (overlay divs hosts portal into the root —
-     * custom caret, remote-cursor layers): a whole-document range built from
-     * visible leaves legitimately excludes them, so any coverage probe using
-     * first/lastElementChild would fail against our own selection.
+     * DOM endpoints of the whole-document selection: the first / last
+     * visible text leaf across the root's render blocks, each paired with
+     * the block hosting it. The blocks feed the coverage probes
+     * (containsNode), the leaves feed the range built by
+     * applySelectAllDom_ — both sides must come from the same computation
+     * or a probe would fail against our own selection and demote the
+     * terminal state.
+     * A render block is a root child that carries data-render-id itself OR
+     * nests it deeper: wrapper components put the id on an inner element
+     * (the table's scroll container — kernel TableElement and host
+     * overrides alike — issue #43: the scan used to see only direct
+     * attributes, so a leading table dropped out of Cmd+A entirely).
+     * Non-content scaffolding (overlay divs hosts portal into the root —
+     * custom caret, remote-cursor layers) contains no data-render-id
+     * anywhere, so it stays excluded, which is also why the probes cannot
+     * use first/lastElementChild.
      */
-    private firstLastRenderBlocks_(): {
+    private selectAllDomEndpoints_(): {
         firstBlock: Element | null;
         lastBlock: Element | null;
+        firstText: Node | null;
+        lastText: Node | null;
     } {
-        let firstBlock: Element | null = null;
-        let lastBlock: Element | null = null;
+        // The parentElement display check matches how MdSymbol hides syntax
+        // (display:none directly on the leaf's parent span); checkVisibility
+        // additionally covers hidden ancestors where supported.
+        const isVisible = (el: Element) =>
+            (el as HTMLElement).checkVisibility?.() ??
+            window.getComputedStyle(el).display !== "none";
+        const visibleTextIn = (scope: Element, last: boolean) => {
+            const walker = document.createTreeWalker(
+                scope,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: (n) =>
+                        n.parentElement && isVisible(n.parentElement)
+                            ? NodeFilter.FILTER_ACCEPT
+                            : NodeFilter.FILTER_REJECT,
+                },
+            );
+            if (!last) return walker.nextNode();
+            let found: Node | null = null;
+            while (walker.nextNode()) found = walker.currentNode;
+            return found;
+        };
+        const blocks: Element[] = [];
         for (const el of this._textAreaDom_.children) {
-            if (!el.hasAttribute("data-render-id")) continue;
-            if (!firstBlock) firstBlock = el;
-            lastBlock = el;
+            if (
+                !el.hasAttribute("data-render-id") &&
+                !el.querySelector("[data-render-id]")
+            )
+                continue;
+            blocks.push(el);
         }
-        return { firstBlock, lastBlock };
+        let firstBlock: Element | null = null;
+        let firstText: Node | null = null;
+        for (const block of blocks) {
+            const text = visibleTextIn(block, false);
+            if (!text) continue;
+            firstBlock = block;
+            firstText = text;
+            break;
+        }
+        let lastBlock: Element | null = null;
+        let lastText: Node | null = null;
+        for (let i = blocks.length - 1; i >= 0; i--) {
+            const text = visibleTextIn(blocks[i], true);
+            if (!text) continue;
+            lastBlock = blocks[i];
+            lastText = text;
+            break;
+        }
+        // No visible text anywhere (empty document, blank lines only):
+        // no leaf endpoints exist, hand back the outermost blocks so the
+        // caller can fall back to block boundaries.
+        if (!firstBlock) firstBlock = blocks[0] ?? null;
+        if (!lastBlock) lastBlock = blocks[blocks.length - 1] ?? null;
+        return { firstBlock, lastBlock, firstText, lastText };
     }
 
     private selectAllDom_() {
@@ -1587,43 +1659,17 @@ export class EditorController {
         const selection = document.getSelection();
         if (!selection) return;
         const rootEl = this._textAreaDom_;
-        const { firstBlock, lastBlock } = this.firstLastRenderBlocks_();
+        const { firstBlock, lastBlock, firstText, lastText } =
+            this.selectAllDomEndpoints_();
         const range = document.createRange();
-        if (firstBlock && lastBlock) {
-            // First/last VISIBLE text leaf. The parentElement display check
-            // matches how MdSymbol hides syntax (display:none directly on
-            // the leaf's parent span); checkVisibility additionally covers
-            // hidden ancestors where supported.
-            const isVisible = (el: Element) =>
-                (el as HTMLElement).checkVisibility?.() ??
-                window.getComputedStyle(el).display !== "none";
-            const visibleTextIn = (scope: Element, last: boolean) => {
-                const walker = document.createTreeWalker(
-                    scope,
-                    NodeFilter.SHOW_TEXT,
-                    {
-                        acceptNode: (n) =>
-                            n.parentElement && isVisible(n.parentElement)
-                                ? NodeFilter.FILTER_ACCEPT
-                                : NodeFilter.FILTER_REJECT,
-                    },
-                );
-                if (!last) return walker.nextNode();
-                let found: Node | null = null;
-                while (walker.nextNode()) found = walker.currentNode;
-                return found;
-            };
-            const firstText = visibleTextIn(firstBlock, false);
-            const lastText = visibleTextIn(lastBlock, true);
-            if (firstText && lastText) {
-                range.setStart(firstText, 0);
-                range.setEnd(lastText, lastText.textContent?.length ?? 0);
-            } else {
-                // Empty blocks (<p><br></p>) hold no text leaves — fall back
-                // to block boundaries.
-                range.setStartBefore(firstBlock);
-                range.setEndAfter(lastBlock);
-            }
+        if (firstText && lastText) {
+            range.setStart(firstText, 0);
+            range.setEnd(lastText, lastText.textContent?.length ?? 0);
+        } else if (firstBlock && lastBlock) {
+            // Only blocks without text leaves (<p><br></p>) — fall back to
+            // block boundaries; there is nothing to paint anyway.
+            range.setStartBefore(firstBlock);
+            range.setEndAfter(lastBlock);
         } else {
             range.selectNodeContents(rootEl);
         }
@@ -1940,15 +1986,16 @@ export class EditorController {
         if (this._editorStore_.selectAllEchoPending_) {
             this._editorStore_.selectAllEchoPending_ = false;
             if (this._editorStore_.cursorInfo_.all_ && info.length === 2) {
-                // Probe the first/last RENDER blocks, not
+                // Probe the endpoint-hosting blocks, not
                 // first/lastElementChild: the selection being echoed is the
                 // one selectAllDom_ builds from visible text leaves, which
                 // legitimately excludes the root's non-content scaffolding
-                // (overlay divs) — probing scaffolding would fail against our
-                // own selection and let this very reading demote the terminal
-                // state to a plain range.
+                // (overlay divs) and text-less terminal blocks — probing
+                // anything else would fail against our own selection and let
+                // this very reading demote the terminal state to a plain
+                // range.
                 const { firstBlock, lastBlock } =
-                    this.firstLastRenderBlocks_();
+                    this.selectAllDomEndpoints_();
                 if (
                     firstBlock &&
                     lastBlock &&
@@ -2140,6 +2187,117 @@ export class EditorController {
     };
 
     private handleKeyUp_ = async () => { };
+
+    /**
+     * `mousedown` with detail >= 3 — take over paragraph-granularity
+     * multi-click selection (triple-click and beyond).
+     * -------------------------------------------------------------------
+     * The native triple-click selects "the paragraph", and the engines
+     * anchor the selection END at offset 0 of the FOLLOWING block — the
+     * selected string carries a trailing "\n" and the end endpoint lives
+     * outside the clicked block. Every consumer downstream then sees a
+     * range crossing a structural wall the user never selected across, and
+     * replacing the selection eats the wall itself: in a table cell the
+     * cell boundary is destroyed and the row is left malformed (issue
+     * #42); on the last code line the closing fence would be swallowed the
+     * same way. Patching each edit path against the spilled endpoint is
+     * hopeless — a hand-dragged selection ending at a block start is
+     * legitimate (deleting it SHOULD merge the boundary), so the spilled
+     * state cannot be told apart from real intent after the fact. Instead,
+     * own the gesture (the ProseMirror approach): compute the extent
+     * ourselves and never let a multi-click selection leave the clicked
+     * render block.
+     *
+     * Extent = the LINE around the click point inside the closest render
+     * block (getLineExtent): from the previous "\n" to the next "\n" of
+     * the block's visible text. This reproduces native granularity
+     * everywhere — a paragraph or a table cell has no inner "\n" so the
+     * whole block content is selected; a multi-line code area yields the
+     * clicked code line, matching how browsers treat preserved newlines
+     * as paragraph boundaries.
+     *
+     * Both extent offsets go through getDomByCursor, whose hidden-symbol
+     * snapping moves an endpoint out of concealed syntax runs (a leading
+     * "# ", a trailing "**") — so the selection is byte-identical to what
+     * a manual drag over the visible text would produce, and every edit
+     * over it flows through the same downstream semantics as a
+     * hand-dragged selection (adjustCursor_'s symbol-edge affinity
+     * included).
+     *
+     * preventDefault() suppresses the native selection and the DOM
+     * selection is written synchronously, so every live reader
+     * (beforeinput replace, copy, the debounced selectionchange sync) sees
+     * the normalized range; the store is fed through the ordinary
+     * selectionchange path, not written here. Non-primary buttons,
+     * shift-extended clicks, read-only mode and clicks that resolve to no
+     * render block (root scaffolding) are left native — nothing can edit
+     * across the spill in read-only mode, and the root-caret repair owns
+     * the scaffolding case.
+     */
+    private handleMouseDown_ = (e: MouseEvent) => {
+        if (e.detail < 3 || e.button !== 0 || e.shiftKey) return;
+        if (!this._editorStore_.isEditable) return;
+
+        // Click point → DOM position (Blink/WebKit caretRangeFromPoint,
+        // Firefox caretPositionFromPoint — same fallback as handleDrop_).
+        const doc = document as Document & {
+            caretRangeFromPoint?: (x: number, y: number) => Range | null;
+            caretPositionFromPoint?: (
+                x: number,
+                y: number,
+            ) => { offsetNode: Node; offset: number } | null;
+        };
+        let node: Node | null = null;
+        let nodeOffset = 0;
+        if (doc.caretRangeFromPoint) {
+            const r = doc.caretRangeFromPoint(e.clientX, e.clientY);
+            if (r) {
+                node = r.startContainer;
+                nodeOffset = r.startOffset;
+            }
+        } else if (doc.caretPositionFromPoint) {
+            const pos = doc.caretPositionFromPoint(e.clientX, e.clientY);
+            if (pos) {
+                node = pos.offsetNode;
+                nodeOffset = pos.offset;
+            }
+        }
+        if (!node || !this._textAreaDom_.contains(node)) return;
+        const host = node instanceof HTMLElement ? node : node.parentElement;
+        if (!host) return;
+        const blockEl = getClosestRenderDom(host);
+        if (!blockEl) return;
+        const uuid = getIdByRenderDom(blockEl);
+        // The root container is not a text block — keep native behavior
+        // there (the selectionchange root guard discards such readings).
+        if (!uuid || uuid === this._editorStore_.renderData_.uuid_) return;
+
+        // Visible offset of the click inside the block, then the line
+        // extent around it in the block's visible text.
+        const preRange = document.createRange();
+        preRange.selectNodeContents(blockEl);
+        try {
+            preRange.setEnd(node, nodeOffset);
+        } catch {
+            return;
+        }
+        const text = getVisibleDomText(blockEl);
+        const extent = getLineExtent(text, getVisibleRangeLength(preRange));
+
+        const start = getDomByCursor(blockEl, extent.start);
+        const end = getDomByCursor(blockEl, extent.end);
+        if (!start.node || !end.node) return;
+
+        e.preventDefault();
+        const selection = document.getSelection();
+        if (!selection) return;
+        selection.setBaseAndExtent(
+            start.node,
+            start.offset,
+            end.node,
+            end.offset,
+        );
+    };
 
     /**
      * Clicks are where root-level carets are born: a click on the root
@@ -2621,7 +2779,7 @@ export class EditorController {
         //    dropped the selection anchors) rebuild via selectAllDom_.
         // No scrolling either way: select-all must not move the viewport.
         if (cursorInfo.all_) {
-            const { firstBlock, lastBlock } = this.firstLastRenderBlocks_();
+            const { firstBlock, lastBlock } = this.selectAllDomEndpoints_();
             if (
                 liveRangeInEditor &&
                 liveSelection &&
