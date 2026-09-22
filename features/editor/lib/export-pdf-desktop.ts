@@ -10,6 +10,7 @@
 // so the document paginates as a plain flow.
 
 import { tauriCore, tauriDialog } from "@/common/lib/tauri";
+import { acquireFullDom } from "./print-materialize";
 
 /**
  * Run the full desktop export flow. Resolves once the PDF is written, or
@@ -25,5 +26,13 @@ export async function exportToPdfDesktop(title: string): Promise<void> {
     });
     if (!path) return;
     const { invoke } = await tauriCore();
-    await invoke("export_pdf", { path });
+    // The native print operation paginates the LIVE DOM; under DOM
+    // virtualization only the render window is mounted, so force the full
+    // document in for the duration of the print job.
+    const release = await acquireFullDom();
+    try {
+        await invoke("export_pdf", { path });
+    } finally {
+        release();
+    }
 }

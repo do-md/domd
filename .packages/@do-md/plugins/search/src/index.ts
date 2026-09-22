@@ -49,4 +49,4 @@ export {
     SEARCH_HIGHLIGHT,
     SEARCH_HIGHLIGHT_ACTIVE,
 } from "./highlight";
-export type { PaintableEditor } from "./highlight";
+export type { PaintableEditor, SearchPainterOptions } from "./highlight";

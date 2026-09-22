@@ -1,0 +1,47 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "useDefineForClassFields": true,
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "skipLibCheck": true,
+
+        /* Bundler mode — deliberately NOT NodeNext.
+           The DoMD app consumes this package's source through tsconfig paths, and
+           Turbopack resolves relative specifiers literally: a NodeNext-style
+           "./target.js" import never finds target.ts (Next's extensionAlias escape
+           hatch is webpack-only). Source therefore imports extensionless, and the
+           published artifact is a single bundled file with no relative specifiers
+           left to resolve — see vite.config.ts. */
+        "moduleResolution": "bundler",
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+
+        /* Linting */
+        "strict": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "noFallthroughCasesInSwitch": true,
+
+        /* Declaration */
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "outDir": "./dist",
+        "rootDir": "./src",
+
+        /* TEMPORARY paths override: this package consumes the kernel's
+           render-window seam (RenderWindowContext, getTopLevelBlocks, ...)
+           which exists in the local kernel build but is NOT yet in a
+           published @do-md/core-react release. Until that release ships,
+           standalone typechecks resolve the kernel to the local dist rollup —
+           the exact declaration surface the next release publishes. REMOVE
+           this override (returning to the toc/search posture of typechecking
+           against the published package) once the kernel release lands. */
+        "paths": {
+            "@do-md/core-react": ["../../core/dist/index.d.ts"]
+        }
+    },
+    "include": ["src"]
+}

@@ -44,6 +44,9 @@
       "@do-md/utils": [
         "./.packages/@do-md/utils"
       ],
+      "@do-md/virtual": [
+        "./.packages/@do-md/plugins/virtual/src"
+      ],
       "@do-md/zenith": [
         "./.packages/@do-md/zenith"
       ],

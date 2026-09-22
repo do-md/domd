@@ -82,6 +82,24 @@ export { default as RenderChildren } from "./editor/render/react/components/Rend
 export { getRenderElementProps } from "./editor/render/props/getRenderElementProps";
 export { getSpanRenderIdProps } from "./editor/render/props/getSpanRenderIdProps";
 
+// DOM-virtualization seam: a policy layer (e.g. @do-md/virtual) computes a
+// RenderWindow from scroll position + measured heights and provides it
+// through RenderWindowContext; RootElement then renders only that window of
+// top-level blocks (plus kernel-forced pins: cursor block, DOM selection
+// endpoints, tail autofill) with contentEditable=false spacers standing in
+// for the rest. No provider / null value = the exact non-virtualized render
+// path. The pure plan math is exported for headless verification.
+export { RenderWindowContext } from "./editor/render/react/context";
+export {
+    computeRenderWindowPlan,
+    buildRenderWindowPlan,
+    resolveTopLevelIndex,
+} from "./editor/render/window/plan";
+export type {
+    RenderWindow,
+    RenderWindowSegment,
+} from "./editor/render/window/plan";
+
 // Utility exports
 export { toMarkdown } from "./editor/model/serialize/toMarkdown";
 // Every layer that binds a Mod+<letter> shortcut needs the same layout-correct

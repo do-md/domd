@@ -117,6 +117,21 @@ export class EditorStore extends ZenithStore<StoreState> {
     private _undo_;
     private _redo_;
     private _chunkGeneration_: number;
+    /**
+     * True while a chunked load (the >500-line constructor path, or
+     * resetMDChunked) still has lines to append — i.e. while the model is a
+     * PREFIX of the document the host handed in.
+     *
+     * A prefix must never be mistaken for the document: a host that persists
+     * it (autosave, dirty reporting, an external-sync push) writes a
+     * truncated file, and a host that re-parses it (`resetMD(toMarkdown())`,
+     * e.g. after an async syntax grammar arrives) makes the truncation
+     * permanent by cancelling the rest of the load. The kernel cannot police
+     * what hosts do with the tree, so it publishes the fact instead:
+     * `isLoadingChunks` + `subscribeLoadingChange`.
+     */
+    private _loadingChunks_ = false;
+    private _loadingListeners_ = new Set<(loading: boolean) => void>();
     private _scrollAnchor_: ScrollAnchor | null = null;
 
     constructor({
@@ -224,6 +239,7 @@ export class EditorStore extends ZenithStore<StoreState> {
 
         if (initLines.length > INITIAL_CHUNK_LINES) {
             this._chunkGeneration_ += 1;
+            this._loadingChunks_ = true;
             this._scheduleChunkedAppend_(
                 initLines.slice(INITIAL_CHUNK_LINES),
                 INITIAL_CHUNK_LINES,
@@ -574,6 +590,32 @@ export class EditorStore extends ZenithStore<StoreState> {
         );
     }
 
+    /** True while the document is still streaming in (see _loadingChunks_).
+     *  Public API: hosts MUST gate persistence and whole-document re-parses
+     *  on this. */
+    public get isLoadingChunks(): boolean {
+        return this._loadingChunks_;
+    }
+
+    /** Subscribe to load-state transitions. Fires with `false` when the last
+     *  chunk has landed (the document is now complete) and with `true` when a
+     *  new chunked load starts. Returns the unsubscribe.
+     *  Public API. */
+    public subscribeLoadingChange(
+        listener: (loading: boolean) => void,
+    ): () => void {
+        this._loadingListeners_.add(listener);
+        return () => {
+            this._loadingListeners_.delete(listener);
+        };
+    }
+
+    private _setLoadingChunks_(loading: boolean) {
+        if (this._loadingChunks_ === loading) return;
+        this._loadingChunks_ = loading;
+        this._loadingListeners_.forEach((listener) => listener(loading));
+    }
+
     public resetMD(text: string, disableRecord = true) {
         // External input boundary: strip the kernel's private CursorMarker —
         // see the constructor comment (hygiene + self-healing for documents
@@ -583,6 +625,9 @@ export class EditorStore extends ZenithStore<StoreState> {
         // chunked append (>500-line constructor / resetMDChunked), otherwise
         // stale ticks would splice the old tail lines into the new document.
         this._chunkGeneration_ += 1;
+        // A cancelled load is no longer loading; resetMDChunked re-arms the
+        // flag right after this call when it schedules its own append.
+        this._setLoadingChunks_(false);
         const parsedData = parseMarkdown(text, {
             onCursorFound_: (cursorInfo) => {
                 console.log(cursorInfo);
@@ -633,6 +678,7 @@ export class EditorStore extends ZenithStore<StoreState> {
         // resetMD bumps the chunk generation (cancelling any earlier pending
         // load); capture it AFTER so our own scheduled appends stay valid.
         this.resetMD(lines.slice(0, chunkLines).join("\n"));
+        this._setLoadingChunks_(true);
         const gen = this._chunkGeneration_;
         this._scheduleChunkedAppend_(lines.slice(chunkLines), chunkLines, gen);
     }
@@ -662,8 +708,14 @@ export class EditorStore extends ZenithStore<StoreState> {
             }
         };
         const tick = () => {
+            // Cancelled by a new baseline — whoever bumped the generation
+            // already owns the flag (they cleared it).
             if (gen !== this._chunkGeneration_) return;
-            if (offset >= remainingLines.length) return;
+            if (offset >= remainingLines.length) {
+                // Last chunk landed: the model IS the document now.
+                this._setLoadingChunks_(false);
+                return;
+            }
             const end = Math.min(offset + chunkLines, remainingLines.length);
             const chunk = remainingLines.slice(offset, end).join("\n");
             this.appendMarkdownIncremental_(chunk);
@@ -818,6 +870,7 @@ export class EditorStore extends ZenithStore<StoreState> {
         // pending chunked append from construction / resetMDChunked (stale
         // ticks would append the old initMd tail onto the new tree).
         this._chunkGeneration_ += 1;
+        this._setLoadingChunks_(false);
         const tree = deserializeRenderData(json) as ParentRenderData;
         this._suppressSyncOps_ = true;
         try {
@@ -1272,6 +1325,7 @@ export class EditorStore extends ZenithStore<StoreState> {
      */
     public replaceAllContent_(text: string) {
         this._chunkGeneration_ += 1;
+        this._setLoadingChunks_(false);
         const total = this.renderData_.children_.length;
         this.chainProduceParsedData_((chain) => {
             chain.replaceTopLevelSlice_(
@@ -1573,6 +1627,51 @@ export class EditorStore extends ZenithStore<StoreState> {
      * table cell) returns null, as does a uuid no longer in the tree;
      * callers should skip the operation rather than guess a position.
      */
+    /**
+     * Cheap structural summary of the root's top-level blocks — the model
+     * feed of a DOM-virtualization policy (@do-md/virtual): identity + type
+     * per block (for height estimation), plus the root uuid so op-stream
+     * relevance gating can recognize root-level inserts/deletes. One flat map
+     * over the top-level array, no descent, no serialization.
+     * Public API: stable keys, immune to mangling.
+     */
+    public getTopLevelBlocks(): {
+        rootUuid: string;
+        blocks: { uuid: string; type: string; isAutoFill: boolean }[];
+    } {
+        const root = this.renderData_;
+        return {
+            rootUuid: root.uuid_,
+            blocks: (root.children_ || []).map((child) => ({
+                uuid: child.uuid_,
+                type: child.htmlType_ as string,
+                isAutoFill: !!child.isAutoFill_,
+            })),
+        };
+    }
+
+    /** O(1) count of the root's top-level blocks. The virtualization policy
+     *  probes this on every store notification to catch structural changes
+     *  that emit no ops (external/collaborative applies — echo prevention),
+     *  pulling the full summary only when the count moved.
+     *  Public API. */
+    public getTopLevelBlockCount(): number {
+        return this.renderData_.children_?.length ?? 0;
+    }
+
+    /**
+     * uuid of the TOP-LEVEL block containing `uuid` (the block itself, or any
+     * descendant: a span, a list item, a table cell). Null when the uuid is
+     * gone from the tree. The virtualization policy routes nested anchors
+     * (cursor spans, search-match blocks) through this before scrolling to a
+     * top-level index. O(tree) worst case — call per resolved anchor, not per
+     * frame.
+     */
+    public getTopLevelUuid(uuid: string): string | null {
+        const top = getTopLevelRenderDataById(uuid, this.renderData_);
+        return top ? top.uuid_ : null;
+    }
+
     public resolveBlockOffset(
         uuid: string,
     ): { start: number; end: number } | null {

@@ -156,6 +156,21 @@ export interface PaintableEditor {
     subscribeCursorChange?(listener: (cursor: unknown) => void): () => void;
 }
 
+export interface SearchPainterOptions {
+    /**
+     * Called when the ACTIVE match's block is not in the DOM — under DOM
+     * virtualization an off-window match has no elements to resolve a Range
+     * against. The callback (typically @do-md/virtual's `scrollToBlock`)
+     * scrolls the block into the render window; the painter then retries on
+     * the mount-triggered repaint and lands the precise scroll + highlight.
+     * Return false when the uuid cannot be resolved (the painter stops
+     * retrying that match). Without the option, behavior is exactly the
+     * pre-virtualization one: unresolvable active matches simply do not
+     * scroll.
+     */
+    scrollToBlockFallback?: (blockUuid: string) => boolean;
+}
+
 /**
  * Wire a SearchStore to a live editor container: repaints on search state
  * changes, document ops and cursor moves (rAF-throttled — Ranges do not
@@ -166,12 +181,17 @@ export const bindSearchPainter = (
     search: SearchStore,
     editor: PaintableEditor,
     container: HTMLElement,
+    options: SearchPainterOptions = {},
 ): (() => void) => {
     if (!supportsHighlightPainting()) return () => {};
 
     let disposed = false;
     let framePending = false;
     let lastActiveIndex = -1;
+    /** Active index whose block-scroll fallback already fired — the fallback
+     *  runs once per navigation, the precise scroll retries every repaint
+     *  until the block mounts. */
+    let lastFallbackIndex = -1;
     /** Anchors are model-level: they only change when matches change, not
      *  when React re-renders — cache per matches array identity. */
     let anchorsFor: unknown = null;
@@ -183,23 +203,41 @@ export const bindSearchPainter = (
         if (!open || matches.length === 0) {
             clearHighlights();
             lastActiveIndex = -1;
+            lastFallbackIndex = -1;
             anchorsFor = null;
             return;
         }
         if (anchorsFor !== matches) {
             anchors = search.resolveMatchAnchors();
             anchorsFor = matches;
+            lastFallbackIndex = -1;
         }
         paintHighlights(container, anchors, activeIndex);
         if (activeIndex !== lastActiveIndex && activeIndex >= 0) {
-            lastActiveIndex = activeIndex;
             const resolved =
                 anchors[activeIndex] ??
                 // Beyond the resolution cap the active match rides in the
                 // extra tail slot resolveMatchAnchors appends.
                 anchors[anchors.length - 1];
             const range = resolved ? toDomRange(container, resolved) : null;
-            if (range) scrollToRange(container, range);
+            if (range) {
+                lastActiveIndex = activeIndex;
+                scrollToRange(container, range);
+            } else if (resolved && options.scrollToBlockFallback) {
+                // Virtualized: the block is unmounted. Hand the ENTIRE scroll
+                // to the fallback (it converges on the block across mount
+                // passes) and consume the navigation — a later scrollToRange
+                // would fight the fallback's own alignment, and with height
+                // estimates still settling the two owners can strand the
+                // match just outside the viewport.
+                if (activeIndex !== lastFallbackIndex) {
+                    lastFallbackIndex = activeIndex;
+                    options.scrollToBlockFallback(resolved.start.uuid);
+                }
+                lastActiveIndex = activeIndex;
+            } else {
+                lastActiveIndex = activeIndex;
+            }
         }
     };
 

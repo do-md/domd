@@ -35,6 +35,16 @@ import { TocStore } from "./store";
 export interface TocSpyOptions {
     /** Anchor line offset in px below the container's top edge. */
     anchorOffset?: number;
+    /**
+     * Viewport-coordinate top edge of a heading block — the same number
+     * `getBoundingClientRect().top` reports — answered without touching the
+     * element. Under DOM virtualization headings may be unmounted, so the
+     * host passes @do-md/virtual's `blockViewportTop` here and the spy
+     * arbitrates over the height table instead of the DOM (more stable, and
+     * defined for every heading). Null falls back to the DOM read; absent =
+     * the classic DOM-only spy.
+     */
+    blockTop?: (uuid: string) => number | null;
 }
 
 /** Scroll events younger than this since a pinActive() are treated as the
@@ -126,9 +136,12 @@ export const bindTocSpy = (
         const half = containerRect.top + container.clientHeight / 2;
         let previous: string | null = null;
         for (const heading of headings) {
-            const el = elementFor(heading.uuid);
-            if (!el) continue;
-            const top = el.getBoundingClientRect().top;
+            let top = options.blockTop?.(heading.uuid) ?? null;
+            if (top === null) {
+                const el = elementFor(heading.uuid);
+                if (!el) continue;
+                top = el.getBoundingClientRect().top;
+            }
             if (top >= anchorLine) {
                 // Rules 1 + 2: the first heading below the anchor line is
                 // active only while it sits in the container's top half.

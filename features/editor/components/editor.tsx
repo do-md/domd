@@ -34,6 +34,13 @@ import {
     FindMenuItem,
 } from "@/features/editor/components/find-bar";
 import { SearchStoreProvider } from "@do-md/search";
+import {
+    VirtualStoreProvider,
+    VirtualViewport,
+    materializeForPrint,
+    useVirtualStoreApi,
+    type VirtualizationMode,
+} from "@do-md/virtual";
 import { getGrammarVersion, subscribeGrammarLoad } from "@/common/lib/prism";
 import { useApplePlatform } from "@/common/hooks/use-apple-platform";
 import { isTauri } from "@/common/lib/platform";
@@ -44,10 +51,17 @@ import {
 import { tauriCore } from "@/common/lib/tauri";
 import { useLatest } from "@/common/lib/use-latest";
 import { useAutoSave } from "../hooks/use-auto-save";
+import { useDocLoading } from "../hooks/use-doc-loading";
 import { useLocalDraft } from "../hooks/use-local-draft";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { saveDocument } from "../lib/save-document";
+import { withFrontmatter } from "../lib/frontmatter";
+import { markKnownDiskContent } from "../lib/disk-sync";
 import { exportToPdf } from "../lib/export-pdf";
+import {
+    acquireFullDom,
+    registerPrintMaterializer,
+} from "../lib/print-materialize";
 import type { FileMeta } from "../lib/types";
 import { CustomCursor } from "@/plugins/rendering/CustomCursor";
 import { QuickInputBar } from "@/plugins/toolbar/quick-input-bar";
@@ -142,6 +156,20 @@ function UsersIcon({ className }: { className?: string }) {
     );
 }
 
+/** Registers the pre-print materializer for the PDF export flows (see
+ *  lib/print-materialize.ts). Renders nothing; lives inside the
+ *  VirtualStoreProvider so it can reach the policy store — the export
+ *  triggers themselves (web menu, desktop titlebar bridge) go through the
+ *  registry and need no provider access. */
+function VirtualPrintBridge() {
+    const virtual = useVirtualStoreApi();
+    useEffect(
+        () => registerPrintMaterializer(() => materializeForPrint(virtual)),
+        [virtual],
+    );
+    return null;
+}
+
 export function Editor({
     meta,
     onMetaUpdate,
@@ -157,6 +185,7 @@ export function Editor({
     sidePanel = null,
     embedded = false,
     onDirtyChange,
+    virtualization = "off",
 }: {
     meta: FileMeta;
     onMetaUpdate: (meta: FileMeta) => void;
@@ -185,6 +214,10 @@ export function Editor({
      *  the unsaved-changes state flips. The tabbed shell mirrors it into the
      *  tab store so the tab bar can badge modified documents. */
     onDirtyChange?: (isDirty: boolean) => void;
+    /** DOM virtualization (@do-md/virtual): off = classic full render
+     *  (default), auto = window large documents by top-level block count,
+     *  always = window unconditionally. */
+    virtualization?: VirtualizationMode;
 }) {
     const { t } = useTranslation();
     const renderData = useRenderData();
@@ -193,6 +226,18 @@ export function Editor({
     const store = useEditorStoreApi();
     const isEditable = useEditorStore((store) => store.isEditable);
     const mode = useEditorStore((store) => store.mode);
+    // While a large file is still streaming into the model, toMarkdown()
+    // returns a PREFIX of it. Every disk write and every whole-document
+    // re-parse below is gated on this — writing the prefix truncates the
+    // user's file on disk (task-54474e).
+    const docLoading = useDocLoading();
+    const docLoadingRef = useLatest(docLoading);
+    /** Markdown the document had when it was last known to match disk (as
+     *  loaded, or as saved). "Dirty" means the model diverged from THIS —
+     *  never from a prefix captured mid-load, and never because a view-level
+     *  re-parse canonicalized the serialization. */
+    const lastSavedMdRef = useRef<string>("");
+    const onDirtyChangeRef = useLatest(onDirtyChange);
     const mac = useApplePlatform();
     // Which edge the single panel slot occupies is a property of the ACTIVE
     // panel: the outline opens from the left (matching its trigger's spot in
@@ -338,8 +383,28 @@ export function Editor({
 
     const doSave = useCallback(
         async (data: ReturnType<typeof useRenderData>) => {
+            // Never persist a partially loaded document: the model is a
+            // prefix until the chunked load finishes, and writing it would
+            // truncate the file on disk.
+            if (docLoadingRef.current) return false;
             const md = toMarkdown(data) ?? "";
             const currentMeta = metaRef.current;
+            // Opening a file must never rewrite it. The baseline below is the
+            // document exactly as it was loaded, so an unchanged model means
+            // the user has typed nothing — and our serializer's canonical form
+            // (table padding, list spacing) legitimately differs from whatever
+            // formatting the file had, which would otherwise rewrite the whole
+            // file on open, bump its mtime and trip other editors' external-
+            // change detection. A real edit diverges from the baseline and
+            // saves normally.
+            if (
+                isTauri() &&
+                currentMeta.kind === "tauri" &&
+                currentMeta.path &&
+                md === lastSavedMdRef.current
+            ) {
+                return true;
+            }
             setSaving(true);
             try {
                 const result = await saveDocument(currentMeta, md, getTitle);
@@ -359,7 +424,7 @@ export function Editor({
                 setSaving(false);
             }
         },
-        [onMetaUpdate, metaRef, getTitle],
+        [onMetaUpdate, metaRef, getTitle, docLoadingRef],
     );
 
     /** Unmount-time flush for useAutoSave: write the pending edit, touch
@@ -369,10 +434,13 @@ export function Editor({
      *  and, for the path-backed docs autosave applies to, changes no meta. */
     const flushSave = useCallback(
         async (data: ReturnType<typeof useRenderData>) => {
+            // Same gate as doSave: a view torn down mid-load must not write
+            // the prefix it happens to hold.
+            if (docLoadingRef.current) return;
             const md = toMarkdown(data) ?? "";
             await saveDocument(metaRef.current, md);
         },
-        [metaRef],
+        [metaRef, docLoadingRef],
     );
 
     const doSaveRef = useRef(doSave);
@@ -404,12 +472,31 @@ export function Editor({
     useEffect(() => {
         if (grammarVersion <= baseVersionRef.current) return;
         if (!store) return;
+        // NEVER while the document is still streaming in: resetMD() is a new
+        // baseline, so re-parsing the current PREFIX would both discard the
+        // rest of the load (the kernel cancels the pending chunked append)
+        // and make the prefix the entire document — which autosave then
+        // writes over the user's file. Re-running after the load completes
+        // covers the same need (the effect re-fires when docLoading flips).
+        if (docLoading) return;
         const id = setTimeout(() => {
             const md = toMarkdown(renderDataRef.current) ?? "";
+            // Re-parsing is a VIEW refresh, not an edit — but it round-trips
+            // the document through the parser, so the result serializes in
+            // our canonical form (table padding, list spacing) and can differ
+            // from the text the file had. Without carrying the dirty baseline
+            // across, that difference reads as a user edit and autosave
+            // rewrites a file nobody touched. Only carry it when the document
+            // was clean: a document with real unsaved edits must stay dirty.
+            const wasClean = md === lastSavedMdRef.current;
             store.resetMD(md);
+            if (wasClean) {
+                lastSavedMdRef.current = store.toMarkdown();
+                onDirtyChangeRef.current?.(false);
+            }
         }, 50);
         return () => clearTimeout(id);
-    }, [grammarVersion, store]);
+    }, [grammarVersion, store, docLoading, onDirtyChangeRef]);
 
     // Tauri: menu → Save
     useTauriEvent("menu-save", () => {
@@ -470,8 +557,6 @@ export function Editor({
     // badge, the close gates) is Tauri-side, so the web build must bail
     // BEFORE the serialization — a large web document paying a full
     // toMarkdown per typing pause for an unread flag is pure waste.
-    const lastSavedMdRef = useRef<string>("");
-    const onDirtyChangeRef = useLatest(onDirtyChange);
     useEffect(() => {
         if (!isTauri()) return;
         // Treat the initial loaded content as the baseline for dirty detection.
@@ -479,8 +564,77 @@ export function Editor({
         lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [meta]);
+
+    // Load-completion verification (task-54474e). The baseline above is taken
+    // while a big file is still streaming in, so it holds a PREFIX; without
+    // this the first post-load dirty probe would declare the untouched
+    // document dirty and hand Rust a save it never needed. Once the load
+    // finishes, re-read the file and compare: equal (modulo the frontmatter
+    // block the editor never sees) means the document is faithfully loaded
+    // and clean; unequal is a real divergence and stays dirty, so the normal
+    // save path can resolve it.
+    // Keyed by document, NOT by the loading edge: a small (or fast) file can
+    // finish loading before this view mounts, in which case there is no
+    // transition to observe — and without the baseline below the FIRST
+    // model-level re-render (the post-load syntax-grammar re-parse) looks
+    // like a user edit and autosave rewrites the untouched file.
+    const verifiedPathRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!isTauri() || docLoading) return;
+        const currentMeta = metaRef.current;
+        if (currentMeta.kind !== "tauri" || !currentMeta.path) return;
+        if (verifiedPathRef.current === currentMeta.path) return;
+        verifiedPathRef.current = currentMeta.path;
+        // Re-baseline SYNCHRONOUSLY, before any await: the autosave timer
+        // armed by the load's last chunk fires 600ms later, and reading a
+        // multi-megabyte file back over IPC can take longer than that. With
+        // the baseline set only in the async continuation, autosave won the
+        // race and rewrote the freshly opened file in our canonical form.
+        const md = toMarkdown(renderDataRef.current) ?? "";
+        const full = withFrontmatter(currentMeta.frontmatter, md);
+        lastSavedMdRef.current = md;
+        onDirtyChangeRef.current?.(false);
+        let cancelled = false;
+        void (async () => {
+            try {
+                const { invoke } = await tauriCore();
+                const onDisk = await invoke<string>("read_file", {
+                    path: currentMeta.path,
+                });
+                if (cancelled) return;
+                if (onDisk === full) {
+                    // Byte-faithful load: register the truth so even an
+                    // explicit save short-circuits instead of touching mtime.
+                    markKnownDiskContent(currentMeta.path!, full);
+                } else {
+                    // Benign in the common case (our canonical serialization
+                    // differs from the file's formatting); a genuine
+                    // divergence would also land here, so keep it visible.
+                    console.warn(
+                        "[load-verify] model differs from disk after load",
+                        {
+                            path: currentMeta.path,
+                            model: full.length,
+                            disk: onDisk.length,
+                        },
+                    );
+                }
+            } catch {
+                // Unreadable file (deleted/renamed mid-load): leave the dirty
+                // state alone; the normal save path handles it.
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [docLoading, meta, metaRef, onDirtyChangeRef]);
     useEffect(() => {
         if (!isTauri()) return;
+        // A still-loading document is never dirty and its content must not be
+        // published: Rust persists the reported content for dirty saved tabs
+        // (flush_dirty_saved_tabs on window close / quit), so publishing a
+        // prefix truncates the file even when no autosave ever ran.
+        if (docLoading) return;
         const handle = setTimeout(() => {
             const md = toMarkdown(renderData) ?? "";
             const isDirty = md !== lastSavedMdRef.current;
@@ -492,7 +646,7 @@ export function Editor({
             });
         }, 150);
         return () => clearTimeout(handle);
-    }, [renderData, onDirtyChangeRef]);
+    }, [renderData, onDirtyChangeRef, docLoading]);
 
     // Tauri: CLI just saved this window to disk on our behalf. Update the
     // baseline so subsequent dirty checks compare against the saved content.
@@ -558,8 +712,12 @@ export function Editor({
         // TocStoreProvider scopes one outline store to this editor (trigger
         // button, TocController, TocPanel); SearchStoreProvider scopes one
         // find/replace store (FindBar in the scroll container, FindMenuItem
-        // in the ⋯ menu — the menu entry IS the keyboard shortcut). Both are
-        // context only, no DOM wrapper — same posture as DOMDProvider.
+        // in the ⋯ menu — the menu entry IS the keyboard shortcut);
+        // VirtualStoreProvider scopes one DOM-virtualization store (window
+        // policy, scrollToBlock for TOC/find jumps, print materialization —
+        // inert while `virtualization` is off). All are context only, no DOM
+        // wrapper — same posture as DOMDProvider.
+        <VirtualStoreProvider>
         <TocStoreProvider>
         <SearchStoreProvider>
         {/* `embedded` (tabbed desktop shell) swaps the viewport-covering
@@ -580,6 +738,8 @@ export function Editor({
             {/* Outline engine + scroll spy; renders nothing, active only
                 while the TOC panel is open. */}
             <TocController scrollAreaRef={scrollAreaRef} />
+            {/* Pre-print full-DOM materialization seam; renders nothing. */}
+            <VirtualPrintBridge />
             <div
                 className="domd-editor-viewport absolute inset-x-0 flex flex-col"
                 style={
@@ -790,10 +950,24 @@ export function Editor({
                                     <button
                                         onClick={(e) => {
                                             e.currentTarget.blur();
-                                            exportToPdf(
-                                                domdRef.current,
-                                                getTitle() || meta.name,
-                                            );
+                                            // Under virtualization only the
+                                            // window is mounted; force the
+                                            // full document into the DOM for
+                                            // the synchronous clone inside
+                                            // exportToPdf, then restore.
+                                            void (async () => {
+                                                const release =
+                                                    await acquireFullDom();
+                                                try {
+                                                    exportToPdf(
+                                                        domdRef.current,
+                                                        getTitle() ||
+                                                            meta.name,
+                                                    );
+                                                } finally {
+                                                    release();
+                                                }
+                                            })();
                                         }}
                                     >
                                         {t("editor.exportPdf")}
@@ -826,7 +1000,17 @@ export function Editor({
                         {isEditable ? <FindBar /> : null}
                         <div className="max-w-3xl mx-auto px-6 py-8">
                             <div ref={domdRef}>
-                                <DOMD />
+                                {/* VirtualViewport feeds the kernel's
+                                    RenderWindowContext from scroll position +
+                                    measured heights; with mode "off" it
+                                    provides null and the editor renders the
+                                    classic full-DOM path. */}
+                                <VirtualViewport
+                                    scrollRef={scrollAreaRef}
+                                    mode={virtualization}
+                                >
+                                    <DOMD />
+                                </VirtualViewport>
                                 {isEditable && <CustomCursor />}
                             </div>
                         </div>
@@ -838,5 +1022,6 @@ export function Editor({
         </div>
         </SearchStoreProvider>
         </TocStoreProvider>
+        </VirtualStoreProvider>
     );
 }

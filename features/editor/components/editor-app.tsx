@@ -224,7 +224,7 @@ function TitlebarBridge({
             t,
         });
         tauriCore().then(({ invoke }) => {
-            invoke("show_format_menu", { entries }).catch(() => {});
+            invoke("show_format_menu", { entries }).catch(() => { });
         });
     });
     useTauriEvent<string>("titlebar-format-command", (id) => {
@@ -242,7 +242,7 @@ function TitlebarBridge({
     useEffect(() => {
         tauriCore().then(({ invoke }) => {
             invoke("set_format_enabled", { enabled: canFormat }).catch(
-                () => {},
+                () => { },
             );
         });
     }, [canFormat]);
@@ -250,7 +250,7 @@ function TitlebarBridge({
     // Mirror the AI status light (enabled with at least one agent).
     useEffect(() => {
         tauriCore().then(({ invoke }) => {
-            invoke("set_ai_state", { active: aiActive }).catch(() => {});
+            invoke("set_ai_state", { active: aiActive }).catch(() => { });
         });
     }, [aiActive]);
 
@@ -300,6 +300,17 @@ export function EditorApp() {
 function EditorAppContent() {
     const { t } = useTranslation();
     const searchParams = useSearchParams();
+
+    // DOM virtualization tier for /editor: auto (window large documents by
+    // top-level block count). `?virtual=off|auto|always` overrides for
+    // testing/benchmarking — same convenience family as `?quickbar=1`.
+    const virtualParam = searchParams.get("virtual");
+    const virtualization =
+        virtualParam === "off" ||
+            virtualParam === "always" ||
+            virtualParam === "auto"
+            ? virtualParam
+            : "auto";
 
     // Initial state is always null/null so SSR (`output: "export"`) and the
     // first client render produce the same neutral placeholder — no hydration
@@ -385,10 +396,10 @@ function EditorAppContent() {
         meta === null
             ? null
             : meta.kind === "tauri"
-              ? meta.docId
-                  ? collabKeyForDoc(meta.docId)
-                  : null
-              : COLLAB_DRAFT_KEY;
+                ? meta.docId
+                    ? collabKeyForDoc(meta.docId)
+                    : null
+                : COLLAB_DRAFT_KEY;
     /** One-shot channel handover: when a live room dissolves, its final doc
      *  bytes move here in memory and the local session picks them up —
      *  same collaboration data, different channel. */
@@ -614,7 +625,7 @@ function EditorAppContent() {
                 active: collabRoom !== null,
                 peers: collabPeers.length,
                 versioning: versioningHandle !== null,
-            }).catch(() => {});
+            }).catch(() => { });
         });
     }, [collabRoom, collabPeers, versioningHandle]);
 
@@ -722,6 +733,7 @@ function EditorAppContent() {
             />
         ) : null;
 
+
     return (
         <div
             // With tabs the root becomes the column that gives the tab bar its
@@ -754,6 +766,7 @@ function EditorAppContent() {
                 key={version}
                 store={runtime}
                 renderComponent={CustomRender}
+                editable={false}
             >
                 <ImageDropHandler />
                 {/* Real DOM focus for the document a tab switch just brought
@@ -819,6 +832,7 @@ function EditorAppContent() {
                     sidePanel={sidePanel}
                     embedded={!isWeb}
                     onDirtyChange={isWeb ? undefined : markActiveTabDirty}
+                    virtualization={virtualization}
                 />
                 {/* Local collaboration session while AI is on without a
                     live room: same doc/versioning machinery over a no-op

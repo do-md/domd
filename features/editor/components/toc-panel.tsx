@@ -38,6 +38,7 @@ import {
     useTocStore,
     useTocStoreApi,
 } from "@do-md/toc";
+import { useVirtualStore, useVirtualStoreApi } from "@do-md/virtual";
 import {
     useSidePanelActive,
     useSidePanelApi,
@@ -80,6 +81,10 @@ export function TocController({
     const sidePanel = useSidePanelApi();
     const mac = useApplePlatform();
     const active = useSidePanelActive() === "toc";
+    // Under DOM virtualization headings may be unmounted — the spy then
+    // arbitrates over @do-md/virtual's height table instead of DOM rects.
+    const virtual = useVirtualStoreApi();
+    const virtualActive = useVirtualStore((s) => s.state.active);
 
     useEffect(() => {
         const handler = (event: KeyboardEvent) => {
@@ -100,8 +105,14 @@ export function TocController({
         if (!active) return;
         const container = scrollAreaRef.current;
         if (!container) return;
-        return bindTocSpy(toc, container);
-    }, [active, toc, scrollAreaRef]);
+        return bindTocSpy(
+            toc,
+            container,
+            virtualActive
+                ? { blockTop: (uuid) => virtual.blockViewportTop(uuid) }
+                : undefined,
+        );
+    }, [active, toc, scrollAreaRef, virtual, virtualActive]);
 
     return null;
 }
@@ -110,6 +121,7 @@ export function TocPanel({ onClose }: { onClose: () => void }) {
     const { t } = useTranslation();
     const { textAreaDomRef } = useEditorDom();
     const toc = useTocStoreApi();
+    const virtual = useVirtualStoreApi();
     const headings = useTocStore((s) => s.state.headings);
     const activeUuid = useTocStore((s) => s.state.activeUuid);
 
@@ -169,10 +181,26 @@ export function TocPanel({ onClose }: { onClose: () => void }) {
                                             const scope =
                                                 textAreaDomRef.current ??
                                                 document;
-                                            scrollToHeading(scope, h.uuid);
-                                            requestAnimationFrame(() =>
-                                                scrollToHeading(scope, h.uuid),
-                                            );
+                                            // Virtualized documents may not
+                                            // have the heading mounted:
+                                            // scrollToHeading reports false
+                                            // and the policy store pages it
+                                            // in — which then OWNS the whole
+                                            // scroll (its convergence loop
+                                            // would fight a scrollIntoView
+                                            // retry).
+                                            if (
+                                                !scrollToHeading(scope, h.uuid)
+                                            ) {
+                                                virtual.scrollToBlock(h.uuid);
+                                            } else {
+                                                requestAnimationFrame(() => {
+                                                    scrollToHeading(
+                                                        scope,
+                                                        h.uuid,
+                                                    );
+                                                });
+                                            }
                                         }}
                                         className={`block w-full truncate rounded px-2 py-1 text-left text-xs leading-5 transition-colors ${
                                             isActive

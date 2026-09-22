@@ -37,6 +37,7 @@ import {
     useSearchStore,
     useSearchStoreApi,
 } from "@do-md/search";
+import { useVirtualStore, useVirtualStoreApi } from "@do-md/virtual";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useApplePlatform } from "@/common/hooks/use-apple-platform";
@@ -173,6 +174,8 @@ export function FindBar() {
     const { t } = useTranslation();
 
     const search = useSearchStoreApi();
+    const virtual = useVirtualStoreApi();
+    const virtualActive = useVirtualStore((s) => s.state.active);
     const findInputRef = useRef<HTMLInputElement>(null);
 
     const open = useSearchStore((s) => s.state.open);
@@ -198,8 +201,21 @@ export function FindBar() {
     useEffect(() => {
         const container = textAreaDomRef.current;
         if (!storeApi || !container) return;
-        return bindSearchPainter(search, storeApi, container);
-    }, [search, storeApi, textAreaDomRef]);
+        // Virtualized documents: an off-window active match has no DOM to
+        // scroll to — the policy store pages its block into the window first,
+        // and the painter's mount-triggered repaint lands the precise scroll.
+        return bindSearchPainter(
+            search,
+            storeApi,
+            container,
+            virtualActive
+                ? {
+                      scrollToBlockFallback: (uuid) =>
+                          virtual.scrollToBlock(uuid),
+                  }
+                : undefined,
+        );
+    }, [search, storeApi, textAreaDomRef, virtual, virtualActive]);
 
     // Focus + select the find input on every open transition. This covers
     // both entry points (shortcut and menu) — the store owns the prefill, the

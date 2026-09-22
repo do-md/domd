@@ -69,6 +69,7 @@ import {
 } from "@/features/editor/components/toc-panel";
 import { SearchStoreProvider } from "@do-md/search";
 import { TocStoreProvider } from "@do-md/toc";
+import { VirtualStoreProvider } from "@do-md/virtual";
 import {
     MODE_TOGGLE_SHORTCUT,
     toggleEditorMode,
@@ -829,9 +830,13 @@ function CollabAppContent() {
                 {/* TocStoreProvider scopes one outline store to this editor
                     (header trigger, TocController, TocPanel);
                     SearchStoreProvider scopes one find/replace store (FindBar
-                    in the scroll container, FindMenuItem in the ⋯ menu). Both
-                    are context only, no DOM wrapper — same posture as the
-                    host editor. */}
+                    in the scroll container, FindMenuItem in the ⋯ menu);
+                    VirtualStoreProvider exists because those shared
+                    components reach for the virtualization store — /collab
+                    renders no VirtualViewport, so the store stays inert
+                    (full render). All are context only, no DOM wrapper —
+                    same posture as the host editor. */}
+                <VirtualStoreProvider>
                 <TocStoreProvider>
                 <SearchStoreProvider>
                 {/* Same input affordances as the host editor: format
@@ -1006,6 +1011,7 @@ function CollabAppContent() {
                 {!isViewer ? <QuickInputBar pin={keyboardPin} /> : null}
                 </SearchStoreProvider>
                 </TocStoreProvider>
+                </VirtualStoreProvider>
             </DOMDProvider>
             </div>
         </div>
