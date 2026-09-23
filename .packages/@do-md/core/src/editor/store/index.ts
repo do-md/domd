@@ -288,7 +288,22 @@ export class EditorStore extends ZenithStore<StoreState> {
         return this._onEnter_;
     }
 
+    /**
+     * The EFFECTIVE caret-adjacent reveal set — the single read path for
+     * "which syntax symbols are shown". Reveal is an editing affordance
+     * (symbols appear next to the caret so they can be edited), so it is
+     * null whenever there is no editing caret to reveal around: read-only
+     * surfaces (a click there still moves the DOM selection, and selection
+     * sync still records it, but nothing may be revealed) and "rich" mode
+     * (never reveals by definition).
+     *
+     * The raw state keeps tracking the caret in every mode: its writers
+     * (cursor setters, chain edits, programmatic streaming) stay oblivious
+     * to view policy, and flipping back to editable / "markdown" reveals the
+     * right symbols at once with no recompute step.
+     */
     public get paddingMdSymbols_() {
+        if (!this.isEditable || this.mode === "rich") return null;
         return this.state.editorState_.paddingMdSymbols_;
     }
 
