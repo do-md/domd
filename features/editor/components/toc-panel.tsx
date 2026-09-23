@@ -109,7 +109,12 @@ export function TocController({
             toc,
             container,
             virtualActive
-                ? { blockTop: (uuid) => virtual.blockViewportTop(uuid) }
+                ? {
+                      // Batch form: one geometry read per scroll frame for
+                      // the whole outline (a 10MB document has ~32k
+                      // headings).
+                      blockTops: (uuids) => virtual.blockViewportTops(uuids),
+                  }
                 : undefined,
         );
     }, [active, toc, scrollAreaRef, virtual, virtualActive]);
@@ -189,11 +194,17 @@ export function TocPanel({ onClose }: { onClose: () => void }) {
                                             // scroll (its convergence loop
                                             // would fight a scrollIntoView
                                             // retry).
-                                            if (
-                                                !scrollToHeading(scope, h.uuid)
+                                            // One owner per jump: when the
+                                            // virtualization store is active
+                                            // it owns the scroll end to end
+                                            // (ensureVisible), otherwise the
+                                            // plain DOM scroll applies.
+                                            if (virtual.ensureVisible(h.uuid)) {
+                                                // handled by the window
+                                                // policy
+                                            } else if (
+                                                scrollToHeading(scope, h.uuid)
                                             ) {
-                                                virtual.scrollToBlock(h.uuid);
-                                            } else {
                                                 requestAnimationFrame(() => {
                                                     scrollToHeading(
                                                         scope,

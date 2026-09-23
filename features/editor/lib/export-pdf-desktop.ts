@@ -11,13 +11,21 @@
 
 import { tauriCore, tauriDialog } from "@/common/lib/tauri";
 import { acquireFullDom } from "./print-materialize";
+import { isPersistBlocked, type PersistableStore } from "./persist-gate";
 
 /**
  * Run the full desktop export flow. Resolves once the PDF is written, or
  * immediately when the user cancels the save dialog. Throws on print
  * failure — callers decide how to surface it.
  */
-export async function exportToPdfDesktop(title: string): Promise<void> {
+export async function exportToPdfDesktop(
+    title: string,
+    store?: PersistableStore | null,
+): Promise<void> {
+    // Exporting a half-loaded document prints a truncated PDF and presents it
+    // as the document; same choke point as every other way bytes leave the
+    // editor.
+    if (store !== undefined && isPersistBlocked(store)) return;
     const safeTitle = (title || "document").trim() || "document";
     const { save } = await tauriDialog();
     const path = await save({

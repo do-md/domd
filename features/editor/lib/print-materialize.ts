@@ -24,9 +24,17 @@ export const registerPrintMaterializer = (fn: Materializer): (() => void) => {
     };
 };
 
-/** Force the full document into the DOM. Resolves once the render committed;
- *  the returned release restores the virtualized window (idempotent). */
+/** Force the full document into the DOM. Resolves once the render committed
+ *  (or after the materializer's own deadline — frames can stop arriving);
+ *  the returned release restores the virtualized window (idempotent).
+ *  ALWAYS call the release from a `finally`: a throwing export would
+ *  otherwise leave every block mounted for the rest of the session. */
 export const acquireFullDom = async (): Promise<() => void> => {
     if (!current) return () => {};
-    return current();
+    try {
+        return await current();
+    } catch {
+        // A materializer that fails must not block the export.
+        return () => {};
+    }
 };

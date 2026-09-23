@@ -78,6 +78,9 @@ export interface VirtualDomDriver {
     blockViewportTop(index: number): number | null;
     /** Ask for a fresh pass (measure + window recompute) on the next frame. */
     schedule(): void;
+    /** Viewport-coordinate top of content offset 0 (the editor root's top),
+     *  read once so batch queries need no further layout reads. */
+    contentOrigin?(): number | null;
 }
 
 export interface VirtualState {
@@ -130,8 +133,6 @@ export class VirtualStore extends ZenithStore<VirtualState> {
     /** Pending trailing rescan timer id (throttle tail). */
     private scanTimer_: ReturnType<typeof setTimeout> | null = null;
     private driver_: VirtualDomDriver | null = null;
-    /** One-entry cursor resolution cache (typing keeps the same block). */
-    private cursorCache_: { raw: string; index: number } | null = null;
     /** Diagnostic: full list pulls since attach (op-gating assertions). */
     public scanCount = 0;
 
@@ -144,7 +145,14 @@ export class VirtualStore extends ZenithStore<VirtualState> {
     /** Wire the engine to an editor store and scan immediately. Idempotent
      *  per editor; call the returned dispose (or detach()) on unmount. */
     public attach(editor: VirtualEditor): () => void {
-        if (this.editor_ === editor) return () => this.detach();
+        // The dispose is identity-guarded: a caller that attaches a NEW
+        // editor and only then runs the previous dispose (React effect
+        // cleanup order under a store swap) must not tear down the live
+        // attachment.
+        const disposeIfCurrent = () => {
+            if (this.editor_ === editor) this.detach();
+        };
+        if (this.editor_ === editor) return disposeIfCurrent;
         this.detach();
         this.editor_ = editor;
         this.scanCount = 0;
@@ -174,7 +182,7 @@ export class VirtualStore extends ZenithStore<VirtualState> {
             );
         }
         this.refresh_();
-        return () => this.detach();
+        return disposeIfCurrent;
     }
 
     public detach(): void {
@@ -186,7 +194,6 @@ export class VirtualStore extends ZenithStore<VirtualState> {
         }
         this.editor_ = null;
         this.rootUuid_ = "";
-        this.cursorCache_ = null;
         this.table.setBlocks([]);
         if (this.state.window !== null || this.state.active) {
             this.produce((draft) => {
@@ -240,8 +247,13 @@ export class VirtualStore extends ZenithStore<VirtualState> {
         this.refresh_();
     }
 
-    /** Viewport metrics from the binder: `viewTop` is the viewport's top in
-     *  content coordinates (px from the editor root's top). */
+    /**
+     * Viewport metrics, PUSH form. Deprecated in favor of
+     * `attachViewportProvider` (pull): a pushed value is stale the moment the
+     * frame loop stalls, which is exactly when a large document is loading —
+     * that staleness was the "scroll to the bottom shows only spacer" bug.
+     * Kept for headless callers that have no DOM to pull from.
+     */
     public setViewport(viewTop: number, viewportHeight: number): void {
         this.viewTop_ = viewTop;
         this.viewportHeight_ = viewportHeight;
@@ -266,10 +278,28 @@ export class VirtualStore extends ZenithStore<VirtualState> {
 
     // ------------------------------------------------------------ public API
 
+    /**
+     * Bring the block hosting `uuid` into view — THE scroll entry point for
+     * feature code (outline jumps, find navigation, anything that needs a
+     * block on screen).
+     *
+     * Why a service rather than each feature deciding: with virtualization on
+     * there must be exactly ONE owner of a jump's scroll. A feature that
+     * scrolls the DOM itself while this store converges on the same target
+     * fights it — the two align to different rules and can strand the target
+     * off-screen (observed, and the reason the find painter hands the whole
+     * navigation over). So: when virtualization is active this owns the
+     * scroll; when it is inactive it reports false and the caller uses its
+     * own DOM scroll, which is the pre-virtualization behavior.
+     */
+    public ensureVisible(uuid: string): boolean {
+        if (!this.state.active) return false;
+        return this.scrollToBlock(uuid);
+    }
+
     /** Scroll the editor so the block hosting `uuid` (top-level or nested)
      *  enters the viewport. False when the uuid cannot be resolved or no DOM
-     *  is bound. No-op scroll when virtualization is inactive — callers keep
-     *  their own scrollIntoView path for the mounted-DOM case. */
+     *  is bound. Prefer `ensureVisible` in feature code. */
     public scrollToBlock(uuid: string): boolean {
         if (!this.driver_) return false;
         const index = this.resolveIndex_(uuid);
@@ -287,6 +317,22 @@ export class VirtualStore extends ZenithStore<VirtualState> {
         const index = this.resolveIndex_(uuid);
         if (index === null) return null;
         return this.driver_.blockViewportTop(index);
+    }
+
+    /** Batch form of blockViewportTop: one root-geometry read for a whole
+     *  list of uuids (the TOC spy asks for the entire outline per frame). */
+    public blockViewportTops(uuids: string[]): (number | null)[] | null {
+        const driver = this.driver_;
+        if (!driver) return null;
+        const origin = driver.contentOrigin?.();
+        if (origin === null || origin === undefined) {
+            return uuids.map((uuid) => this.blockViewportTop(uuid));
+        }
+        return uuids.map((uuid) => {
+            const index = this.resolveIndex_(uuid);
+            if (index === null) return null;
+            return origin + this.table.offsetOf(index);
+        });
     }
 
     /** Keep a block mounted regardless of the window (external decorations).
@@ -345,7 +391,6 @@ export class VirtualStore extends ZenithStore<VirtualState> {
         const { rootUuid, blocks } = editor.getTopLevelBlocks();
         this.rootUuid_ = rootUuid;
         this.table.setBlocks(blocks);
-        this.cursorCache_ = null;
         this.refresh_(true);
     }
 
@@ -359,18 +404,16 @@ export class VirtualStore extends ZenithStore<VirtualState> {
         }
     }
 
+    /** uuid → top-level index, O(1) through the table's index (the scroll spy
+     *  asks once per heading per frame). Nested anchors (a span inside a list
+     *  item, a table cell) take one kernel hop to their top-level ancestor. */
     private resolveIndex_(uuid: string): number | null {
-        const blocks = this.table.blocks;
-        for (let i = 0; i < blocks.length; i++) {
-            if (blocks[i].uuid === uuid) return i;
-        }
-        // Nested anchor (span inside a list item, a table cell...) — ask the
-        // kernel for the top-level ancestor, then find it flat.
+        const direct = this.table.indexOfUuid(uuid);
+        if (direct !== -1) return direct;
         const topUuid = this.editor_?.getTopLevelUuid?.(uuid) ?? null;
         if (topUuid && topUuid !== uuid) {
-            for (let i = 0; i < blocks.length; i++) {
-                if (blocks[i].uuid === topUuid) return i;
-            }
+            const nested = this.table.indexOfUuid(topUuid);
+            if (nested !== -1) return nested;
         }
         return null;
     }
@@ -382,20 +425,10 @@ export class VirtualStore extends ZenithStore<VirtualState> {
         if (!uuid || !this.state.active || !this.driver_) return;
         const window = this.state.window;
         if (!window) return;
-        let index: number | null;
-        if (this.cursorCache_ && this.cursorCache_.raw === uuid) {
-            index = this.cursorCache_.index;
-            // Validate: the list may have shifted under the cache.
-            const block = this.table.blocks[index];
-            if (!block || block.uuid !== uuid) {
-                this.cursorCache_ = null;
-                index = this.resolveIndex_(uuid);
-            }
-        } else {
-            index = this.resolveIndex_(uuid);
-        }
+        // O(1) via the table's uuid index — this runs on every cursor change,
+        // i.e. every keystroke.
+        const index = this.resolveIndex_(uuid);
         if (index === null) return;
-        this.cursorCache_ = { raw: uuid, index };
         if (index < window.startIndex || index >= window.endIndex) {
             this.driver_.scrollToIndex(index, this.table.blocks[index].uuid);
         }

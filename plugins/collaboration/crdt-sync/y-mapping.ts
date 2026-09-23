@@ -56,12 +56,38 @@ export const setScalarFields = (
     else yNode.delete("isAutoFill");
 };
 
+/**
+ * Batched YArray insert.
+ *
+ * `Y.Array.insert` takes two very different paths: an INTEGRATED array (one
+ * already attached to a document) streams the content through
+ * `typeListInsertGenerics`, but an array that is still PRELIMINARY — which is
+ * every `new Y.Array()` before its `parent.set(...)` — falls back to
+ * `_prelimContent.splice(index, 0, ...content)`. That spread passes every
+ * element as a separate function argument, so a document with enough
+ * top-level blocks (a 10MB markdown file is ~190k) blows the call stack:
+ * `RangeError: Maximum call stack size exceeded`, and the document simply
+ * cannot enter collaboration.
+ *
+ * Inserting in fixed-size batches keeps every spread well under any engine's
+ * argument limit while producing the exact same array, in the same order, for
+ * both paths.
+ */
+const INSERT_BATCH = 2048;
+
+export const insertAll = <T>(target: Y.Array<T>, index: number, items: T[]) => {
+    for (let offset = 0; offset < items.length; offset += INSERT_BATCH) {
+        const batch = items.slice(offset, offset + INSERT_BATCH);
+        target.insert(index + offset, batch);
+    }
+};
+
 export const toYNode = (json: SerializedRenderData): Y.Map<unknown> => {
     const yNode = new Y.Map<unknown>();
     setScalarFields(yNode, json);
     if (json.children) {
         const yChildren = new Y.Array<Y.Map<unknown>>();
-        yChildren.insert(0, json.children.map(toYNode));
+        insertAll(yChildren, 0, json.children.map(toYNode));
         yNode.set("children", yChildren);
     } else {
         yNode.set("text", json.text || "");
@@ -214,7 +240,7 @@ export const applyOpToY = (
         setScalarFields(rootNode, op.node);
         if (op.node.children) {
             const yChildren = new Y.Array<Y.Map<unknown>>();
-            yChildren.insert(0, op.node.children.map(toYNode));
+            insertAll(yChildren, 0, op.node.children.map(toYNode));
             rootNode.set("children", yChildren);
         } else {
             rootNode.set("text", op.node.text || "");
@@ -260,7 +286,8 @@ export const applyOpToY = (
                 target.delete("children");
             } else {
                 const yChildren = new Y.Array<Y.Map<unknown>>();
-                yChildren.insert(
+                insertAll(
+                    yChildren,
                     0,
                     (op.value as SerializedRenderData[]).map(toYNode),
                 );

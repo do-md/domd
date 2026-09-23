@@ -69,12 +69,21 @@ import {
 } from "@/features/editor/components/toc-panel";
 import { SearchStoreProvider } from "@do-md/search";
 import { TocStoreProvider } from "@do-md/toc";
-import { VirtualStoreProvider } from "@do-md/virtual";
+import {
+    VirtualStoreProvider,
+    VirtualViewport,
+    materializeForPrint,
+    useVirtualStoreApi,
+} from "@do-md/virtual";
 import {
     MODE_TOGGLE_SHORTCUT,
     toggleEditorMode,
 } from "@/features/editor/lib/editor-mode";
 import { exportToPdf } from "@/features/editor/lib/export-pdf";
+import {
+    isPersistBlocked,
+    serializeForPersist,
+} from "@/features/editor/lib/persist-gate";
 import { saveDocument } from "@/features/editor/lib/save-document";
 import type { FileMeta } from "@/features/editor/lib/types";
 import {
@@ -182,6 +191,7 @@ function CollabMoreMenu({
 }) {
     const { t } = useTranslation();
     const store = useEditorStoreApi();
+    const virtual = useVirtualStoreApi();
     const mode = useEditorStore((s) => s.mode);
     const isEditable = useEditorStore((s) => s.isEditable);
     const renderData = useRenderData();
@@ -208,9 +218,10 @@ function CollabMoreMenu({
 
     const handleDownload = useCallback(async () => {
         if (saving) return;
+        const md = serializeForPersist(store, renderData);
+        if (md === null) return;
         setSaving(true);
         try {
-            const md = toMarkdown(renderData) ?? "";
             const result = await saveDocument(webMetaRef.current, md, getTitle);
             if (result.ok && result.meta.kind === "web") {
                 webMetaRef.current = result.meta;
@@ -224,7 +235,7 @@ function CollabMoreMenu({
         } finally {
             setSaving(false);
         }
-    }, [saving, renderData, getTitle]);
+    }, [saving, renderData, getTitle, store]);
 
     return (
         <div className="dropdown dropdown-end">
@@ -286,10 +297,27 @@ function CollabMoreMenu({
                     <button
                         onClick={(e) => {
                             e.currentTarget.blur();
-                            exportToPdf(
-                                contentRef.current,
-                                getTitle() || "Untitled",
-                            );
+                            // A half-loaded document must not be exported
+                            // (the PDF would be a truncated document
+                            // presented as the whole one).
+                            if (isPersistBlocked(store)) return;
+                            // Virtualized documents mount only the window, so
+                            // the clone exportToPdf takes would be one
+                            // viewport. Force the whole document in first,
+                            // exactly like the host editor's export.
+                            void (async () => {
+                                const release = await materializeForPrint(
+                                    virtual,
+                                );
+                                try {
+                                    exportToPdf(
+                                        contentRef.current,
+                                        getTitle() || "Untitled",
+                                    );
+                                } finally {
+                                    release();
+                                }
+                            })();
                         }}
                     >
                         {t("editor.exportPdf")}
@@ -356,7 +384,15 @@ function GuestEditorSurface({
             {isEditable ? <FindBar /> : null}
             <div className="max-w-3xl mx-auto px-6 py-8">
                 <div ref={contentRef}>
-                    <DOMD />
+                    {/* DOM virtualization, same tier as /editor (auto,
+                        package default threshold): a shared document can be
+                        just as large as a local one, and prin-50705d says
+                        /collab keeps parity with /editor. Read-only viewers
+                        benefit identically — the window is a render policy,
+                        not an editing feature. */}
+                    <VirtualViewport scrollRef={scrollAreaRef} mode="auto">
+                        <DOMD />
+                    </VirtualViewport>
                     {isEditable && <CustomCursor />}
                 </div>
             </div>
@@ -831,11 +867,11 @@ function CollabAppContent() {
                     (header trigger, TocController, TocPanel);
                     SearchStoreProvider scopes one find/replace store (FindBar
                     in the scroll container, FindMenuItem in the ⋯ menu);
-                    VirtualStoreProvider exists because those shared
-                    components reach for the virtualization store — /collab
-                    renders no VirtualViewport, so the store stays inert
-                    (full render). All are context only, no DOM wrapper —
-                    same posture as the host editor. */}
+                    VirtualStoreProvider scopes one DOM-virtualization store
+                    (the VirtualViewport around <DOMD/>, scrollToBlock for
+                    TOC/find jumps, print materialization) — /collab runs the
+                    same `auto` tier as /editor. All are context only, no DOM
+                    wrapper — same posture as the host editor. */}
                 <VirtualStoreProvider>
                 <TocStoreProvider>
                 <SearchStoreProvider>

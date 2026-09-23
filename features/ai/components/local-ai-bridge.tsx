@@ -25,6 +25,7 @@
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
 import { useEditorStoreApi } from "@do-md/core-react";
+import { useDocLoading } from "@/features/editor/hooks/use-doc-loading";
 import { useTranslation } from "react-i18next";
 import {
     attachRealtimeSync,
@@ -90,6 +91,11 @@ export function LocalAiBridge({
 }) {
     const { t } = useTranslation();
     const store = useEditorStoreApi();
+    // Same load gate as the collaboration bridges (task-7818c7): attaching a
+    // still-streaming document would mirror a PREFIX into the Y doc and
+    // persist it as the whole document, and the saved-doc branch would cancel
+    // the pending chunked append outright.
+    const docLoading = useDocLoading();
     const attachedRef = useRef(false);
 
     const onSessionRef = useRef(onSession);
@@ -102,7 +108,7 @@ export function LocalAiBridge({
     });
 
     useEffect(() => {
-        if (!store || attachedRef.current) return;
+        if (!store || docLoading || attachedRef.current) return;
         attachedRef.current = true;
 
         let cancelled = false;
@@ -212,7 +218,7 @@ export function LocalAiBridge({
         // Attach once per store/document; the locale-resolved display name
         // is intentionally frozen at attach time.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [store, docKey]);
+    }, [store, docKey, docLoading]);
 
     return null;
 }

@@ -45,6 +45,13 @@ export interface TocSpyOptions {
      * the classic DOM-only spy.
      */
     blockTop?: (uuid: string) => number | null;
+    /**
+     * Batch form of `blockTop`: viewport-coordinate tops for a whole list of
+     * block uuids, resolved from ONE geometry read. Preferred when available
+     * — the spy runs per scroll frame and a per-heading call re-reads layout
+     * for every entry of the outline. Entries may be null individually.
+     */
+    blockTops?: (uuids: string[]) => (number | null)[] | null;
 }
 
 /** Scroll events younger than this since a pinActive() are treated as the
@@ -134,10 +141,17 @@ export const bindTocSpy = (
         const containerRect = container.getBoundingClientRect();
         const anchorLine = containerRect.top + anchorOffset;
         const half = containerRect.top + container.clientHeight / 2;
+        // One geometry snapshot per pass: `blockTop` resolves a heading's
+        // position from the virtualization height table, and asking it per
+        // heading made every scroll frame re-read the editor root's rect
+        // (and, before the table gained a uuid index, rescan the block list).
+        // `blockTops` answers the whole outline from a single read.
+        const tops = options.blockTops?.(headings.map((h) => h.uuid)) ?? null;
         let previous: string | null = null;
-        for (const heading of headings) {
-            let top = options.blockTop?.(heading.uuid) ?? null;
-            if (top === null) {
+        for (let i = 0; i < headings.length; i++) {
+            const heading = headings[i];
+            let top = tops ? tops[i] : (options.blockTop?.(heading.uuid) ?? null);
+            if (top === null || top === undefined) {
                 const el = elementFor(heading.uuid);
                 if (!el) continue;
                 top = el.getBoundingClientRect().top;

@@ -25,6 +25,8 @@
  * verify-virtual-window harness).
  */
 import { ParentRenderData, RenderData } from "../../type";
+import { getRenderDataById } from "../../model/tree/getRenderDataById";
+import { getTopLevelRenderDataById } from "../../model/tree/getTopLevelRenderDataById";
 
 /** The window seam value a virtualization policy provides. */
 export interface RenderWindow {
@@ -46,22 +48,14 @@ export type RenderWindowSegment =
     | { kind: "spacer"; key: "top" | "bottom"; height: number }
     | { kind: "blocks"; from: number; to: number };
 
+/** Whether `uuid` is `node` or lives anywhere beneath it. One shared walker
+ *  (the model layer's own) instead of a third private DFS. */
 const subtreeContains = (
     node: RenderData | ParentRenderData,
     uuid: string,
-): boolean => {
-    const stack: (RenderData | ParentRenderData)[] = [node];
-    while (stack.length) {
-        const current = stack.pop()!;
-        if (current.uuid_ === uuid) return true;
-        if (current.children_) {
-            for (let i = current.children_.length - 1; i >= 0; i--) {
-                stack.push(current.children_[i]);
-            }
-        }
-    }
-    return false;
-};
+): boolean =>
+    node.uuid_ === uuid ||
+    (!!node.children_ && getRenderDataById(uuid, node) !== null);
 
 /**
  * Index of the top-level block containing `uuid` (the block itself or any
@@ -90,9 +84,12 @@ export const resolveTopLevelIndex = (
     for (let i = 0; i < children.length; i++) {
         if (children[i].uuid_ === uuid) return i;
     }
+    // Nested anchor: one shared walk over the whole tree (the model layer's
+    // getTopLevelRenderDataById) rather than a per-child descent.
+    const top = getTopLevelRenderDataById(uuid, root);
+    if (!top) return null;
     for (let i = 0; i < children.length; i++) {
-        const child = children[i];
-        if (child.children_ && subtreeContains(child, uuid)) return i;
+        if (children[i] === top) return i;
     }
     return null;
 };

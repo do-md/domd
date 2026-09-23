@@ -17,6 +17,7 @@
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
 import { useEditorStoreApi } from "@do-md/core-react";
+import { useDocLoading } from "@/features/editor/hooks/use-doc-loading";
 import {
     hasWebImage,
     readWebImageBytes,
@@ -96,6 +97,7 @@ export function CollabBridge({
     onHandle?: (handle: RealtimeSyncHandle | null) => void;
 }) {
     const store = useEditorStoreApi();
+    const docLoading = useDocLoading();
     const attachedRef = useRef(false);
 
     // Synchronous render-time mark (idempotent): image components rendering
@@ -121,7 +123,18 @@ export function CollabBridge({
     onHandleRef.current = onHandle;
 
     useEffect(() => {
-        if (!store || attachedRef.current) return;
+        // Never attach a document that is still streaming in. Both attach
+        // branches would corrupt it (task-7818c7, same family as the
+        // task-54474e data loss):
+        //   - empty doc  -> the store's CURRENT snapshot seeds the Y doc, so a
+        //     prefix becomes the shared document and is persisted (and handed
+        //     to guests) as if it were the whole file;
+        //   - existing doc -> applyExternalRenderData replaces the tree AND
+        //     cancels the pending chunked append, permanently truncating the
+        //     model.
+        // The effect re-runs when the load finishes, so attaching is merely
+        // deferred, never skipped.
+        if (!store || docLoading || attachedRef.current) return;
         attachedRef.current = true;
 
         let cancelled = false;
@@ -255,9 +268,11 @@ export function CollabBridge({
             }
             attachedRef.current = false;
         };
-        // Attach once per mounted room session; identity changes remount via key.
+        // Attach once per mounted room session; identity changes remount via
+        // key. `docLoading` is a dependency so the deferred attach actually
+        // happens when a streaming document finishes loading.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [store]);
+    }, [store, docLoading]);
 
     return null;
 }
@@ -282,10 +297,13 @@ export function LocalCollabBridge({
     initialDocBytes: Uint8Array | null;
 }) {
     const store = useEditorStoreApi();
+    const docLoading = useDocLoading();
     const attachedRef = useRef(false);
 
     useEffect(() => {
-        if (!store || attachedRef.current) return;
+        // Same load gate as CollabBridge above: seeding (or hydrating over) a
+        // half-loaded document would persist a prefix as the whole document.
+        if (!store || docLoading || attachedRef.current) return;
         attachedRef.current = true;
 
         let doc: Y.Doc | undefined;
@@ -317,8 +335,10 @@ export function LocalCollabBridge({
             attachedRef.current = false;
         };
         // Attach once per mount; the closed-room identity never changes.
+        // `docLoading` is a dependency so a streaming document attaches as
+        // soon as it is complete.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [store]);
+    }, [store, docLoading]);
 
     return null;
 }

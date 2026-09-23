@@ -211,7 +211,7 @@ export function FindBar() {
             virtualActive
                 ? {
                       scrollToBlockFallback: (uuid) =>
-                          virtual.scrollToBlock(uuid),
+                          virtual.ensureVisible(uuid),
                   }
                 : undefined,
         );

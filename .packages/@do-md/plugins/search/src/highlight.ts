@@ -160,13 +160,23 @@ export interface SearchPainterOptions {
     /**
      * Called when the ACTIVE match's block is not in the DOM — under DOM
      * virtualization an off-window match has no elements to resolve a Range
-     * against. The callback (typically @do-md/virtual's `scrollToBlock`)
-     * scrolls the block into the render window; the painter then retries on
-     * the mount-triggered repaint and lands the precise scroll + highlight.
-     * Return false when the uuid cannot be resolved (the painter stops
-     * retrying that match). Without the option, behavior is exactly the
-     * pre-virtualization one: unresolvable active matches simply do not
-     * scroll.
+     * against.
+     *
+     * The callback (typically @do-md/virtual's `scrollToBlock`) takes over
+     * the WHOLE scroll for that navigation: it pages the block into the
+     * render window and converges on the final position itself across mount
+     * passes. The painter fires it once per navigation and then treats the
+     * navigation as handled — it deliberately does NOT re-scroll on the
+     * repaint that follows the mount, because two owners aligning the same
+     * target to different rules (centered range vs. top margin) fight each
+     * other and can strand the match off-screen. The return value is advisory
+     * (false = the uuid could not be resolved).
+     *
+     * Highlight painting is unaffected: the repaint after the mount paints
+     * the now-resolvable range like any other.
+     *
+     * Without the option, behavior is exactly the pre-virtualization one:
+     * unresolvable active matches simply do not scroll.
      */
     scrollToBlockFallback?: (blockUuid: string) => boolean;
 }
@@ -224,12 +234,12 @@ export const bindSearchPainter = (
                 lastActiveIndex = activeIndex;
                 scrollToRange(container, range);
             } else if (resolved && options.scrollToBlockFallback) {
-                // Virtualized: the block is unmounted. Hand the ENTIRE scroll
-                // to the fallback (it converges on the block across mount
-                // passes) and consume the navigation — a later scrollToRange
-                // would fight the fallback's own alignment, and with height
-                // estimates still settling the two owners can strand the
-                // match just outside the viewport.
+                // Virtualized: the block is unmounted. The fallback owns the
+                // ENTIRE scroll for this navigation — it converges on the
+                // block across mount passes, and a competing scrollToRange
+                // would fight its alignment. Fire it once per navigation
+                // (`lastFallbackIndex`) and mark the navigation consumed, so
+                // the repaint that follows the mount does not re-scroll.
                 if (activeIndex !== lastFallbackIndex) {
                     lastFallbackIndex = activeIndex;
                     options.scrollToBlockFallback(resolved.start.uuid);

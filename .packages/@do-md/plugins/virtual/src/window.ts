@@ -59,6 +59,10 @@ export const DEFAULT_TYPE_ESTIMATES: Record<string, number> = {
     Blockquote: 72,
     Ul: 88,
     Ol: 88,
+    // The kernel renders a horizontal rule as an `HrDiv` block; `Hr` is the
+    // inner element and never appears in the top-level summary, so the
+    // estimate has to be keyed by what getTopLevelBlocks() actually reports.
+    HrDiv: 29,
     Hr: 29,
     Img: 220,
     ImgGroup: 220,
@@ -76,12 +80,22 @@ const TUNE_MIN_SAMPLES = 4;
 
 export class HeightTable {
     private blocks_: BlockSummary[] = [];
+    /** uuid → index into blocks_. Maintained by setBlocks so every consumer
+     *  (scroll-spy geometry, cursor following, scrollToBlock) resolves a
+     *  block in O(1) instead of scanning: the TOC spy asks per heading on
+     *  every scroll frame, which was O(headings × blocks) — seconds per frame
+     *  with an outline open on a 10MB document. */
+    private index_ = new Map<string, number>();
     /** Measured heights by uuid — survives block-list rebuilds. */
     private measured_ = new Map<string, number>();
     /** Per-type running stats over first-time measurements (self-tuning). */
     private typeStats_ = new Map<string, { sum: number; count: number }>();
     /** prefix_[i] = sum of heights of blocks [0, i); length blockCount + 1. */
     private prefix_: number[] | null = null;
+    /** Lowest index whose height changed since the prefix was built; the next
+     *  read patches from here instead of rebuilding all of it. Infinity = the
+     *  prefix is current. */
+    private prefixDirtyFrom_ = Infinity;
 
     public get blockCount(): number {
         return this.blocks_.length;
@@ -92,10 +106,31 @@ export class HeightTable {
     }
 
     /** Swap in a fresh top-level block list (structural change). Measured
-     *  heights carry over by uuid. */
+     *  heights carry over by uuid; measurements for uuids that left the
+     *  document are dropped, so a long editing session cannot accumulate a
+     *  map of every block that ever existed. */
     public setBlocks(blocks: BlockSummary[]): void {
         this.blocks_ = blocks;
+        this.index_ = new Map();
+        for (let i = 0; i < blocks.length; i++) {
+            this.index_.set(blocks[i].uuid, i);
+        }
+        if (this.measured_.size > blocks.length) {
+            const kept = new Map<string, number>();
+            for (const block of blocks) {
+                const height = this.measured_.get(block.uuid);
+                if (height !== undefined) kept.set(block.uuid, height);
+            }
+            this.measured_ = kept;
+        }
         this.prefix_ = null;
+        this.prefixDirtyFrom_ = Infinity;
+    }
+
+    /** Index of the block with this uuid, or -1. O(1). */
+    public indexOfUuid(uuid: string): number {
+        const index = this.index_.get(uuid);
+        return index === undefined ? -1 : index;
     }
 
     public estimateFor(type: string): number {
@@ -128,7 +163,15 @@ export class HeightTable {
             this.typeStats_.set(type, stats);
         }
         this.measured_.set(uuid, height);
-        this.prefix_ = null;
+        // Only offsets AFTER this block move: remember the earliest one and
+        // patch the prefix from there on the next read.
+        const index = this.index_.get(uuid);
+        if (index === undefined) {
+            this.prefix_ = null;
+            this.prefixDirtyFrom_ = Infinity;
+        } else if (index < this.prefixDirtyFrom_) {
+            this.prefixDirtyFrom_ = index;
+        }
         return true;
     }
 
@@ -137,14 +180,27 @@ export class HeightTable {
     }
 
     private ensurePrefix_(): number[] {
-        if (this.prefix_) return this.prefix_;
         const n = this.blocks_.length;
+        if (this.prefix_ && this.prefixDirtyFrom_ === Infinity) {
+            return this.prefix_;
+        }
+        if (this.prefix_ && this.prefix_.length === n + 1) {
+            // Incremental patch: heights before the dirty index are unchanged,
+            // so only the tail of the running sum needs recomputing.
+            const prefix = this.prefix_;
+            for (let i = this.prefixDirtyFrom_; i < n; i++) {
+                prefix[i + 1] = prefix[i] + this.heightOf(i);
+            }
+            this.prefixDirtyFrom_ = Infinity;
+            return prefix;
+        }
         const prefix = new Array<number>(n + 1);
         prefix[0] = 0;
         for (let i = 0; i < n; i++) {
             prefix[i + 1] = prefix[i] + this.heightOf(i);
         }
         this.prefix_ = prefix;
+        this.prefixDirtyFrom_ = Infinity;
         return prefix;
     }
 

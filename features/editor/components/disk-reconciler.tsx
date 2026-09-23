@@ -28,6 +28,7 @@ import { useLatest } from "@/common/lib/use-latest";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { canonicalizeMd, setScratchStore } from "../lib/canonical-md";
 import { isKnownDiskContent, markKnownDiskContent } from "../lib/disk-sync";
+import { isPersistBlocked } from "../lib/persist-gate";
 import { splitFrontmatter } from "../lib/frontmatter";
 import { computeRangeEdits } from "../lib/md-diff";
 import type { FileMeta } from "../lib/types";
@@ -80,6 +81,14 @@ export function DiskReconciler({
     const reconcile = useCallback(async (force: boolean) => {
         const openMeta = metaRef.current;
         if (openMeta.kind !== "tauri" || !openMeta.path) return;
+        // Never reconcile into a document that is still streaming in. The
+        // model is a PREFIX, so the range diff below would splice the file's
+        // whole tail into it — and the pending chunked append would then add
+        // that same tail a second time (duplicated content), while
+        // markKnownDiskContent would tell the next autosave that the prefix
+        // is what the file holds. The watcher/focus triggers fire again after
+        // the load, and the post-load verification re-reads disk anyway.
+        if (isPersistBlocked(storeRef.current)) return;
         const path = openMeta.path;
         const { invoke } = await tauriCore();
         const raw = await invoke<string>("read_file", { path }).catch(

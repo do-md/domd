@@ -514,6 +514,102 @@ const md = (n: number) =>
 }
 
 // ---------------------------------------------------------------------------
+// uuid -> index map (review Wave 2): the TOC spy resolves every heading on
+// every scroll frame, followCursor_ on every keystroke, scrollToBlock on
+// every jump. All three used to scan the block array.
+{
+    const table = new HeightTable();
+    const blocks = summaries(
+        Array.from({ length: 5000 }, (_, i) => [`b${i}`, "P"] as [string, string]),
+    );
+    table.setBlocks(blocks);
+    check(
+        "index: resolves uuids to their position",
+        table.indexOfUuid("b0") === 0 &&
+            table.indexOfUuid("b2499") === 2499 &&
+            table.indexOfUuid("b4999") === 4999,
+    );
+    check("index: unknown uuid is -1", table.indexOfUuid("nope") === -1);
+
+    // Rebuilding the list re-indexes, and stale uuids stop resolving.
+    table.setBlocks(summaries([["z0", "P"], ["b4999", "P"]]));
+    check(
+        "index: rebuilt list re-indexes",
+        table.indexOfUuid("z0") === 0 &&
+            table.indexOfUuid("b4999") === 1 &&
+            table.indexOfUuid("b0") === -1,
+    );
+}
+{
+    // Measured heights are pruned to the blocks still in the document —
+    // otherwise a long session accumulates every uuid that ever existed.
+    const table = new HeightTable();
+    table.setBlocks(
+        summaries(
+            Array.from({ length: 50 }, (_, i) => [`g${i}`, "P"] as [string, string]),
+        ),
+    );
+    for (let i = 0; i < 50; i++) table.record(`g${i}`, 40 + i, "P");
+    check("prune: measurements recorded", table.isMeasured("g49"));
+    table.setBlocks(summaries([["g0", "P"], ["g1", "P"]]));
+    check(
+        "prune: measurements of departed blocks are dropped",
+        table.isMeasured("g0") && !table.isMeasured("g49"),
+    );
+    check(
+        "prune: surviving measurements keep their value",
+        table.heightOf(0) === 40,
+    );
+}
+{
+    // Incremental prefix patching must produce exactly the full-rebuild
+    // numbers (the offsets everything downstream is computed from).
+    const build = () => {
+        const t = new HeightTable();
+        t.setBlocks(
+            summaries(
+                Array.from({ length: 200 }, (_, i) => [`p${i}`, "P"] as [string, string]),
+            ),
+        );
+        return t;
+    };
+    const incremental = build();
+    const rebuilt = build();
+    // Incremental: read offsets (building the prefix), then measure in the
+    // middle and read again — the patch path.
+    incremental.offsetOf(200);
+    incremental.record("p100", 111, "P");
+    incremental.offsetOf(200);
+    incremental.record("p10", 222, "P");
+    const incTotal = incremental.total();
+    const incMid = incremental.offsetOf(150);
+    // Rebuild: same measurements, prefix built once at the end.
+    rebuilt.record("p100", 111, "P");
+    rebuilt.record("p10", 222, "P");
+    check(
+        "prefix: incremental patching matches a full rebuild",
+        incTotal === rebuilt.total() && incMid === rebuilt.offsetOf(150),
+        `${incTotal}/${rebuilt.total()} ${incMid}/${rebuilt.offsetOf(150)}`,
+    );
+    check(
+        "prefix: indexAt agrees after patching",
+        incremental.indexAt(incMid) === rebuilt.indexAt(incMid),
+    );
+}
+{
+    // HrDiv: the kernel reports horizontal rules as HrDiv at top level, so
+    // that is the key the estimate must live under.
+    const table = new HeightTable();
+    table.setBlocks(summaries([["hr", "HrDiv"]]));
+    check(
+        "estimate: HrDiv has a real estimate (not the generic fallback)",
+        table.estimateFor("HrDiv") === 29 &&
+            table.heightOf(0) === 29,
+        String(table.estimateFor("HrDiv")),
+    );
+}
+
+// ---------------------------------------------------------------------------
 if (failures.length) {
     console.error(`FAIL — ${passed} passed, ${failures.length} failed`);
     for (const f of failures) console.error("  ✗ " + f);

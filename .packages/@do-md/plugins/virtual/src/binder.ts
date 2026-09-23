@@ -240,7 +240,9 @@ export const bindVirtualViewport = (
             }
         }
 
-        store.setViewport(contentViewTop(root), container.clientHeight);
+        // Window recompute against the LIVE viewport (the provider reads the
+        // geometry itself — see VirtualStore.attachViewportProvider).
+        store.syncViewport();
     };
 
     const schedule = () => {
@@ -326,6 +328,10 @@ export const bindVirtualViewport = (
                 root.getBoundingClientRect().top + store.table.offsetOf(index)
             );
         },
+        contentOrigin: (): number | null => {
+            const root = rootEl();
+            return root ? root.getBoundingClientRect().top : null;
+        },
         schedule,
     };
     store.attachDomDriver(driver);
@@ -371,14 +377,28 @@ const cssEscape = (value: string): string =>
  *     const release = await materializeForPrint(virtualStore);
  *     try { ...clone DOM / invoke native print... } finally { release(); }
  */
+/** Frames can stop arriving entirely — a fully occluded window, a locked
+ *  screen, a WKWebView the OS suspended. Waiting on rAF without a deadline
+ *  would hang the export forever AND leave force-full latched (every block
+ *  mounted, virtualization off) for the rest of the session. */
+const MATERIALIZE_TIMEOUT_MS = 2000;
+
 export const materializeForPrint = async (
     store: VirtualStore,
 ): Promise<() => void> => {
     if (!store.state.active) return () => {};
     store.setForceFull(true);
-    await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-    );
+    await new Promise<void>((resolve) => {
+        let settled = false;
+        const done = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve();
+        };
+        const timer = setTimeout(done, MATERIALIZE_TIMEOUT_MS);
+        requestAnimationFrame(() => requestAnimationFrame(done));
+    });
     let released = false;
     return () => {
         if (released) return;

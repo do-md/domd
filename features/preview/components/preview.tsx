@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
     DOMD,
     DOMDProvider,
-    toMarkdown,
     useEditorStoreApi,
     useRenderData,
 } from "@do-md/core-react";
@@ -16,6 +15,8 @@ import {
 import { appInlineRules } from "@/features/editor/lib/inline-rules";
 import { loadImage } from "@/common/lib/image-storage";
 import { useLatest } from "@/common/lib/use-latest";
+import { useDocLoading } from "@/features/editor/hooks/use-doc-loading";
+import { serializeForPersist } from "@/features/editor/lib/persist-gate";
 
 type PreviewWindow = Window & {
     __DOMD_PREVIEW_CONTENT__?: string;
@@ -50,15 +51,23 @@ function GrammarReparseEffect() {
         () => 0,
     );
     const baseVersionRef = useRef(grammarVersion);
+    // A whole-document re-parse is a NEW BASELINE for the kernel: doing it
+    // while a large document is still streaming in discards the pending
+    // chunked append and freezes the model at the prefix it happens to hold
+    // (the mechanism behind the task-54474e data loss). The persistence choke
+    // point answers the same question here — "is this a whole document yet?"
+    // — and the effect re-runs when the load finishes.
+    const docLoading = useDocLoading();
     useEffect(() => {
         if (grammarVersion <= baseVersionRef.current) return;
-        if (!store) return;
+        if (!store || docLoading) return;
         const id = setTimeout(() => {
-            const md = toMarkdown(renderDataRef.current) ?? "";
+            const md = serializeForPersist(store, renderDataRef.current);
+            if (md === null) return;
             store.resetMD(md);
         }, 50);
         return () => clearTimeout(id);
-    }, [grammarVersion, store, renderDataRef]);
+    }, [grammarVersion, store, renderDataRef, docLoading]);
 
     return null;
 }

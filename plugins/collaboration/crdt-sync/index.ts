@@ -34,7 +34,6 @@ import * as Y from "yjs";
 import type { CrdtCapableStore } from "./types";
 import {
     ROOT_KEY,
-    Registry,
     applyOpToY,
     base64ToUint8,
     registerSubtree,
@@ -42,7 +41,12 @@ import {
     toYNode,
     uint8ToBase64,
     yNodeToJSON,
+    insertAll,
 } from "./y-mapping";
+// Type-only: Node's --experimental-strip-types (the verify harnesses) does no
+// import elision, so a type reached through a value import crashes at module
+// init.
+import type { Registry } from "./y-mapping";
 
 /** Transaction origin used when this plugin writes to the doc (for echo detection). */
 export const LOCAL_ORIGIN = "domd-crdt-sync-local";
@@ -82,7 +86,10 @@ export const attachCrdtSync = (
         doc.transact(() => {
             setScalarFields(rootNode, snapshot);
             const yChildren = new Y.Array<Y.Map<unknown>>();
-            yChildren.insert(0, (snapshot.children || []).map(toYNode));
+            // Batched: a preliminary Y.Array spreads its content as function
+            // arguments, which overflows the stack on large documents (see
+            // insertAll in ./y-mapping).
+            insertAll(yChildren, 0, (snapshot.children || []).map(toYNode));
             rootNode.set("children", yChildren);
         }, LOCAL_ORIGIN);
         registerSubtree(rootNode, registry);

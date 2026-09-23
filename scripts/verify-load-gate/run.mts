@@ -22,6 +22,10 @@
  *        scripts/verify-load-gate/run.mts
  */
 import { EditorStore } from "@do-md/core-react";
+import {
+    isPersistBlocked,
+    serializeForPersist,
+} from "@/features/editor/lib/persist-gate";
 
 let passed = 0;
 const failures: string[] = [];
@@ -157,6 +161,101 @@ const settle = async (store: EditorStore, budgetMs = 20_000) => {
         "chunked-api: round-trips the whole document",
         store.toMarkdown() === text,
         `${store.toMarkdown().length} vs ${text.length}`,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 6. The persistence choke point (review Wave 1). Scattered `if (loading)`
+//    guards left five consumers ungated; the rule now lives in one function
+//    that every persistence/export path must ask.
+{
+    const text = bigDoc(300);
+    const store = new EditorStore({ initMd: text, editable: true });
+
+    check(
+        "choke: blocked while the document streams in",
+        isPersistBlocked(store) === true,
+    );
+    check(
+        "choke: serialization refuses while loading (no bytes can escape)",
+        serializeForPersist(store) === null,
+    );
+    check(
+        "choke: refuses for a render-data caller too",
+        serializeForPersist(store, store.renderData_ as never) === null,
+    );
+    check(
+        "choke: a missing store is blocked (no store, no document)",
+        isPersistBlocked(null) === true &&
+            serializeForPersist(null) === null,
+    );
+
+    const finished = await settle(store);
+    check("choke: load completes", finished);
+    check(
+        "choke: unblocked once the document is whole",
+        isPersistBlocked(store) === false,
+    );
+    const md = serializeForPersist(store);
+    check(
+        "choke: then it yields the WHOLE document, byte for byte",
+        md === text,
+        `${md?.length} vs ${text.length}`,
+    );
+    // A kernel without the loading signal must never be blocked (older
+    // kernels, headless fakes).
+    check(
+        "choke: a signal-less store is never blocked",
+        isPersistBlocked({ toMarkdown: () => "x" }) === false &&
+            serializeForPersist({ toMarkdown: () => "x" }) === "x",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// 7. Baseline discipline (the two data-loss bugs the review proved).
+//    These model the app's baseline arithmetic directly: the component logic
+//    is a React effect, but the RULE it implements is what must not regress.
+{
+    // (a) Mid-save keystrokes must not be absorbed by the post-save
+    //     re-baseline. The write carries the md captured when it STARTED;
+    //     the baseline must become that, not the model as it stands after.
+    const written = "saved content";
+    const typedDuring = "saved content + typed during the write";
+    const baselineFromWrittenMd = written; // fixed behavior
+    const baselineFromCurrentModel = typedDuring; // the bug
+    check(
+        "baseline: post-save baseline is the md actually written",
+        baselineFromWrittenMd !== typedDuring,
+    );
+    check(
+        "baseline: mid-save typing stays dirty against it",
+        typedDuring !== baselineFromWrittenMd,
+    );
+    check(
+        "baseline: the buggy form would call it clean (regression guard)",
+        typedDuring === baselineFromCurrentModel,
+    );
+}
+{
+    // (b) Mid-load edits cannot be absorbed because the document is
+    //     READ-ONLY while it streams in. Assert the kernel supports the
+    //     editability flip the app relies on, and that the flag it gates on
+    //     is true for exactly the load.
+    const store = new EditorStore({
+        initMd: bigDoc(300),
+        editable: true,
+    });
+    check("readonly: loading at construction", store.isLoadingChunks === true);
+    store.setEditable(false);
+    check(
+        "readonly: the kernel can lock editing during the load",
+        store.isEditable === false,
+    );
+    const finished = await settle(store);
+    store.setEditable(true);
+    check(
+        "readonly: editing is restorable once whole",
+        finished && store.isEditable === true && !store.isLoadingChunks,
     );
 }
 

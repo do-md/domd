@@ -199,7 +199,7 @@ function TitlebarBridge({
         } catch {
             // getTitle can throw on a degenerate doc — fall back to the name.
         }
-        exportToPdfDesktop(title || docNameRef.current).catch((err) => {
+        exportToPdfDesktop(title || docNameRef.current, storeApi).catch((err) => {
             console.error("[export-pdf] failed:", err);
         });
     });
@@ -766,7 +766,6 @@ function EditorAppContent() {
                 key={version}
                 store={runtime}
                 renderComponent={CustomRender}
-                editable={false}
             >
                 <ImageDropHandler />
                 {/* Real DOM focus for the document a tab switch just brought

@@ -55,6 +55,7 @@ import { useDocLoading } from "../hooks/use-doc-loading";
 import { useLocalDraft } from "../hooks/use-local-draft";
 import { useTauriEvent } from "../hooks/use-tauri-event";
 import { saveDocument } from "../lib/save-document";
+import { isPersistBlocked, serializeForPersist } from "../lib/persist-gate";
 import { withFrontmatter } from "../lib/frontmatter";
 import { markKnownDiskContent } from "../lib/disk-sync";
 import { exportToPdf } from "../lib/export-pdf";
@@ -231,12 +232,36 @@ export function Editor({
     // re-parse below is gated on this — writing the prefix truncates the
     // user's file on disk (task-54474e).
     const docLoading = useDocLoading();
-    const docLoadingRef = useLatest(docLoading);
+    // A streaming document is READ-ONLY until it is whole. Two reasons, both
+    // data integrity: (1) an edit made mid-load is invisible to the
+    // load-completion re-baseline, which would absorb it into "this is what
+    // the file contains" and the keystrokes would never be written; (2) the
+    // tail is still being appended to the model, so an edit near the end
+    // races the appender. Refusing input for the load is honest; silently
+    // dropping it later is not. Restored to whatever editability the document
+    // had as soon as the last chunk lands.
+    const editableBeforeLoadRef = useRef<boolean | null>(null);
+    useEffect(() => {
+        if (!store?.setEditable) return;
+        if (docLoading) {
+            if (editableBeforeLoadRef.current === null) {
+                editableBeforeLoadRef.current = store.isEditable;
+                if (store.isEditable) store.setEditable(false);
+            }
+            return;
+        }
+        const previous = editableBeforeLoadRef.current;
+        editableBeforeLoadRef.current = null;
+        if (previous === true && !store.isEditable) store.setEditable(true);
+    }, [docLoading, store]);
     /** Markdown the document had when it was last known to match disk (as
      *  loaded, or as saved). "Dirty" means the model diverged from THIS —
      *  never from a prefix captured mid-load, and never because a view-level
      *  re-parse canonicalized the serialization. */
     const lastSavedMdRef = useRef<string>("");
+    /** Markdown handed to the current in-flight write; consumed by the
+     *  post-save re-baseline so concurrent typing is never absorbed. */
+    const writtenMdRef = useRef<string | null>(null);
     const onDirtyChangeRef = useLatest(onDirtyChange);
     const mac = useApplePlatform();
     // Which edge the single panel slot occupies is a property of the ACTIVE
@@ -383,11 +408,11 @@ export function Editor({
 
     const doSave = useCallback(
         async (data: ReturnType<typeof useRenderData>) => {
-            // Never persist a partially loaded document: the model is a
-            // prefix until the chunked load finishes, and writing it would
-            // truncate the file on disk.
-            if (docLoadingRef.current) return false;
-            const md = toMarkdown(data) ?? "";
+            // Every write goes through the persistence choke point; it
+            // refuses while the document is still streaming in (a prefix
+            // would truncate the file on disk).
+            const md = serializeForPersist(storeRef.current, data);
+            if (md === null) return false;
             const currentMeta = metaRef.current;
             // Opening a file must never rewrite it. The baseline below is the
             // document exactly as it was loaded, so an unchanged model means
@@ -406,9 +431,15 @@ export function Editor({
                 return true;
             }
             setSaving(true);
+            // What this write puts on disk. The post-save re-baseline reads
+            // it instead of re-serializing the (possibly newer) model.
+            writtenMdRef.current = md;
             try {
                 const result = await saveDocument(currentMeta, md, getTitle);
-                if (!result.ok) return false;
+                if (!result.ok) {
+                    writtenMdRef.current = null;
+                    return false;
+                }
                 onMetaUpdate(result.meta);
                 if (currentMeta.kind === "web") {
                     setSaved(true);
@@ -424,7 +455,7 @@ export function Editor({
                 setSaving(false);
             }
         },
-        [onMetaUpdate, metaRef, getTitle, docLoadingRef],
+        [onMetaUpdate, metaRef, getTitle, storeRef],
     );
 
     /** Unmount-time flush for useAutoSave: write the pending edit, touch
@@ -434,13 +465,13 @@ export function Editor({
      *  and, for the path-backed docs autosave applies to, changes no meta. */
     const flushSave = useCallback(
         async (data: ReturnType<typeof useRenderData>) => {
-            // Same gate as doSave: a view torn down mid-load must not write
-            // the prefix it happens to hold.
-            if (docLoadingRef.current) return;
-            const md = toMarkdown(data) ?? "";
+            // Same choke point as doSave: a view torn down mid-load must not
+            // write the prefix it happens to hold.
+            const md = serializeForPersist(storeRef.current, data);
+            if (md === null) return;
             await saveDocument(metaRef.current, md);
         },
-        [metaRef, docLoadingRef],
+        [metaRef, storeRef],
     );
 
     const doSaveRef = useRef(doSave);
@@ -562,8 +593,7 @@ export function Editor({
         // Treat the initial loaded content as the baseline for dirty detection.
         // Re-runs only when meta changes (new doc loaded into this window).
         lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [meta]);
+    }, [meta, renderDataRef]);
 
     // Load-completion verification (task-54474e). The baseline above is taken
     // while a big file is still streaming in, so it holds a PREFIX; without
@@ -606,10 +636,27 @@ export function Editor({
                     // Byte-faithful load: register the truth so even an
                     // explicit save short-circuits instead of touching mtime.
                     markKnownDiskContent(currentMeta.path!, full);
+                } else if (onDisk.startsWith(full.slice(0, -1))) {
+                    // The model is a PREFIX of the file: the load did not
+                    // finish (cancelled append, a crash mid-stream). This
+                    // document must never be written — writing it is exactly
+                    // the truncation of task-54474e — so it stays clean and
+                    // says so loudly.
+                    console.error(
+                        "[load-verify] INCOMPLETE load: the model is a prefix "
+                            + "of the file on disk; saving is suppressed",
+                        {
+                            path: currentMeta.path,
+                            model: full.length,
+                            disk: onDisk.length,
+                        },
+                    );
                 } else {
-                    // Benign in the common case (our canonical serialization
-                    // differs from the file's formatting); a genuine
-                    // divergence would also land here, so keep it visible.
+                    // Real divergence (our canonical serialization vs the
+                    // file's formatting, or a file that changed under us).
+                    // Report it as unsaved changes instead of silently
+                    // calling it clean: the editor's content is NOT what the
+                    // file holds, and the user is entitled to know.
                     console.warn(
                         "[load-verify] model differs from disk after load",
                         {
@@ -618,6 +665,7 @@ export function Editor({
                             disk: onDisk.length,
                         },
                     );
+                    onDirtyChangeRef.current?.(true);
                 }
             } catch {
                 // Unreadable file (deleted/renamed mid-load): leave the dirty
@@ -634,9 +682,11 @@ export function Editor({
         // published: Rust persists the reported content for dirty saved tabs
         // (flush_dirty_saved_tabs on window close / quit), so publishing a
         // prefix truncates the file even when no autosave ever ran.
-        if (docLoading) return;
         const handle = setTimeout(() => {
-            const md = toMarkdown(renderData) ?? "";
+            // Rust persists the content reported for dirty saved tabs, so the
+            // same choke point governs it.
+            const md = serializeForPersist(storeRef.current, renderData);
+            if (md === null) return;
             const isDirty = md !== lastSavedMdRef.current;
             onDirtyChangeRef.current?.(isDirty);
             tauriCore().then(({ invoke }) => {
@@ -646,7 +696,7 @@ export function Editor({
             });
         }, 150);
         return () => clearTimeout(handle);
-    }, [renderData, onDirtyChangeRef, docLoading]);
+    }, [renderData, onDirtyChangeRef, storeRef]);
 
     // Tauri: CLI just saved this window to disk on our behalf. Update the
     // baseline so subsequent dirty checks compare against the saved content.
@@ -669,11 +719,22 @@ export function Editor({
     const prevSavingRef = useRef(saving);
     useEffect(() => {
         if (prevSavingRef.current && !saving) {
-            lastSavedMdRef.current = toMarkdown(renderDataRef.current) ?? "";
-            // Clear the tab badge now rather than waiting for the next
-            // keystroke — a save does not itself change renderData, so the
-            // debounced effect above would not re-run.
-            onDirtyChangeRef.current?.(false);
+            // The baseline is the markdown that actually reached the disk —
+            // captured when the write started (writtenMdRef), NOT the model
+            // as it stands now. Typing during an in-flight save would
+            // otherwise be absorbed into the baseline: those keystrokes are
+            // on screen but not in the file, doSave's equality short-circuit
+            // then decides there is nothing to write, and they are lost at
+            // the next document switch.
+            const written = writtenMdRef.current;
+            if (written !== null) {
+                lastSavedMdRef.current = written;
+                writtenMdRef.current = null;
+            }
+            // Report the CURRENT dirtiness rather than a blanket "clean":
+            // edits made during the write are still unsaved.
+            const now = toMarkdown(renderDataRef.current) ?? "";
+            onDirtyChangeRef.current?.(now !== lastSavedMdRef.current);
         }
         prevSavingRef.current = saving;
     }, [saving, onDirtyChangeRef]);
@@ -955,6 +1016,13 @@ export function Editor({
                                             // full document into the DOM for
                                             // the synchronous clone inside
                                             // exportToPdf, then restore.
+                                            if (
+                                                isPersistBlocked(
+                                                    storeRef.current,
+                                                )
+                                            ) {
+                                                return;
+                                            }
                                             void (async () => {
                                                 const release =
                                                     await acquireFullDom();

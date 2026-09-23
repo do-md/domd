@@ -1,10 +1,8 @@
 import { ParentRenderData } from "../../../../../../type";
-import styles from "../../../../../../style/DOMD.module.css";
 import Renderer from "../../index";
 import { useEditorStore } from "../../../../../../store";
 import { EditorDomContext, RenderWindowContext } from "../../../../context";
-import { MarkdownType } from "../../../../../../type/enum";
-import { useContext, useMemo, useRef } from "react";
+import { useContext, useMemo, useState } from "react";
 import { memo } from "react";
 import { getRenderElementProps } from "../../../../../props/getRenderElementProps";
 import { DATA_RENDER_ID } from "../../../../../../../data-parse/constant";
@@ -39,10 +37,17 @@ const topLevelUuidOf = (node: Node | null): string | null => {
 
 /**
  * The LIVE DOM selection endpoints — the store's cursor state is
- * rAF-debounced, so during a drag the DOM can be a frame ahead of it. Any
- * render that could unmount blocks recomputes the plan, and the plan reads
- * the endpoints fresh here, so a selection endpoint can never be unmounted
- * by a window swap. View layer only; never runs while no window is set.
+ * rAF-debounced, so during a drag the DOM can be a frame ahead of it.
+ *
+ * This is a deliberate impurity inside the plan memo, and it is safe because
+ * of what the memo is FOR. The invariant: a block can only be unmounted by a
+ * render whose window changed, and a window change changes `renderWindow`'s
+ * identity, which invalidates the memo — so every render that could drop a
+ * block recomputes the plan against a freshly read selection. A render that
+ * does NOT recompute cannot unmount anything, which is exactly when a stale
+ * reading would be harmless. Re-running the factory extra times (React may)
+ * only repeats an idempotent read. View layer only; never runs while no
+ * window is set.
  */
 const domSelectionUuids = (): (string | null)[] => {
     if (typeof document === "undefined") return [];
@@ -68,18 +73,22 @@ function RootElement({ parsedData }: Props) {
         renderWindow ? (store.endCursorInfo_?.uuid ?? null) : null,
     );
     // uuid → top-level-index hints, validated per use inside the plan builder
-    // (a stale hint costs one subtree check and self-heals).
-    const hintCacheRef = useRef<Map<string, number> | null>(null);
-    if (hintCacheRef.current === null) hintCacheRef.current = new Map();
+    // (a stale hint costs one subtree check and self-heals). Lazily-created
+    // STATE, not a ref: the cache is read while rendering, and a ref read
+    // during render is both a lint error and a genuine hazard for values that
+    // affect output. This one cannot affect output — every entry is verified
+    // against the live tree before use and dropped when wrong — so holding it
+    // in state (stable identity, never set) keeps the memoization honest.
+    const [hintCache] = useState<Map<string, number>>(() => new Map());
     const plan = useMemo<RenderWindowSegment[] | null>(() => {
         if (!renderWindow) return null;
         return buildRenderWindowPlan(
             parsedData,
             renderWindow,
             [cursorStartUuid, cursorEndUuid, ...domSelectionUuids()],
-            hintCacheRef.current!,
+            hintCache,
         );
-    }, [parsedData, renderWindow, cursorStartUuid, cursorEndUuid]);
+    }, [parsedData, renderWindow, cursorStartUuid, cursorEndUuid, hintCache]);
     const props = getRenderElementProps(parsedData);
     return (
         <div
