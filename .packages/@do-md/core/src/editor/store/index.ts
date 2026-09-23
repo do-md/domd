@@ -572,10 +572,18 @@ export class EditorStore extends ZenithStore<StoreState> {
         return this._scrollAnchor_;
     }
 
+    /** Flip the surface between editable and read-only. Host/view state,
+     *  not a document edit: disableRecord, like setMode below, so a later
+     *  undo can never yank a just-promoted editor back to read-only (a
+     *  viewer unlocked by the host pressing Cmd+Z would otherwise have its
+     *  whole gesture surface re-gated by the history replay). */
     public setEditable(editable: boolean) {
-        this.produce((draft) => {
-            draft.editorState_.isEditable_ = editable
-        })
+        this.produce(
+            (draft) => {
+                draft.editorState_.isEditable_ = editable;
+            },
+            { disableRecord: true },
+        );
     }
 
     /** Hot-switch the display mode. View preference only: no model change,

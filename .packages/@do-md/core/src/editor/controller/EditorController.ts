@@ -1246,6 +1246,10 @@ export class EditorController {
     // restore, detach = unbind and NOTHING else. A host that keeps a store
     // alive across view unmounts (editor tabs, split view) gets its full
     // editing context back on every re-attach without managing any of it.
+    //
+    // Read-only is NOT part of this protocol: bind/unbind track the view's
+    // life, never the editable flag. What each gesture means on a read-only
+    // surface is owned by the listener registry below.
     // ======================================================================
 
     public init_() {
@@ -1288,63 +1292,145 @@ export class EditorController {
         this._replaySelection_(false);
     }
 
+    // ======================================================================
+    // Listener registry — the single admission point for gesture input.
+    //
+    // Every DOM listener is registered through registerListener_ with an
+    // explicit read-only policy; there is no other addEventListener path in
+    // this controller, so a handler cannot be wired up without deciding
+    // what read-only means for it:
+    //
+    //   "always"   — observation gestures: they keep the store's view-state
+    //                honest but never mutate the model on their own
+    //                (focus/blur bookkeeping, selection sync, copy). A
+    //                read-only document stays focusable, selectable and
+    //                copyable — and copy serializes markdown, which is the
+    //                read-only surface's whole contract.
+    //   "editable" — mutation gestures: while store.isEditable is false the
+    //                gate returns BEFORE the handler runs, so preventDefault
+    //                is never reached and the browser's native behavior
+    //                comes back by itself (text drags out of a viewer,
+    //                Cmd+Z falls through to the page, a click below a code
+    //                fence cannot grow an empty paragraph).
+    //
+    // The gate reads isEditable at EVENT time, not at bind time — that is
+    // what makes setEditable() a pure state flip (hosts flip it on a live
+    // instance: viewers promoted to editors, streaming surfaces unlocked
+    // after load). Rebinding listener sets on the flip was rejected
+    // deliberately: a half-torn-down set strands the composition state
+    // machine (compositionend unbound while duringComposition_ is true
+    // blocks every future flush), and tearing down mid-gesture leaves
+    // whatever half the browser already performed unowned.
+    //
+    // Two handlers serve both classes and are registered "always" with one
+    // internal wall each, documented at the wall: keydown (selection
+    // gestures above the wall, editing keys below) and compositionend (the
+    // state machine's closer must always run; its read-only branch closes
+    // without committing).
+    // ======================================================================
+
+    private _boundListeners_: {
+        target: EventTarget;
+        type: string;
+        listener: EventListener;
+    }[] = [];
+
+    private registerListener_(
+        target: EventTarget,
+        type: string,
+        // Contravariant parameter type: every concrete handler
+        // ((e: KeyboardEvent) => …, (e: ClipboardEvent) => …) is assignable
+        // here without a cast at the registration site. The single cast
+        // below re-asserts the type/event-object link in one place — the
+        // same link the DOM's own addEventListener overloads encode.
+        handler: (event: never) => unknown,
+        when: "always" | "editable",
+    ) {
+        const invoke = handler as (event: Event) => unknown;
+        const listener = (event: Event) => {
+            if (when === "editable" && !this._editorStore_.isEditable) {
+                return;
+            }
+            invoke(event);
+        };
+        target.addEventListener(type, listener);
+        this._boundListeners_.push({ target, type, listener });
+    }
+
     public enableListener_() {
+        // Idempotent: a second enable over a live set is a no-op, and
+        // disableListener_ removes exactly what was added.
+        if (this._boundListeners_.length) return;
         const dom = this._textAreaDom_;
-        dom.addEventListener("keydown", this.handleKeyDown_);
-        dom.addEventListener("keypress", this.handleKeyPress_);
-        dom.addEventListener("keyup", this.handleKeyUp_);
-        dom.addEventListener("mousedown", this.handleMouseDown_);
-        dom.addEventListener("click", this.handleClick_);
-        dom.addEventListener("compositionstart", this.handleCompositionStart_);
-        dom.addEventListener(
-            "compositionupdate",
-            this.handleCompositionUpdate_,
+
+        // Observation gestures — live on read-only surfaces too.
+        this.registerListener_(dom, "keydown", this.handleKeyDown_, "always");
+        this.registerListener_(
+            dom,
+            "compositionend",
+            this.handleCompositionEnd_,
+            "always",
         );
-        dom.addEventListener("compositionend", this.handleCompositionEnd_);
-        dom.addEventListener("beforeinput", this.handleBeforeInput_);
-        dom.addEventListener("input", this.handleInput_);
-        dom.addEventListener("paste", this.handlePaste_);
-        dom.addEventListener("cut", this.handleCut_);
-        dom.addEventListener("copy", this.handleCopy_);
-        dom.addEventListener("blur", this.handleBlur_);
-        dom.addEventListener("focus", this.handleFocus_);
-        dom.addEventListener("drop", this.handleDrop_);
-        dom.addEventListener("dragstart", this.handleDragStart_);
-        document.addEventListener(
+        this.registerListener_(dom, "copy", this.handleCopy_, "always");
+        this.registerListener_(dom, "blur", this.handleBlur_, "always");
+        this.registerListener_(dom, "focus", this.handleFocus_, "always");
+        this.registerListener_(
+            document,
             "selectionchange",
             this.handleSelectionChange_,
+            "always",
+        );
+
+        // Mutation gestures — inert while the store is read-only.
+        this.registerListener_(
+            dom,
+            "keypress",
+            this.handleKeyPress_,
+            "editable",
+        );
+        this.registerListener_(dom, "keyup", this.handleKeyUp_, "editable");
+        this.registerListener_(
+            dom,
+            "mousedown",
+            this.handleMouseDown_,
+            "editable",
+        );
+        this.registerListener_(dom, "click", this.handleClick_, "editable");
+        this.registerListener_(
+            dom,
+            "compositionstart",
+            this.handleCompositionStart_,
+            "editable",
+        );
+        this.registerListener_(
+            dom,
+            "compositionupdate",
+            this.handleCompositionUpdate_,
+            "editable",
+        );
+        this.registerListener_(
+            dom,
+            "beforeinput",
+            this.handleBeforeInput_,
+            "editable",
+        );
+        this.registerListener_(dom, "input", this.handleInput_, "editable");
+        this.registerListener_(dom, "paste", this.handlePaste_, "editable");
+        this.registerListener_(dom, "cut", this.handleCut_, "editable");
+        this.registerListener_(dom, "drop", this.handleDrop_, "editable");
+        this.registerListener_(
+            dom,
+            "dragstart",
+            this.handleDragStart_,
+            "editable",
         );
     }
 
     public disableListener_() {
-        const dom = this._textAreaDom_;
-        dom.removeEventListener("keydown", this.handleKeyDown_);
-        dom.removeEventListener("keypress", this.handleKeyPress_);
-        dom.removeEventListener("keyup", this.handleKeyUp_);
-        dom.removeEventListener("mousedown", this.handleMouseDown_);
-        dom.removeEventListener("click", this.handleClick_);
-        dom.removeEventListener(
-            "compositionstart",
-            this.handleCompositionStart_,
-        );
-        dom.removeEventListener(
-            "compositionupdate",
-            this.handleCompositionUpdate_,
-        );
-        dom.removeEventListener("compositionend", this.handleCompositionEnd_);
-        dom.removeEventListener("beforeinput", this.handleBeforeInput_);
-        dom.removeEventListener("input", this.handleInput_);
-        dom.removeEventListener("paste", this.handlePaste_);
-        dom.removeEventListener("cut", this.handleCut_);
-        dom.removeEventListener("copy", this.handleCopy_);
-        dom.removeEventListener("blur", this.handleBlur_);
-        dom.removeEventListener("focus", this.handleFocus_);
-        dom.removeEventListener("drop", this.handleDrop_);
-        dom.removeEventListener("dragstart", this.handleDragStart_);
-        document.removeEventListener(
-            "selectionchange",
-            this.handleSelectionChange_,
-        );
+        for (const { target, type, listener } of this._boundListeners_) {
+            target.removeEventListener(type, listener);
+        }
+        this._boundListeners_ = [];
     }
 
     private handleBeforeInput_ = (e: InputEvent) => {
@@ -1698,30 +1784,6 @@ export class EditorController {
         // Enter, Tab, IME). Command-level shortcuts are registered on window keydown
         // by the commands layer or by the host application.
 
-        // undo/redo — the platform's primary command modifier only. The old
-        // (metaKey || ctrlKey) form swallowed macOS's Ctrl+letter system
-        // bindings and Windows's Win+letter chords alike; shiftKey stays free
-        // (Cmd/Ctrl+Shift+Z = redo), every other extra modifier opts out.
-        // The letter matches by key cap (matchesLetterKey), not by position,
-        // so the binding survives non-QWERTY layouts.
-        if (
-            commandKey(e) &&
-            !foreignCommandKey(e) &&
-            !e.altKey &&
-            matchesLetterKey(e, "z")
-        ) {
-            e.preventDefault();
-            if (this._editorStore_.duringComposition) {
-                return;
-            }
-            if (e.shiftKey) {
-                this._editorStore_.redo();
-            } else {
-                this._editorStore_.undo();
-            }
-            return;
-        }
-
         // Select-all (⌘A on macOS, Ctrl+A elsewhere) — enter the select-all
         // terminal state (cursorInfo_.all_).
         // The modifier check is platform-exact. On macOS, Ctrl+A is the
@@ -1767,6 +1829,13 @@ export class EditorController {
         // inference rule); a desktop menu-item "Select All" click does not
         // either — hosts should route their menu item through the store
         // (the DOMD desktop Edit menu does exactly that).
+        // Deliberately ABOVE the read-only wall: select-all is a selection
+        // gesture, and with the always-on copy handler it completes the
+        // read-only surface (Cmd+A → Cmd+C yields the exact markdown). The
+        // WebKit native-select-all bug bites read-only viewers with overlay
+        // layers (remote cursors) just the same, so the takeover matters
+        // there too; every editing consumer of the terminal state sits
+        // below the wall.
         if (
             commandKey(e) &&
             !foreignCommandKey(e) &&
@@ -1810,6 +1879,40 @@ export class EditorController {
         // Check whether this is one of the cursor-moving keys
         if (keysThatMoveCursor.includes(e.key) || isSystemNavigationChord) {
             this._editorStore_.applyPendingText_();
+        }
+
+        // —— The read-only wall ——
+        // Everything ABOVE is a selection gesture (select-all, the
+        // speculative flush for caret motion — applyPendingText_ self-guards
+        // and pending input cannot exist while read-only anyway) and serves
+        // read-only surfaces too. Everything BELOW mutates the model
+        // (undo/redo, Enter, Backspace, Tab). Returning here — before any
+        // preventDefault — hands the keys straight back to the browser and
+        // the host page while the document is read-only.
+        if (!this._editorStore_.isEditable) return;
+
+        // undo/redo — the platform's primary command modifier only. The old
+        // (metaKey || ctrlKey) form swallowed macOS's Ctrl+letter system
+        // bindings and Windows's Win+letter chords alike; shiftKey stays free
+        // (Cmd/Ctrl+Shift+Z = redo), every other extra modifier opts out.
+        // The letter matches by key cap (matchesLetterKey), not by position,
+        // so the binding survives non-QWERTY layouts.
+        if (
+            commandKey(e) &&
+            !foreignCommandKey(e) &&
+            !e.altKey &&
+            matchesLetterKey(e, "z")
+        ) {
+            e.preventDefault();
+            if (this._editorStore_.duringComposition) {
+                return;
+            }
+            if (e.shiftKey) {
+                this._editorStore_.redo();
+            } else {
+                this._editorStore_.undo();
+            }
+            return;
         }
 
         switch (e.key) {
@@ -2230,13 +2333,13 @@ export class EditorController {
      * the normalized range; the store is fed through the ordinary
      * selectionchange path, not written here. Non-primary buttons,
      * shift-extended clicks, read-only mode and clicks that resolve to no
-     * render block (root scaffolding) are left native — nothing can edit
-     * across the spill in read-only mode, and the root-caret repair owns
-     * the scaffolding case.
+     * render block (root scaffolding) are left native (read-only through
+     * the registry's mutation-gesture policy, not an inline check) —
+     * nothing can edit across the spill in read-only mode, and the
+     * root-caret repair owns the scaffolding case.
      */
     private handleMouseDown_ = (e: MouseEvent) => {
         if (e.detail < 3 || e.button !== 0 || e.shiftKey) return;
-        if (!this._editorStore_.isEditable) return;
 
         // Click point → DOM position (Blink/WebKit caretRangeFromPoint,
         // Firefox caretPositionFromPoint — same fallback as handleDrop_).
@@ -2466,6 +2569,20 @@ export class EditorController {
     private handleCompositionUpdate_ = async () => { };
 
     private handleCompositionEnd_ = async (e: CompositionEvent) => {
+        // Registered "always": compositionend is the composition state
+        // machine's CLOSER, and the closer must run even if the document
+        // went read-only mid-composition (a collab role change, a host
+        // flipping setEditable under a live IME) — gating it away would
+        // strand duringComposition_ = true forever, blocking every future
+        // flush and the whole selectionchange sync. Read-only closes the
+        // machine but commits nothing; no preventDefault either — the DOM
+        // was never ours to own in that state.
+        if (!this._editorStore_.isEditable) {
+            this._editorStore_.setCompositionSnapshot_(null);
+            this._editorStore_.clearPendingFormatMarks_();
+            this._editorStore_.setDuringComposition_(false);
+            return;
+        }
         e.preventDefault();
         const snapshot = this._editorStore_.compositionSnapshot_;
         this._editorStore_.setCompositionSnapshot_(null);
@@ -2678,8 +2795,8 @@ export class EditorController {
     // the view calls setSelection synchronously after the DOM update, since writing
     // the selection is simply the closing act of rendering).
     //
-    // Reference React binding (behind the isEditable gate, matching the old
-    // <UseCursor/>):
+    // Reference React binding (replayCursor_ gates read-only internally, so
+    // the binding itself needs no isEditable check):
     //   const cursorInfo = useEditorStore((s) => s.cursorInfo_);
     //   useEffect(() => { controller.replayCursor_(); }, [cursorInfo]);
     // Vue: watch(cursorInfo, () => nextTick(replay)); Svelte: $effect + tick().
@@ -2689,6 +2806,13 @@ export class EditorController {
     // ======================================================================
 
     public replayCursor_() {
+        // Read-only surfaces never express the model cursor in the DOM:
+        // there is no kernel caret to keep honest, and rewriting the native
+        // selection would fight the user's own read-and-select gestures.
+        // The gate lives here so every framework binding inherits it — the
+        // React binding's conditional <UseCursor/> mount is defense in
+        // depth, not the contract.
+        if (!this._editorStore_.isEditable) return;
         this._replaySelection_(true);
     }
 
