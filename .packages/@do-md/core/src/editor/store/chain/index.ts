@@ -1,4 +1,5 @@
 import {
+    AnyNode,
     CursorInfo,
     CursorSource,
     InlineFormat,
@@ -12,6 +13,8 @@ import { getCursorInfoByParseData } from "../../model/cursor/getCursorInfoByPars
 import { getLastRender } from "../../model/tree/getLastRender";
 import { getNodeInfo } from "../../model/tree/getNodeInfo";
 import { getParentAndIndex } from "../../model/tree/getParentAndIndex";
+import { findEnclosingTableCell } from "../../model/tree/findEnclosingTableCell";
+import { blockTextLength } from "../../model/cursor/blockTextLength";
 import { getRenderDataById } from "../../model/tree/getRenderDataById";
 import { toMarkdown } from "../../model/serialize/toMarkdown";
 import { createEmptyP } from "../../../data-parse/create-render-data/createEmptyP";
@@ -42,6 +45,42 @@ const padIfEmptyCodeBlock = (before: string, after: string) =>
 // deep inside a nested structure (a table cell / a code line / an li), so we search
 // the subtree of every top-level child. Returns -1 when not found (the caller then
 // falls back to a full reparse).
+/**
+ * Keep a selection edit inside one table cell.
+ *
+ * Returns `cursorInfo` unchanged unless its two endpoints sit in DIFFERENT
+ * cells of `block`; in that case the later endpoint is pulled back to the end
+ * of the earlier one's cell, so the replacement can no longer span — and
+ * therefore no longer delete — the ` | ` that separates them.
+ *
+ * Clamping rather than editing both cells is deliberate: it needs no
+ * multi-cell edit primitive, and the failure it prevents is structural (a row
+ * losing a cell) while the cost is only that the second cell keeps text the
+ * user had also highlighted.
+ */
+const clampToOneTableCell_ = (
+    cursorInfo: CursorInfo[],
+    block: AnyNode,
+): CursorInfo[] => {
+    if (cursorInfo.length < 2) return cursorInfo;
+    const a = findEnclosingTableCell(cursorInfo[0].uuid, block);
+    const b = findEnclosingTableCell(cursorInfo[1].uuid, block);
+    if (!a || !b || a.cell === b.cell) return cursorInfo;
+
+    // Document order decides which end survives: the selection keeps its
+    // earlier endpoint and gives up the part that reached into another cell.
+    const firstIsA = a.order <= b.order;
+    const first = firstIsA ? a : b;
+    const lastIdx = firstIsA ? 1 : 0;
+
+    const tail = getLastRender(first.cell);
+    const out = cursorInfo.slice();
+    out[lastIdx] = tail
+        ? { ...cursorInfo[lastIdx], uuid: tail.uuid_, offset: blockTextLength(tail) }
+        : { ...cursorInfo[lastIdx], ...cursorInfo[firstIsA ? 0 : 1] };
+    return out;
+};
+
 const topLevelIndexOf = (id: string, root: RootRenderData): number => {
     const children = root.children_ || [];
     for (let i = 0; i < children.length; i += 1) {
@@ -603,6 +642,21 @@ export const editorStateChainable = (
 
             if (start === end) {
                 const block = root.children_[start];
+                // A selection may not delete a table cell boundary.
+                //
+                // A table is ONE top-level block, so both endpoints of a
+                // cross-cell selection land here. The serialization below
+                // replaces everything between the two cursor markers, and in
+                // markdown that span contains the ` | ` separating the cells:
+                // deleting it merges them and leaves the row a cell short,
+                // which no longer round-trips as a grid. Between paragraphs
+                // that same merge is the correct outcome, which is why this
+                // is scoped to cells rather than to cross-block edits.
+                //
+                // The edit is clamped to the cell the selection starts in —
+                // the other cells keep their content, and the structure is
+                // never the thing an edit destroys.
+                cursorInfo = clampToOneTableCell_(cursorInfo, block);
                 const text = toMarkdown(block, cursorInfo);
                 const array = text.split(CursorMarker);
                 // Both endpoints sit inside this block, so there is at least
