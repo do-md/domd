@@ -776,5 +776,95 @@ const roundTrips = (store: EditorStore): boolean => {
     check("dirty-lib: round-trips", roundTrips(store));
 }
 
+// ---------------------------------------------------------------------------
+// 20. EXACT DIRTY-SPAN FLUSH — the doubled-paren repro: `setTimeout(()` +
+//     typing ")" at the caret (end of the second "("). Neighbouring tokens
+//     share the same character, so the char diff is ambiguous and lands the
+//     changed region at the TAIL: the positional bumps hit the last old ")"
+//     while the span the browser actually wrote the character into (the
+//     caret's span) survives in the kept prefix — stale DOM text that
+//     compounds on the next getVisibleDomText read. The view layer therefore
+//     resolves the caret span's uuid and passes it into resetTextByUUID_,
+//     which bumps exactly that span when the merge keeps it.
+// ---------------------------------------------------------------------------
+{
+    // Single-char punctuation tokens, identifiers whole — mirrors Prism.
+    const tokenizer = (code: string): string[] =>
+        code.match(/[A-Za-z_$][\w$]*|\s+|[^\s]/g) || [];
+    const initMd = "```js\nsetTimeout(()\n```";
+    const newText = "```js\nsetTimeout(())\n```";
+    const findPre = (s: EditorStore) =>
+        s.renderData_.children_.find(
+            (c: AnyNode) => c.htmlType_ === MarkdownType.Pre,
+        ) as ParentRenderData;
+    const findPreCode = (s: EditorStore) =>
+        findPre(s).children_!.find(
+            (c) => c.htmlType_ === MarkdownType.PreCode,
+        ) as ParentRenderData;
+
+    const store = new EditorStore({
+        editable: true,
+        initMd,
+        codeTokenizer: tokenizer as any,
+    });
+    const preCode0 = findPreCode(store);
+    const spans0 = [...preCode0.children_!];
+    check(
+        "dirty-exact: token layout as expected",
+        spans0.map((s) => s.text_).join("|") === "setTimeout|(|(|)",
+        spans0.map((s) => s.text_),
+    );
+    // The keystroke, as the controller drives it: the caret sat at the end of
+    // spans0[2] ("("), so that is the span the browser dirtied.
+    const dirtyUuid = spans0[2].uuid_;
+    store.chainProduceParsedData_((chain) => {
+        chain.resetTextByUUID_(findPre(store).uuid_, newText, dirtyUuid);
+    });
+    check(
+        "dirty-exact: text updated",
+        store.toMarkdown().includes("setTimeout(())"),
+        store.toMarkdown(),
+    );
+    const spans1 = findPreCode(store).children_!;
+    check(
+        "dirty-exact: caret span kept AND bumped (the fix)",
+        spans1[2].uuid_ === dirtyUuid && (spans1[2].domVersion_ || 0) === 1,
+        spans1.map((s) => `${s.text_}@${s.domVersion_ ?? "-"}`),
+    );
+    check(
+        "dirty-exact: positional tail bump still applies (fallback intact)",
+        spans1[3].uuid_ === spans0[3].uuid_ &&
+            (spans1[3].domVersion_ || 0) === 1 &&
+            spans1[4].uuid_ !== spans0[3].uuid_,
+        spans1.map((s) => `${s.text_}@${s.domVersion_ ?? "-"}`),
+    );
+    check(
+        "dirty-exact: untouched prefix spans not bumped",
+        spans1[0].domVersion_ === undefined &&
+            spans1[1].domVersion_ === undefined,
+    );
+    check("dirty-exact: round-trips", roundTrips(store));
+
+    // Negative control — the same edit WITHOUT the dirty span uuid: the char
+    // diff alone cannot see the caret span (this is the documented gap the
+    // parameter exists for).
+    const store2 = new EditorStore({
+        editable: true,
+        initMd,
+        codeTokenizer: tokenizer as any,
+    });
+    const ctrlSpans0 = [...findPreCode(store2).children_!];
+    store2.chainProduceParsedData_((chain) => {
+        chain.resetTextByUUID_(findPre(store2).uuid_, newText);
+    });
+    const ctrlSpans1 = findPreCode(store2).children_!;
+    check(
+        "dirty-exact: control without uuid leaves caret span unbumped",
+        ctrlSpans1[2].uuid_ === ctrlSpans0[2].uuid_ &&
+            ctrlSpans1[2].domVersion_ === undefined,
+        ctrlSpans1.map((s) => `${s.text_}@${s.domVersion_ ?? "-"}`),
+    );
+}
+
 rawLog(`\n${passes} passed, ${failures} failed`);
 if (failures > 0) process.exit(1);

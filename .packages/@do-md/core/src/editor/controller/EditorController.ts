@@ -28,6 +28,7 @@ import { getOffsetTop } from "./lib/getOffsetTop";
 import { getDomByCursor } from "./lib/getDomByCursor";
 import { getRenderDomByID } from "./lib/getRenderDomByID";
 import { getClosestRenderDom } from "./lib/getClosestRenderDom";
+import { getClosestSpanRenderId } from "./lib/getClosestSpanRenderId";
 import { getIdByRenderDom } from "./lib/getIdByRenderDom";
 import { getVisibleRangeLength } from "./lib/getVisibleRangeLength";
 import { getLineExtent } from "./lib/getLineExtent";
@@ -1129,6 +1130,7 @@ export class EditorController {
                     renderElement,
                     renderUUID,
                     offset: index,
+                    commonAncestorContainer,
                 } = cursorInfo[0];
                 const renderData = getRenderDataById(
                     renderUUID,
@@ -1138,17 +1140,29 @@ export class EditorController {
 
                 if (renderData.htmlType_ === MarkdownType.PreCode) {
                     const preData = this.getParent_(renderData, 1);
-                    const text =
-                        preData?.children_[0].text_ +
-                        "\n" +
-                        this._editorStore_.insertCursorMarker_(
-                            getVisibleDomText(renderElement) || "",
-                            index,
-                        ) +
-                        "\n```";
-                    this._editorStore_.chainProduceParsedData_((chain) => {
-                        chain.resetTextByUUID_(preData?.uuid_!, text);
-                    });
+                    // The caret's span at input time is the one the browser
+                    // wrote the character into — hand it to the merge for the
+                    // exact dirty-DOM flush (the positional bumps alone miss
+                    // it when neighbouring tokens share the same characters).
+                    const dirtySpanUuid =
+                        getClosestSpanRenderId(commonAncestorContainer);
+                    if (preData) {
+                        const text =
+                            preData.children_[0].text_ +
+                            "\n" +
+                            this._editorStore_.insertCursorMarker_(
+                                getVisibleDomText(renderElement) || "",
+                                index,
+                            ) +
+                            "\n```";
+                        this._editorStore_.chainProduceParsedData_((chain) => {
+                            chain.resetTextByUUID_(
+                                preData.uuid_,
+                                text,
+                                dirtySpanUuid ?? undefined,
+                            );
+                        });
+                    }
                     this._editorStore_.setPendingInput_(null);
                     this._editorStore_.updatePaddingMdSybolsAfterRender_();
                 } else if (checkNeedRender(renderElement, this._editorStore_.inlineRules_?.triggerReg_ ?? null)) {

@@ -148,7 +148,21 @@ export const editorStateChainable = (
             }
             return this;
         },
-        resetTextByUUID_(id: string, text: string) {
+        /**
+         * @param dirtySpanUuid_ Exact dirty-DOM flush target: the uuid of the
+         * span the browser wrote speculative input into (the caret's span at
+         * input-event time, resolved by the view layer via
+         * getClosestSpanRenderId). The positional bumps inside the merge
+         * (changed-region neighbours) cannot see that span when identical
+         * characters make the character diff ambiguous — typing `)` before
+         * another `)` lands the diff at the tail while the browser dirtied
+         * the span at the caret, which then survives in the kept region with
+         * stale DOM text (the `setTimeout(())` doubled-paren incident). If
+         * the merge kept that span, bump its domVersion_ so React remounts
+         * it and rebuilds its DOM from the model: whoever was written dirty
+         * gets flushed, no guessing. The positional bumps stay as fallback.
+         */
+        resetTextByUUID_(id: string, text: string, dirtySpanUuid_?: string) {
             const draftRenderData = draft.renderData_;
             let findCursorInfo: CursorInfo | null = null;
             const newParsedData = parseMarkdown(text, {
@@ -196,6 +210,21 @@ export const editorStateChainable = (
                     uuidRemap,
                 )
             ) {
+                if (dirtySpanUuid_) {
+                    // A found node is by construction a kept old node (spans
+                    // inside the changed region were replaced with fresh
+                    // uuids, and a whole-block splice never reaches this
+                    // branch) — exactly the case where React would skip it
+                    // and the dirty character would survive.
+                    const dirtyNode = getRenderDataById(
+                        dirtySpanUuid_,
+                        oldNode as ParentRenderData,
+                    );
+                    if (dirtyNode) {
+                        dirtyNode.domVersion_ =
+                            (dirtyNode.domVersion_ || 0) + 1;
+                    }
+                }
                 if (newParsedData.children_.length > 1) {
                     parent.children_.splice(
                         index + 1,
