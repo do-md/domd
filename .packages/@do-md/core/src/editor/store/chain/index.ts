@@ -63,9 +63,16 @@ const clampToOneTableCell_ = (
     block: AnyNode,
 ): CursorInfo[] => {
     if (cursorInfo.length < 2) return cursorInfo;
+    // Only a table block can host two endpoints in different cells; every
+    // other block type returns unchanged without paying for the subtree
+    // walks below (this helper sits on the single-block path of EVERY
+    // selection edit, so plain-paragraph editing must not fund it).
+    if (block.htmlType_ !== MarkdownType.Table) return cursorInfo;
     const a = findEnclosingTableCell(cursorInfo[0].uuid, block);
     const b = findEnclosingTableCell(cursorInfo[1].uuid, block);
-    if (!a || !b || a.cell === b.cell) return cursorInfo;
+    // Same cell = same uuid; object identity would also work today but ties
+    // the check to how the draft proxies happen to cache nodes.
+    if (!a || !b || a.cell.uuid_ === b.cell.uuid_) return cursorInfo;
 
     // Document order decides which end survives: the selection keeps its
     // earlier endpoint and gives up the part that reached into another cell.
