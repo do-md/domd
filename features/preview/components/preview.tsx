@@ -6,6 +6,11 @@ import {
     useEditorStoreApi,
     useRenderData,
 } from "@do-md/core-react";
+import {
+    VirtualStoreProvider,
+    VirtualViewport,
+    type VirtualizationMode,
+} from "@do-md/virtual";
 import "@do-md/core-react/style.css";
 import {
     getGrammarVersion,
@@ -72,11 +77,24 @@ function GrammarReparseEffect() {
     return null;
 }
 
+// Same tier vocabulary as /editor's ?virtual= override; preview is a
+// read-only surface so "auto" is safe as the default (no cursor/selection
+// interplay, and the binder's beforeprint hook materializes for Cmd+P).
+function readVirtualizationMode(): VirtualizationMode {
+    if (typeof window === "undefined") return "auto";
+    const v = new URLSearchParams(window.location.search).get("virtual");
+    return v === "off" || v === "always" || v === "auto" ? v : "auto";
+}
+
 export function Preview() {
     const [content, setContent] = useState<string | null>(() =>
         typeof window === "undefined" ? null : readInitialContent(),
     );
     const [version, setVersion] = useState(0);
+    const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+    const [virtualization] = useState<VirtualizationMode>(
+        readVirtualizationMode,
+    );
 
     useEffect(() => {
         const src = new URLSearchParams(window.location.search).get("src");
@@ -105,7 +123,10 @@ export function Preview() {
     }
 
     return (
-        <div className="fixed inset-0 overflow-y-auto bg-base-100">
+        <div
+            ref={scrollAreaRef}
+            className="fixed inset-0 overflow-y-auto bg-base-100"
+        >
             <div className="px-6 py-8">
                 <DOMDProvider
                     key={version}
@@ -116,7 +137,18 @@ export function Preview() {
                     inlineRules={appInlineRules}
                 >
                     <GrammarReparseEffect />
-                    <DOMD />
+                    {/* Fresh policy store per document (inside the keyed
+                        subtree, same posture as /editor); VirtualViewport
+                        feeds the kernel's RenderWindowContext from the
+                        page's own scroll container. */}
+                    <VirtualStoreProvider>
+                        <VirtualViewport
+                            scrollRef={scrollAreaRef}
+                            mode={virtualization}
+                        >
+                            <DOMD />
+                        </VirtualViewport>
+                    </VirtualStoreProvider>
                 </DOMDProvider>
             </div>
         </div>
