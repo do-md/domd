@@ -387,7 +387,9 @@ set grows over time. Overrides are view-layer only: parsing, round-trip and sync
 them, and a component that throws during render falls back to the kernel's
 default element. Same hard contract as inline-rule components: root props from
 the two helpers, `RenderChildren` rendered verbatim, `viewOnlyProps` on every
-decoration. Overlays (previews, popovers) should render through a portal to
+decoration. The kernel maps every caret, selection and copy through the text
+`RenderChildren` renders; an override that prints the text itself (say
+`{href}` instead of `<RenderChildren />`) shifts all of them. Overlays (previews, popovers) should render through a portal to
 `document.body` so they never enter the editable DOM.
 
 ## Image groups (`imgGroupSeparators`)
@@ -521,6 +523,33 @@ emphasis content is ordinary text (`**/tmp/a.png**` holds a candidate). A
 complete path inside inline code can be decorated through the
 existing `MarkdownType.Code` override instead.
 
+## Copy and cut (`copyAs`)
+
+Copy and cut take their text from the model, not from the DOM, so a
+virtualized view copies the whole selection. The text is written synchronously
+through the event's own `clipboardData` as `text/plain`, which needs no
+clipboard permission and works inside iframes. `copyAs` picks the flavor, in
+editable and read-only views alike:
+
+- `"markdown"` (default) — the Markdown source of the selection (`**bold**`,
+  `[label](url)`). A paste into DOMD or any Markdown tool round-trips.
+- `"text"` — what a reader sees: no syntax symbols, link text without its URL,
+  a blank line between paragraphs, one line per list item or quote line,
+  tables as tab-separated rows, code blocks without fences, a thematic break
+  as `---`. For chat clients and viewers whose users paste into plain-text
+  fields.
+
+```tsx
+<DOMDProvider initMd={md} editable={false} copyAs="text">
+  <DOMD />
+</DOMDProvider>
+```
+
+Both flavors copy document text only: decorations marked with `viewOnlyProps`
+(badges, icons, a fetched page title) stay out of the clipboard. Like
+`renderComponent`, `copyAs` is a view preference: it also applies with a
+bring-your-own `store`, and it can change at any time.
+
 ## Embed / submit-on-Enter mode
 
 For chat-style inputs, rebind the "real newline" key so a bare Enter yields to the host
@@ -549,7 +578,7 @@ and fires `onEnter`:
   ["Headless usage"](#headless-usage-editorstore)).
 - **`StoreConstructorProps`** — the constructor's prop bag: `editable`
   (required) plus the same optional fields as `DOMDProvider` minus
-  `children`/`renderComponent` (`initMd`, `placeholder`, `imageLoader`,
+  `children`/`renderComponent`/`copyAs` (`initMd`, `placeholder`, `imageLoader`,
   `codeTokenizer`, `codeBeautify`, `htmlTokenizer`, `inlineRules`,
   `filePaths`, `newlineKey`, `onEnter`).
 
@@ -577,6 +606,8 @@ and fires `onEnter`:
 - **`renderComponent`** `Partial<Record<MarkdownType, ComponentType<RenderElementProps>>>`
   — replace kernel default elements (see
   ["Replacing default elements"](#replacing-default-elements-rendercomponent)).
+- **`copyAs`** `"markdown"` or `"text"` — what copy and cut put on the clipboard
+  (default `"markdown"`); see ["Copy and cut"](#copy-and-cut-copyas).
 - **`newlineKey`** `"Shift+Enter"` or `"Mod+Enter"` — rebind the newline key so bare
   Enter fires `onEnter`.
 - **`onEnter`** `(store: EditorStoreApi, event: KeyboardEvent) => void` — called on bare

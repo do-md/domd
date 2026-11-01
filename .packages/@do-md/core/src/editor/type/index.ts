@@ -243,6 +243,20 @@ export enum CursorSource {
 export type EditorMode = "markdown" | "rich";
 
 /**
+ * What copy and cut put on the clipboard (text/plain), in both editable and
+ * read-only views.
+ * - "markdown" (default): the Markdown source of the selection, so a paste
+ *   into DOMD or any Markdown tool round-trips.
+ * - "text": the selection as a reader sees it, with no syntax symbols:
+ *   paragraphs keep their blank line, list items and quote lines their line,
+ *   tables become tab-separated rows. For chat clients, viewers and any host
+ *   whose users paste into plain-text fields.
+ * Both are serialized from the model, never from the DOM, so a virtualized
+ * view copies the whole selection.
+ */
+export type CopyAs = "markdown" | "text";
+
+/**
  * Collapsed-cursor format arming (the sticky-marks input state): `format()`
  * on a collapsed caret inserts NOTHING — it arms marks for the NEXT text
  * insertion. Consumption is single-sourced in

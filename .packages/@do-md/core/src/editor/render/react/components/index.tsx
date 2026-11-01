@@ -10,6 +10,7 @@ import { useScrollMemory } from "../hooks/useScrollMemory";
 import { EditorController } from "../../../controller/EditorController";
 import { MarkdownType } from "../../../type/enum";
 import {
+    CopyAs,
     EditorMode,
     ImageLoader,
     InlineRule,
@@ -26,8 +27,21 @@ import {
     EditorStore,
 } from "../../../store";
 
-const EditorProvider = ({ children }: { children: React.ReactNode }) => {
+const EditorProvider = ({
+    children,
+    copyAs,
+}: {
+    children: React.ReactNode;
+    copyAs: CopyAs;
+}) => {
     const textAreaDomRef = useRef<HTMLDivElement>(null);
+    // A view preference read at copy/cut time: the controller pulls the
+    // latest committed value through a getter, so switching it never
+    // rebuilds the controller (and never re-binds its listeners).
+    const copyAsRef = useRef(copyAs);
+    useEffect(() => {
+        copyAsRef.current = copyAs;
+    }, [copyAs]);
     // The editable root's DOM node mirrored into state, so its arrival and
     // departure drive the controller effect below. A plain ref cannot: React
     // never re-renders on ref writes, and this provider does NOT unmount with
@@ -62,6 +76,7 @@ const EditorProvider = ({ children }: { children: React.ReactNode }) => {
         const editorController = new EditorController({
             textAreaDom,
             editorStore: editorStore,
+            getCopyAs: () => copyAsRef.current,
         });
         editorController.init_();
         setEditor(editorController);
@@ -122,6 +137,7 @@ export const DOMDProvider = ({
     placeholder = "",
     mode = "markdown",
     renderComponent = {},
+    copyAs = "markdown",
     codeTokenizer,
     codeBeautify,
     htmlTokenizer,
@@ -162,6 +178,11 @@ export const DOMDProvider = ({
     renderComponent?: Partial<
         Record<MarkdownType, React.ComponentType<RenderElementProps>>
     >;
+    /** What copy and cut put on the clipboard: "markdown" (default, the
+     *  selection's Markdown source) or "text" (what a reader sees, no syntax
+     *  symbols). A view preference like renderComponent: applies with a
+     *  bring-your-own `store` too, and may change at any time. */
+    copyAs?: CopyAs;
     codeTokenizer?: (code: string, lang?: string) => (string | Token)[];
     htmlTokenizer?: (html: string) => Token[];
     codeBeautify?: (code: string, lang?: string) => string | undefined;
@@ -205,7 +226,7 @@ export const DOMDProvider = ({
             }}
         >
             <EditorRenderComponentContext.Provider value={renderComponent}>
-                <EditorProvider>{children}</EditorProvider>
+                <EditorProvider copyAs={copyAs}>{children}</EditorProvider>
             </EditorRenderComponentContext.Provider>
         </EditorStoreProvider>
     );

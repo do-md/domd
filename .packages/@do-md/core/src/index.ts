@@ -39,6 +39,7 @@ export type {
     DOMDProps,
     DOMDRef,
     EditorMode,
+    CopyAs,
     FormatState,
     MarkFormatState,
     InlineFormatMark,

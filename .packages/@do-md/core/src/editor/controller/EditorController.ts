@@ -1,4 +1,5 @@
 import {
+    CopyAs,
     CursorInfo,
     CursorSource,
     InlineFormatMark,
@@ -10,6 +11,7 @@ import { getCursorInfoByParseData } from "../model/cursor/getCursorInfoByParseDa
 import { getNodeInfo } from "../model/tree/getNodeInfo";
 import { getRenderDataById } from "../model/tree/getRenderDataById";
 import { toMarkdown } from "../model/serialize/toMarkdown";
+import { toPlainText } from "../model/serialize/toPlainText";
 import { getCursorInfo, getCursorInfoOfRange } from "./lib/getCursorInfo";
 import { CursorMarker, ZeroWidthSpace } from "../constant";
 import { isCursorAfterSymbol } from "../model/rich/isCursorAfterSymbol";
@@ -77,6 +79,9 @@ const RANGE_DELETE_INPUT_TYPES: Record<string, "forward" | "backward"> = {
 export type EditorProps = {
     textAreaDom: HTMLDivElement;
     editorStore: EditorStore;
+    /** Read at copy/cut time, so a host can switch the flavor without
+     *  rebuilding the controller. Absent = "markdown". */
+    getCopyAs?: () => CopyAs;
 };
 
 export class EditorController {
@@ -91,9 +96,12 @@ export class EditorController {
 
     private _parentMapEffectCleanup_: () => void;
 
-    constructor({ textAreaDom, editorStore }: EditorProps) {
+    private _getCopyAs_: () => CopyAs;
+
+    constructor({ textAreaDom, editorStore, getCopyAs }: EditorProps) {
         this._textAreaDom_ = textAreaDom;
         this._editorStore_ = editorStore;
+        this._getCopyAs_ = getCopyAs ?? (() => "markdown");
         this._parentMap_ = new WeakMap();
 
         this.updateParentMap_();
@@ -2704,7 +2712,7 @@ export class EditorController {
         // approximate select-all (a root-container endpoint has nowhere to insert
         // the marker); this path is exact.
         if (this._editorStore_.cursorInfo_.all_) {
-            copyTextToClipboard(toMarkdown(this._editorStore_.renderData_));
+            this.writeClipboard_(e, this.serializeDocument_());
             this._editorStore_.replaceAllContent_("");
             return;
         }
@@ -2717,13 +2725,16 @@ export class EditorController {
         const text = toMarkdown(this._editorStore_.renderData_, cursorInfo);
         const first = text.indexOf(CursorMarker);
         const last = text.lastIndexOf(CursorMarker);
+        // No marker landed: the coordinates resolve to nothing in the model,
+        // so there is nothing to cut.
+        if (first === -1) return;
+        // From the same coordinates as the deletion below, before the model
+        // changes.
+        const clipboardText = this.serializeSelection_(cursorInfo);
+        if (clipboardText !== null) this.writeClipboard_(e, clipboardText);
         // With a single marker (select-all, for instance) treat `before` as empty,
         // so the selection is not left behind in the document after the cut
         const before = first === last ? "" : text.slice(0, first);
-        const selected =
-            first === last
-                ? text.slice(0, first)
-                : text.slice(first + CursorMarker.length, last);
         const after = text.slice(last + CursorMarker.length);
         const newText = before + CursorMarker + after;
         let findCursorInfo: CursorInfo | null = null;
@@ -2741,37 +2752,74 @@ export class EditorController {
         if (findCursorInfo) {
             this._editorStore_.setCursorInfo_(findCursorInfo);
         }
-        copyTextToClipboard(selected);
     };
 
-    private handleCopy_ = async (e: ClipboardEvent) => {
-        e.preventDefault();
+    private handleCopy_ = (e: ClipboardEvent) => {
         // Select-all terminal state: emit the full serialization directly (the old
         // single-marker fallback could only approximate the full text; it is kept
         // around to serve root-container selections that never entered the terminal
         // state, such as the mobile OS's own select-all).
-        if (this._editorStore_.cursorInfo_.all_) {
-            copyTextToClipboard(toMarkdown(this._editorStore_.renderData_));
-            return;
-        }
-        const cursorInfo = getCursorInfo().map(this.adjustCursor_);
-        if (!cursorInfo.length) return;
+        const text = this._editorStore_.cursorInfo_.all_
+            ? this.serializeDocument_()
+            : this.serializeSelection_(
+                  getCursorInfo().map(this.adjustCursor_),
+              );
+        // A selection the model cannot address (no render coordinates) is
+        // left to the browser: native copy beats an empty clipboard.
+        if (text === null) return;
+        e.preventDefault();
+        this.writeClipboard_(e, text);
+    };
 
-        // @ts-ignore
-        const text = toMarkdown(this._editorStore_.renderData_, cursorInfo);
+    /** The serializer behind the host's copyAs flavor. Both read the model,
+     *  never the DOM: a virtualized view mounts only a window of blocks. */
+    private get clipboardSerializer_() {
+        return this._getCopyAs_() === "text" ? toPlainText : toMarkdown;
+    }
+
+    /** The whole document in the copyAs flavor (select-all terminal state). */
+    private serializeDocument_(): string {
+        return this.clipboardSerializer_(this._editorStore_.renderData_);
+    }
+
+    /**
+     * The clipboard text of a selection in the copyAs flavor, cut out of a
+     * marker-injected serialization of the whole model. Null when the
+     * coordinates resolve to nothing in the model.
+     */
+    private serializeSelection_(cursorInfo: CursorInfo[]): string | null {
+        if (!cursorInfo.length) return null;
+        const text = this.clipboardSerializer_(
+            this._editorStore_.renderData_,
+            cursorInfo,
+        );
         const first = text.indexOf(CursorMarker);
         const last = text.lastIndexOf(CursorMarker);
+        if (first === -1) return null;
         // Normal selection: two markers bracket the selection -> take what is
         // between them.
         // On select-all the start cursor may land on the root container so the start
         // marker never gets inserted, leaving only the trailing marker -> take
         // everything before it.
-        const selected =
-            first === last
-                ? text.slice(0, first)
-                : text.slice(first + CursorMarker.length, last);
-        copyTextToClipboard(selected);
-    };
+        return first === last
+            ? text.slice(0, first)
+            : text.slice(first + CursorMarker.length, last);
+    }
+
+    /**
+     * Write through the event's own DataTransfer, synchronously, as the
+     * Clipboard Events spec intends for copy/cut handlers: no permission
+     * prompt, no Permissions-Policy requirement inside iframes, nothing lost
+     * if the async Clipboard API is unavailable or rejects. The async API is
+     * only a fallback for an event that carries no DataTransfer.
+     */
+    private writeClipboard_(e: ClipboardEvent, text: string) {
+        if (e.clipboardData) {
+            e.clipboardData.setData("text/plain", text);
+        } else {
+            copyTextToClipboard(text);
+        }
+    }
 
     private handlePaste_ = async (e: ClipboardEvent) => {
         e.preventDefault();
