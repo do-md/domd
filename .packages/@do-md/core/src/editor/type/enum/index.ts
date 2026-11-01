@@ -58,6 +58,10 @@ export enum MarkdownType {
     FunctionTextHide = "FunctionTextHide",
     FunctionDel = "FunctionDel",
     Link = "Link",
+    /** Opt-in lexical candidate for a local file path. The visible child text
+     *  is the exact source; enable it with `filePaths` and replace the renderer
+     *  through renderComponent[MarkdownType.FilePath]. */
+    FilePath = "FilePath",
     EmptyPlain = "EmptyPlain",
     MdSymbol = "MdSymbol",
     Img = "Img",

@@ -107,6 +107,7 @@ export const editorStateChainable = (
     codeTokenizer?: (code: string, lang?: string) => Token[],
     inlineRules?: CompiledInlineRules,
     imgGroupSeparators?: string,
+    filePaths?: boolean,
 ) => {
     const api = {
         setPaddingMdSymbols_(mdSymbols: string[] | null) {
@@ -171,6 +172,7 @@ export const editorStateChainable = (
                 },
                 codeTokenizer_: codeTokenizer,
                 inlineRules_: inlineRules,
+                filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
             });
             // The markdown-text → tree seam: pre-split large plain-text spans.
@@ -539,6 +541,7 @@ export const editorStateChainable = (
                 },
                 codeTokenizer_: codeTokenizer,
                 inlineRules_: inlineRules,
+                filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
             });
             splitTextSpans(parseData);
@@ -618,6 +621,7 @@ export const editorStateChainable = (
                 },
                 codeTokenizer_: codeTokenizer,
                 inlineRules_: inlineRules,
+                filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
             });
             splitTextSpans(parseData);
@@ -735,6 +739,7 @@ export const editorStateChainable = (
                 },
                 codeTokenizer_: codeTokenizer,
                 inlineRules_: inlineRules,
+                filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
             });
             splitTextSpans(fragment);
@@ -794,6 +799,7 @@ export const editorStateChainable = (
                 },
                 codeTokenizer_: codeTokenizer,
                 inlineRules_: inlineRules,
+                filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
             });
             splitTextSpans(reparsedDoc);
@@ -841,6 +847,7 @@ export const editorStateChainable = (
                     : {}),
                 codeTokenizer_: codeTokenizer,
                 inlineRules_: inlineRules,
+                filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
             });
             splitTextSpans(fragment);
@@ -941,6 +948,7 @@ export const editorStateChainable = (
                 },
                 codeTokenizer_: codeTokenizer,
                 inlineRules_: inlineRules,
+                filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
             });
             splitTextSpans(reparsedDoc);
@@ -1232,6 +1240,7 @@ export const editorStateChainable = (
                 },
                 codeTokenizer_: codeTokenizer,
                 inlineRules_: inlineRules,
+                filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
             });
             splitTextSpans(newParsedData);

@@ -2730,6 +2730,7 @@ export class EditorController {
         const parseData = parseMarkdown(newText, {
             codeTokenizer_: this._editorStore_.codeTokenizer_,
             inlineRules_: this._editorStore_.inlineRules_,
+            filePaths_: this._editorStore_.filePaths_,
             imgGroupSeparators_: this._editorStore_.imgGroupSeparators_,
             onCursorFound_: (cursorInfo: CursorInfo) => {
                 findCursorInfo = cursorInfo;

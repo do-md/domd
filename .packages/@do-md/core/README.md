@@ -457,6 +457,70 @@ const overrides = { [MarkdownType.ImgGroup]: Gallery };
 it), and collaborative peers must share the same value — same contract as
 `inlineRules`.
 
+## Local file path candidates (`filePaths`)
+
+Set `filePaths` to opt into lexical recognition of ordinary local paths in prose.
+The default is `false`, so existing documents keep their previous parse tree. Core
+only identifies source text: it never reads a file, expands `~` or a cwd, or decodes
+a URI. Any action associated with a candidate belongs to the caller.
+
+```tsx
+import {
+  DOMD, DOMDProvider, MarkdownType, RenderChildren,
+  getFilePathInfo, getRenderElementProps, getSpanRenderIdProps, viewOnlyProps,
+  type RenderElementProps,
+} from "@do-md/core-react";
+
+const FilePath = ({ parsedData }: RenderElementProps) => {
+  const info = getFilePathInfo(parsedData)!;
+  return (
+    <span
+      {...getRenderElementProps(parsedData)}
+      {...getSpanRenderIdProps(parsedData)}
+      onClick={() => onPathCandidate(info)}
+    >
+      <RenderChildren parsedData={parsedData} />
+      <span {...viewOnlyProps} className="file-icon">↗</span>
+    </span>
+  );
+};
+
+const overrides = { [MarkdownType.FilePath]: FilePath };
+
+<DOMDProvider initMd={md} filePaths renderComponent={overrides}>
+  <DOMD />
+</DOMDProvider>
+```
+
+`getFilePathInfo` returns `{ raw, path, kind, line?, column? }`. `raw` is the
+byte-exact visible candidate, including an optional `:line[:column]` or
+`#LlineCcolumn` suffix; `path` removes only that suffix. The parser recognizes
+`/absolute`, `~/home`, `./` and `../` paths, directory-relative files such as
+`reports/a.csv`, and local `file:///` / `file://localhost/` URIs. Unicode and
+balanced parentheses are kept verbatim.
+
+Extent follows GFM extended autolinks. An unquoted candidate never spans
+whitespace and also ends at sentence punctuation, including its full-width
+forms; trailing `.`, `,`, `:`, `;`, `!`, `?`, quotes and unbalanced closing
+brackets are left as text. To include spaces or such punctuation, quote the path:
+`"/Users/me/My Documents/report final.pdf"` is one candidate (the quotes stay
+ordinary surrounding text). A quote counts only when it is closed on the same
+line and its content does not end in whitespace; a `'` glued to a word on its
+outer side is an apostrophe (`it's`). When quoted text is not itself a path,
+the unquoted reading applies. Text in scripts
+written without spaces must still be separated from a path by a space or
+punctuation; otherwise the whole run reads as one relative path.
+
+Ambiguous prose stays conservative, quoted or not. An unprefixed relative path
+needs a file extension. An extensionless absolute path needs a common POSIX
+root such as `/tmp`, `/Users`, `/Volumes`, `/home`, `/var` or `/mnt`; this keeps
+route-like strings such as `/api/sessions` and `/login` as plain text. Markdown
+syntax keeps precedence: link destinations and text, images, inline and fenced
+code, escaped examples and HTTP/FTP URLs never contain a `FilePath`, while
+emphasis content is ordinary text (`**/tmp/a.png**` holds a candidate). A
+complete path inside inline code can be decorated through the
+existing `MarkdownType.Code` override instead.
+
 ## Embed / submit-on-Enter mode
 
 For chat-style inputs, rebind the "real newline" key so a bare Enter yields to the host
@@ -487,7 +551,7 @@ and fires `onEnter`:
   (required) plus the same optional fields as `DOMDProvider` minus
   `children`/`renderComponent` (`initMd`, `placeholder`, `imageLoader`,
   `codeTokenizer`, `codeBeautify`, `htmlTokenizer`, `inlineRules`,
-  `newlineKey`, `onEnter`).
+  `filePaths`, `newlineKey`, `onEnter`).
 
 ### `DOMDProvider` props
 
@@ -504,6 +568,8 @@ and fires `onEnter`:
 - **`inlineRules`** `InlineRule[]` — declarative custom inline syntax (see
   ["Custom inline syntax"](#custom-inline-syntax-inlinerules)); replaces the default
   set (`defaultInlineRules`).
+- **`filePaths`** `boolean` — opt-in local-file path candidates (default `false`);
+  see ["Local file path candidates"](#local-file-path-candidates-filepaths).
 - **`imgGroupSeparators`** `string` — opt-in image grouping: the set of characters
   allowed between grouped images (`""` = touching only; `" "` = spaces; `", "` =
   commas/spaces). `\n` never qualifies. See
@@ -582,6 +648,9 @@ and fires `onEnter`:
   — kernel element root-prop builders; spread both on an override's root element.
 - **`MarkdownType`** — kernel element identity enum (the `renderComponent` key);
   typings declare the officially replaceable members.
+- **`getFilePathInfo(parsedData)`** → `FilePathInfo | null` — exact public payload
+  of a `MarkdownType.FilePath` node (`raw`, unresolved `path`, lexical `kind`, and
+  optional `line` / `column`).
 - **`DATA_VIEW_ONLY`** `string` — the underlying decoration-marker attribute name,
   for non-JSX consumers.
 - **`RenderElementProps`** — the single-prop signature shared by every kernel
@@ -591,7 +660,8 @@ and fires `onEnter`:
   (`ParentRenderData`). Opaque: hand it back to the kernel helpers rather than
   branching on its shape.
 - Types: **`InlineRule`**, **`InlineRuleVariant`**, **`InlineRuleParams`**,
-  **`InlineRuleComponentProps`**, **`RangeEdit`**, **`TextEdit`**,
+  **`InlineRuleComponentProps`**, **`FilePathInfo`**, **`FilePathKind`**,
+  **`RangeEdit`**, **`TextEdit`**,
   **`ReplaceResult`**, **`ReplaceEditResult`**, **`ReplaceFailureReason`**,
   **`StoreConstructorProps`**, **`EditorStoreApi`**, **`CursorInfo`**.
 

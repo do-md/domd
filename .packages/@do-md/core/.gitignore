@@ -80,3 +80,5 @@ scripts/verify-img-group/out.css
 scripts/verify-empty-blocks/out.mjs
 scripts/verify-table-after-paragraph/out.mjs
 scripts/verify-resolve-ranges/out.mjs
+scripts/verify-file-paths/out.mjs
+scripts/verify-file-paths/out.css

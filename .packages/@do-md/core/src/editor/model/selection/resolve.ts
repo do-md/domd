@@ -120,6 +120,7 @@ export interface ResolvedRange {
 export interface SelectionParseOptions {
     codeTokenizer_?: (code: string, lang?: string) => Token[];
     inlineRules_?: CompiledInlineRules;
+    filePaths_?: boolean;
     imgGroupSeparators_?: string;
 }
 
@@ -319,6 +320,7 @@ export const resolveOffsetToCursor = (
         },
         codeTokenizer_: options.codeTokenizer_,
         inlineRules_: options.inlineRules_,
+        filePaths_: options.filePaths_,
         imgGroupSeparators_: options.imgGroupSeparators_,
     });
     const cursor = found as CursorInfo | null;

@@ -47,6 +47,8 @@ export type {
     InlineRuleVariant,
     InlineRuleParams,
     InlineRuleComponentProps,
+    FilePathInfo,
+    FilePathKind,
     NewlineKey,
     AnyRenderData,
     ParentRenderData,
@@ -62,6 +64,10 @@ export type {
 // Declarative inline syntax: the shipped default rule set (== highlight),
 // composable by hosts: `inlineRules={[...defaultInlineRules, mySupRule]}`
 export { defaultInlineRules } from "./data-parse/inline-rules";
+
+// Opt-in local-file candidate payload. Core only identifies exact source text
+// and optional location suffixes; callers decide what to do with a candidate.
+export { getFilePathInfo } from "./editor/model/file-paths/getFilePathInfo";
 
 // View-only decoration contract for inline-rule `component` renders: spread
 // `viewOnlyProps` on badges/icons so they never enter the text pipeline.

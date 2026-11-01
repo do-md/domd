@@ -311,6 +311,19 @@ export interface EditorState {
 
 export type ImageLoader = (src: string) => Promise<string>;
 
+/** Lexical form of an opt-in local-file candidate. Core never resolves it. */
+export type FilePathKind = "absolute" | "home" | "relative" | "file-uri";
+
+/** Stable public payload returned by `getFilePathInfo`. `raw` includes an
+ *  optional location suffix; `path` excludes it and remains otherwise exact. */
+export interface FilePathInfo {
+    raw: string;
+    path: string;
+    kind: FilePathKind;
+    line?: number;
+    column?: number;
+}
+
 /**
  * Declarative inline syntax rule v2 (the `inlineRules` injection point).
  *
@@ -471,6 +484,11 @@ export interface StoreConstructorProps {
      * peers must inject the same set (same contract as codeTokenizer).
      */
     inlineRules?: InlineRule[];
+    /** Opt-in lexical recognition of ordinary local-file paths. Default false.
+     *  Parsing is platform-neutral and performs no IO, cwd/home expansion, or
+     *  URI decoding. Fixed at construction; collaborative peers must use the
+     *  same value. */
+    filePaths?: boolean;
     /**
      * Image-group aggregation switch + separator character set (opt-in). Passing
      * a value turns it on: ≥2 adjacent images at the top level of one P block are

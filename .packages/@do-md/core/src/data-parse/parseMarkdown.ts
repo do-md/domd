@@ -18,6 +18,9 @@ interface ParseConfig {
      *  parseInline falls back to COMPILED_DEFAULT_INLINE_RULES, so a call site
      *  that forgets to thread this degrades to legacy `==` behavior. */
     inlineRules_?: CompiledInlineRules;
+    /** Opt-in local-file candidate recognition. Every text→tree seam must
+     *  thread this through or edit reparses would silently lose FilePath nodes. */
+    filePaths_?: boolean;
     /** Set of characters allowed to separate images inside an image group
      *  (see parse/wrapImgGroups.ts). undefined = the wrap pass is off (the
      *  parse output stays node-for-node identical to older versions). Every
@@ -25,11 +28,15 @@ interface ParseConfig {
      *  miss one and the reparse output of that path loses its ImgGroup layer
      *  → the model forks. */
     imgGroupSeparators_?: string;
+    /** Internal scope, never set by a seam: true while parseInline is parsing
+     *  the text of a Markdown link. Links may not contain other links (GFM),
+     *  so the autolink recognizers (bare URLs, file paths) stay off there. */
+    inLinkText_?: boolean;
 }
 
 const stack: ParseConfig[] = [];
 
-function runWithParseContext<T>(cfg: ParseConfig, fn: () => T): T {
+export function runWithParseContext<T>(cfg: ParseConfig, fn: () => T): T {
     stack.push(cfg);
     try {
         return fn();

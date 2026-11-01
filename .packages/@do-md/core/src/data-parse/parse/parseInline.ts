@@ -4,7 +4,7 @@ import { nanoid8 } from "@do-md/utils";
 import { CursorMarker } from "../../editor/constant";
 import { createTextRenderData } from "../create-render-data/createTextRenderData";
 import { createParentRenderData } from "../create-render-data/createParentRenderData";
-import { getParseContext } from "../parseMarkdown";
+import { getParseContext, runWithParseContext } from "../parseMarkdown";
 import {
     BUILTIN_NEXT_CHAR,
     BUILTIN_RUN_LEN,
@@ -19,6 +19,7 @@ import {
     scanInlineCapture,
 } from "../inline-rule-params";
 import { InlineRuleParams } from "../../editor/type";
+import { matchFilePathAt } from "../file-paths";
 
 const imgReg = /^!\[[^\]]*\]\((.*?)\s*("(?:.*[^"])")?\s*\)/;
 const imgUrlReg = /\(([^)]+)\)/;
@@ -278,8 +279,9 @@ export const parseInline = ({
     // Declarative inline rules (host-injected via DOMDProvider, compiled in
     // the store). Fallback to the compiled defaults keeps `==` working for
     // any entry path that doesn't thread a ParseConfig.
+    const parseContext = getParseContext();
     const inlineRules =
-        getParseContext().inlineRules_ ?? COMPILED_DEFAULT_INLINE_RULES;
+        parseContext.inlineRules_ ?? COMPILED_DEFAULT_INLINE_RULES;
 
     for (
         let charIndex = 0, len = parseText_.length;
@@ -290,8 +292,12 @@ export const parseInline = ({
         // caught wherever it sits between other inline markup. Markdown link
         // forms (`[](url)`, `<url>`, `![](url)`) are consumed by their own
         // branches at the `[`/`<`/`!` position, so their inner URLs never reach
-        // this scan — no double-linkification.
-        if (URL_START_CHARS.has(parseText_[charIndex])) {
+        // this scan — no double-linkification. Link text is parsed with
+        // inLinkText_ set and gets no autolinks: links may not nest (GFM).
+        if (
+            !parseContext.inLinkText_ &&
+            URL_START_CHARS.has(parseText_[charIndex])
+        ) {
             // Require a boundary before the scheme so `shttp://x` (URL glued to
             // a word) is not linkified.
             const prevChar =
@@ -322,6 +328,57 @@ export const parseInline = ({
                 });
 
                 parseText_ = parseText_.slice(charIndex + url.length);
+                if (parseText_.length) {
+                    return parseInline({
+                        parseText_: parseText_,
+                        renderData_: renderData_,
+                    });
+                }
+                return "";
+            }
+        }
+
+        // Local-file candidates are an explicit opt-in, recognized under the
+        // same rules as the bare URL autolink above: link destinations, image
+        // sources, code spans and escapes are consumed by their own branches
+        // and never reach this scan, and link text gets no candidates (a path
+        // there would be an interactive element nested inside the link).
+        // Emphasis content is ordinary inline text, so `**/tmp/a.png**` holds
+        // a candidate. The node is a transparent container around the exact
+        // source: no hidden syntax, no normalization, and therefore no
+        // serializer special case.
+        if (parseContext.filePaths_ && !parseContext.inLinkText_) {
+            const candidate = matchFilePathAt(parseText_, charIndex);
+            if (candidate) {
+                const preText = parseText_.slice(0, charIndex);
+                if (preText) {
+                    renderData_.children_.push(
+                        createTextRenderData({ text_: preText }),
+                    );
+                }
+
+                renderData_.children_.push({
+                    htmlType_: MarkdownType.FilePath,
+                    children_: [
+                        createTextRenderData({ text_: candidate.raw }),
+                    ],
+                    uuid_: nanoid8(),
+                    mdSymbols_: [],
+                    htmlProps_: {
+                        "data-file-path": candidate.path,
+                        "data-file-path-kind": candidate.kind,
+                        ...(candidate.line !== undefined
+                            ? { "data-file-line": candidate.line }
+                            : {}),
+                        ...(candidate.column !== undefined
+                            ? { "data-file-column": candidate.column }
+                            : {}),
+                    },
+                });
+
+                parseText_ = parseText_.slice(
+                    charIndex + candidate.raw.length,
+                );
                 if (parseText_.length) {
                     return parseInline({
                         parseText_: parseText_,
@@ -809,10 +866,14 @@ export const parseInline = ({
                     };
                     parentNodeData.children_.push(spanParent);
 
-                    const remainText = parseInline({
-                        parseText_: linkText,
-                        renderData_: spanParent,
-                    });
+                    const remainText = runWithParseContext(
+                        { ...getParseContext(), inLinkText_: true },
+                        () =>
+                            parseInline({
+                                parseText_: linkText,
+                                renderData_: spanParent,
+                            }),
+                    );
 
                     const queue = [...spanParent.children_];
                     while (queue.length) {

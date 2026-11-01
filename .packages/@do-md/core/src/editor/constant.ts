@@ -87,6 +87,7 @@ export const HtmlTags: Record<keyof typeof MarkdownType, React.ElementType> = {
     [MarkdownType.FunctionTextHide]: "span",
     [MarkdownType.FunctionDel]: "del",
     [MarkdownType.Link]: "a",
+    [MarkdownType.FilePath]: "span",
     [MarkdownType.EmptyPlain]: "span",
     [MarkdownType.MdSymbol]: "span",
     [MarkdownType.Img]: "img",

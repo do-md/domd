@@ -110,6 +110,7 @@ export class EditorStore extends ZenithStore<StoreState> {
     private _codeBeautify_?: (code: string, lang?: string) => string | undefined;
     private _htmlTokenizer_?: (html: string) => Token[];
     private _inlineRules_: CompiledInlineRules;
+    private _filePaths_: boolean;
     private _imgGroupSeparators_?: string;
     private _imageLoader_?: ImageLoader;
     private _newlineKey_?: NewlineKey;
@@ -143,6 +144,7 @@ export class EditorStore extends ZenithStore<StoreState> {
         codeBeautify,
         htmlTokenizer,
         inlineRules,
+        filePaths = false,
         imgGroupSeparators,
         imageLoader,
         newlineKey,
@@ -175,6 +177,7 @@ export class EditorStore extends ZenithStore<StoreState> {
             codeTokenizer_: codeTokenizer,
             placeholderText_: placeholder,
             inlineRules_: compiledInlineRules,
+            filePaths_: filePaths,
             imgGroupSeparators_: imgGroupSeparators,
         });
         splitTextSpans(initialParsed);
@@ -218,6 +221,7 @@ export class EditorStore extends ZenithStore<StoreState> {
         this._codeBeautify_ = codeBeautify;
         this._htmlTokenizer_ = htmlTokenizer;
         this._inlineRules_ = compiledInlineRules;
+        this._filePaths_ = filePaths;
         this._imgGroupSeparators_ = imgGroupSeparators;
         this._imageLoader_ = imageLoader;
         this._newlineKey_ = newlineKey;
@@ -270,6 +274,10 @@ export class EditorStore extends ZenithStore<StoreState> {
 
     public get inlineRules_() {
         return this._inlineRules_;
+    }
+
+    public get filePaths_() {
+        return this._filePaths_;
     }
 
     public get imgGroupSeparators_() {
@@ -658,6 +666,7 @@ export class EditorStore extends ZenithStore<StoreState> {
             codeTokenizer_: this.codeTokenizer_,
             htmlTokenizer_: this._htmlTokenizer_,
             inlineRules_: this._inlineRules_,
+            filePaths_: this._filePaths_,
             imgGroupSeparators_: this._imgGroupSeparators_,
             placeholderText_: this.placeholder_,
         });
@@ -770,6 +779,7 @@ export class EditorStore extends ZenithStore<StoreState> {
                         this.codeTokenizer_,
                         this._inlineRules_,
                         this._imgGroupSeparators_,
+                        this._filePaths_,
                     ),
                 );
             },
@@ -2040,6 +2050,7 @@ export class EditorStore extends ZenithStore<StoreState> {
         const parseOptions = {
             codeTokenizer_: this._codeTokenizer_,
             inlineRules_: this._inlineRules_,
+            filePaths_: this._filePaths_,
             imgGroupSeparators_: this._imgGroupSeparators_,
         };
         const start = resolveOffsetToCursor(
@@ -2102,6 +2113,7 @@ export class EditorStore extends ZenithStore<StoreState> {
         const parseOptions = {
             codeTokenizer_: this._codeTokenizer_,
             inlineRules_: this._inlineRules_,
+            filePaths_: this._filePaths_,
             imgGroupSeparators_: this._imgGroupSeparators_,
         };
         return ranges.map((range): ResolvedRange | null => {

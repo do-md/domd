@@ -126,6 +126,7 @@ export const DOMDProvider = ({
     codeBeautify,
     htmlTokenizer,
     inlineRules,
+    filePaths,
     imgGroupSeparators,
     imageLoader,
     newlineKey,
@@ -168,6 +169,9 @@ export const DOMDProvider = ({
      *  `==` highlight); passing a value replaces the whole set (spread
      *  defaultInlineRules to keep `==`). */
     inlineRules?: InlineRule[];
+    /** Opt-in lexical local-file candidates. Parsing is pure and performs no
+     *  IO or resolution; override MarkdownType.FilePath to define behavior. */
+    filePaths?: boolean;
     /** Opt-in image grouping: ≥2 adjacent images in one paragraph flow wrap
      *  into an ImgGroup node. Value = the SET of characters allowed between
      *  them (`""` = only touching images; `" "` = any run of spaces; `", "`
@@ -193,6 +197,7 @@ export const DOMDProvider = ({
                 codeBeautify,
                 htmlTokenizer,
                 inlineRules,
+                filePaths,
                 imgGroupSeparators,
                 imageLoader,
                 newlineKey,
