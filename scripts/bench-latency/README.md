@@ -63,3 +63,9 @@ Teammate column. `flushes` in the JSON times each commit on its own.
 The page wraps `applyPendingText_` and `appendMarkdownIncremental_` on the
 store instance to time them. It changes nothing else. Results are written to
 `results/<stamp>.json`.
+
+One run is kept as the reference: `results/2026-10-28T04-53-35-064Z.json`.
+It covers all six cases, configs B and C, 3 runs each, in a production build
+inside Electron (the same engine as ponjo's numbers), with the default DOM
+caret, on an Apple M4 with 16 GB. Every run in it kept the typed text intact.
+Other runs stay local.

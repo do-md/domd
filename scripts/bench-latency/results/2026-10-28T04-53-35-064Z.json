@@ -1,0 +1,3229 @@
+{
+  "env": {
+    "minify": true,
+    "machine": {
+      "cpu": "Apple M4",
+      "cores": 10,
+      "memGB": 16,
+      "os": "26.7.1",
+      "power": "Now drawing from 'AC Power'",
+      "node": "v22.14.0",
+      "loadavgAtStart": [
+        "2.92",
+        "2.70",
+        "3.29"
+      ]
+    },
+    "electron": "/tmp/ponjo-bench/ponjo/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+    "kernel": "@do-md/core-react@0.13.1 (npm)",
+    "virtual": ".packages/@do-md/plugins/virtual/src @ 06d6268"
+  },
+  "latency": {
+    "open": 3000,
+    "keystroke": {
+      "median": 30,
+      "p95": 100
+    },
+    "teammate": {
+      "median": 50,
+      "p95": 100
+    },
+    "task": 500
+  },
+  "results": [
+    {
+      "case": "blocks-100k",
+      "config": "B",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 100000,
+        "storeMs": 5,
+        "firstEditableMs": 43.89999985694885,
+        "fullMs": 266.7000000476837,
+        "canonicalChars": 102661,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 3880,
+        "domElements": 505,
+        "loadTicks": 11,
+        "loadTickMs": {
+          "first": 10,
+          "last": 4.099999904632568,
+          "max": 10,
+          "sum": 86.79999995231628
+        },
+        "longestLoadTask": 0,
+        "heapMB": 51.021575927734375,
+        "wallMs": 289
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 5,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 4,
+        "p95": 14,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 20.90000009536743,
+        "p95": 23.5
+      },
+      "teammateToFrame": {
+        "median": 23,
+        "p95": 39.5
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 12.799999952316284,
+        "max": 14.5
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 51.021575927734375
+    },
+    {
+      "case": "blocks-100k",
+      "config": "B",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 100000,
+        "storeMs": 5,
+        "firstEditableMs": 51.200000047683716,
+        "fullMs": 266.7999999523163,
+        "canonicalChars": 102661,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 3880,
+        "domElements": 505,
+        "loadTicks": 11,
+        "loadTickMs": {
+          "first": 9.5,
+          "last": 3.8999998569488525,
+          "max": 9.5,
+          "sum": 80.59999990463257
+        },
+        "longestLoadTask": 0,
+        "heapMB": 33.473968505859375,
+        "wallMs": 286
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 5,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 4,
+        "p95": 7.599999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 21.800000190734863,
+        "p95": 23.700000047683716
+      },
+      "teammateToFrame": {
+        "median": 23.700000047683716,
+        "p95": 40.299999952316284
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 13.299999952316284,
+        "max": 14.700000047683716
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 33.473968505859375
+    },
+    {
+      "case": "blocks-100k",
+      "config": "B",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 100000,
+        "storeMs": 4.700000047683716,
+        "firstEditableMs": 53.700000047683716,
+        "fullMs": 283.2000000476837,
+        "canonicalChars": 102661,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 3880,
+        "domElements": 505,
+        "loadTicks": 11,
+        "loadTickMs": {
+          "first": 10.099999904632568,
+          "last": 4.1000001430511475,
+          "max": 10.099999904632568,
+          "sum": 80.60000014305115
+        },
+        "longestLoadTask": 0,
+        "heapMB": 51.021575927734375,
+        "wallMs": 296
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 5,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 4,
+        "p95": 6.800000190734863,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 21.200000047683716,
+        "p95": 24.59999990463257
+      },
+      "teammateToFrame": {
+        "median": 23,
+        "p95": 37.200000047683716
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 13.099999904632568,
+        "max": 14.399999856948853
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 51.021575927734375
+    },
+    {
+      "case": "blocks-100k",
+      "config": "C",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 100000,
+        "storeMs": 5.099999904632568,
+        "firstEditableMs": 67,
+        "fullMs": 266.69999980926514,
+        "canonicalChars": 102661,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 3880,
+        "domElements": 505,
+        "loadTicks": 11,
+        "loadTickMs": {
+          "first": 10.299999952316284,
+          "last": 3.9000000953674316,
+          "max": 10.299999952316284,
+          "sum": 81.29999995231628
+        },
+        "longestLoadTask": 0,
+        "heapMB": 29.754638671875,
+        "wallMs": 320
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 4,
+        "p95": 5
+      },
+      "keystrokeToFrame": {
+        "median": 3.200000047683716,
+        "p95": 7.299999952316284,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 16.100000143051147,
+        "p95": 19.09999990463257
+      },
+      "teammateToFrame": {
+        "median": 18.50000023841858,
+        "p95": 28.40000009536743
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 12.600000143051147,
+        "max": 14.299999952316284
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 29.754638671875
+    },
+    {
+      "case": "blocks-100k",
+      "config": "C",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 100000,
+        "storeMs": 5,
+        "firstEditableMs": 51.799999952316284,
+        "fullMs": 250,
+        "canonicalChars": 102661,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 3880,
+        "domElements": 505,
+        "loadTicks": 11,
+        "loadTickMs": {
+          "first": 9.599999904632568,
+          "last": 4.200000047683716,
+          "max": 9.599999904632568,
+          "sum": 81.10000014305115
+        },
+        "longestLoadTask": 0,
+        "heapMB": 40.149688720703125,
+        "wallMs": 319
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 5,
+        "p95": 8
+      },
+      "keystrokeToFrame": {
+        "median": 3.9000000953674316,
+        "p95": 7.5,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 17.200000047683716,
+        "p95": 19
+      },
+      "teammateToFrame": {
+        "median": 20.600000143051147,
+        "p95": 23.40000009536743
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 12.799999952316284,
+        "max": 14.400000095367432
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 40.149688720703125
+    },
+    {
+      "case": "blocks-100k",
+      "config": "C",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 100000,
+        "storeMs": 5,
+        "firstEditableMs": 51.299999952316284,
+        "fullMs": 234.59999990463257,
+        "canonicalChars": 102661,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 3880,
+        "domElements": 505,
+        "loadTicks": 11,
+        "loadTickMs": {
+          "first": 9.799999952316284,
+          "last": 3.799999952316284,
+          "max": 9.799999952316284,
+          "sum": 78.19999980926514
+        },
+        "longestLoadTask": 0,
+        "heapMB": 40.149688720703125,
+        "wallMs": 303
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 5,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 3.9000000953674316,
+        "p95": 6.8999998569488525,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 17.399999856948853,
+        "p95": 19.299999952316284
+      },
+      "teammateToFrame": {
+        "median": 17.800000190734863,
+        "p95": 24.59999990463257
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 13.200000047683716,
+        "max": 15
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 40.149688720703125
+    },
+    {
+      "case": "verses-10k",
+      "config": "B",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 10000,
+        "storeMs": 3.3999998569488525,
+        "firstEditableMs": 33.59999990463257,
+        "fullMs": 50.200000047683716,
+        "canonicalChars": 10000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 406,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 62
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 8,
+        "p95": 10
+      },
+      "keystrokeToFrame": {
+        "median": 8.599999904632568,
+        "p95": 10.200000047683716,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 9.299999952316284,
+        "p95": 15.900000095367432
+      },
+      "teammateToFrame": {
+        "median": 13,
+        "p95": 19.799999952316284
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 5.700000047683716,
+        "max": 12
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 10,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-10k",
+      "config": "B",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 10000,
+        "storeMs": 3.200000047683716,
+        "firstEditableMs": 33.299999952316284,
+        "fullMs": 49.90000009536743,
+        "canonicalChars": 10000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 406,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 57
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 8,
+        "p95": 10
+      },
+      "keystrokeToFrame": {
+        "median": 8.799999952316284,
+        "p95": 14.899999856948853,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 9.5,
+        "p95": 14.5
+      },
+      "teammateToFrame": {
+        "median": 13.899999856948853,
+        "p95": 25.100000143051147
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 5.900000095367432,
+        "max": 10.799999952316284
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 10,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-10k",
+      "config": "B",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 10000,
+        "storeMs": 3.3000001907348633,
+        "firstEditableMs": 33.40000009536743,
+        "fullMs": 50,
+        "canonicalChars": 10000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 406,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 69
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 8,
+        "p95": 10
+      },
+      "keystrokeToFrame": {
+        "median": 8.799999952316284,
+        "p95": 10,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 8.799999952316284,
+        "p95": 15.299999952316284
+      },
+      "teammateToFrame": {
+        "median": 12.700000047683716,
+        "p95": 19.299999952316284
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 5.599999904632568,
+        "max": 11.5
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 10,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-10k",
+      "config": "C",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 10000,
+        "storeMs": 2.8000001907348633,
+        "firstEditableMs": 33.40000009536743,
+        "fullMs": 49.90000009536743,
+        "canonicalChars": 10000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 406,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 76
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 8,
+        "p95": 10
+      },
+      "keystrokeToFrame": {
+        "median": 8.5,
+        "p95": 10.099999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 8.900000095367432,
+        "p95": 15
+      },
+      "teammateToFrame": {
+        "median": 18.799999952316284,
+        "p95": 23.799999952316284
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 6.300000190734863,
+        "max": 10.900000095367432
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 10,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-10k",
+      "config": "C",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 10000,
+        "storeMs": 3.299999952316284,
+        "firstEditableMs": 34.700000047683716,
+        "fullMs": 53.40000009536743,
+        "canonicalChars": 10000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 406,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 83
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 8,
+        "p95": 9
+      },
+      "keystrokeToFrame": {
+        "median": 8.5,
+        "p95": 9.700000047683716,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 9.200000047683716,
+        "p95": 16.5
+      },
+      "teammateToFrame": {
+        "median": 19.5,
+        "p95": 23
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 6.099999904632568,
+        "max": 12.5
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 10,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-10k",
+      "config": "C",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 10000,
+        "storeMs": 3.200000047683716,
+        "firstEditableMs": 33.09999990463257,
+        "fullMs": 49.90000009536743,
+        "canonicalChars": 10000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 406,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 73
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 8,
+        "p95": 10
+      },
+      "keystrokeToFrame": {
+        "median": 8.600000143051147,
+        "p95": 9.700000047683716,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 9.000000238418579,
+        "p95": 17.09999990463257
+      },
+      "teammateToFrame": {
+        "median": 19.100000143051147,
+        "p95": 23.09999966621399
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 6.400000095367432,
+        "max": 12.800000190734863
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 10,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "blocks-200k",
+      "config": "B",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 200000,
+        "storeMs": 4.699999809265137,
+        "firstEditableMs": 51.69999980926514,
+        "fullMs": 416.7999999523163,
+        "canonicalChars": 205318,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 7755,
+        "domElements": 503,
+        "loadTicks": 22,
+        "loadTickMs": {
+          "first": 9.899999856948853,
+          "last": 4.700000047683716,
+          "max": 10.700000047683716,
+          "sum": 182.099999666214
+        },
+        "longestLoadTask": 0,
+        "heapMB": 64.849853515625,
+        "wallMs": 437
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 5,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 4.200000047683716,
+        "p95": 7.599999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 31,
+        "p95": 33.40000009536743
+      },
+      "teammateToFrame": {
+        "median": 34.19999980926514,
+        "p95": 48.700000047683716
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 20.09999990463257,
+        "max": 21
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 64.849853515625
+    },
+    {
+      "case": "blocks-200k",
+      "config": "B",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 200000,
+        "storeMs": 4.299999952316284,
+        "firstEditableMs": 50.299999952316284,
+        "fullMs": 416.7000000476837,
+        "canonicalChars": 205318,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 7755,
+        "domElements": 503,
+        "loadTicks": 22,
+        "loadTickMs": {
+          "first": 9.5,
+          "last": 5,
+          "max": 21.100000143051147,
+          "sum": 193.4000005722046
+        },
+        "longestLoadTask": 0,
+        "heapMB": 64.849853515625,
+        "wallMs": 428
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 5,
+        "p95": 5
+      },
+      "keystrokeToFrame": {
+        "median": 4.099999904632568,
+        "p95": 7.400000095367432,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 30.800000190734863,
+        "p95": 34
+      },
+      "teammateToFrame": {
+        "median": 33.60000014305115,
+        "p95": 47.10000014305115
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 19.700000047683716,
+        "max": 21.5
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 64.849853515625
+    },
+    {
+      "case": "blocks-200k",
+      "config": "B",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 200000,
+        "storeMs": 4.8999998569488525,
+        "firstEditableMs": 54.39999985694885,
+        "fullMs": 416.69999980926514,
+        "canonicalChars": 205318,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 7755,
+        "domElements": 503,
+        "loadTicks": 22,
+        "loadTickMs": {
+          "first": 9.899999856948853,
+          "last": 6.199999809265137,
+          "max": 11.600000143051147,
+          "sum": 193.29999923706055
+        },
+        "longestLoadTask": 0,
+        "heapMB": 64.849853515625,
+        "wallMs": 433
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 5,
+        "p95": 7
+      },
+      "keystrokeToFrame": {
+        "median": 3.8999998569488525,
+        "p95": 7,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 31.199999809265137,
+        "p95": 35.700000047683716
+      },
+      "teammateToFrame": {
+        "median": 34.10000014305115,
+        "p95": 48.60000014305115
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 19.90000009536743,
+        "max": 21.100000143051147
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 64.849853515625
+    },
+    {
+      "case": "blocks-200k",
+      "config": "C",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 200000,
+        "storeMs": 4.3999998569488525,
+        "firstEditableMs": 50.299999952316284,
+        "fullMs": 383.2999999523163,
+        "canonicalChars": 205318,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 7755,
+        "domElements": 503,
+        "loadTicks": 22,
+        "loadTickMs": {
+          "first": 9.800000190734863,
+          "last": 5.299999952316284,
+          "max": 10.699999809265137,
+          "sum": 179.40000009536743
+        },
+        "longestLoadTask": 0,
+        "heapMB": 51.021575927734375,
+        "wallMs": 467
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 4,
+        "p95": 5
+      },
+      "keystrokeToFrame": {
+        "median": 3.3999998569488525,
+        "p95": 4.8999998569488525,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 87.59999990463257,
+        "p95": 108.90000009536743
+      },
+      "teammateToFrame": {
+        "median": 88.59999990463257,
+        "p95": 109.30000019073486
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 20.299999952316284,
+        "max": 21.299999952316284
+      },
+      "task": 89,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 51.021575927734375
+    },
+    {
+      "case": "blocks-200k",
+      "config": "C",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 200000,
+        "storeMs": 4.699999809265137,
+        "firstEditableMs": 51.39999985694885,
+        "fullMs": 400,
+        "canonicalChars": 205318,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 7755,
+        "domElements": 503,
+        "loadTicks": 22,
+        "loadTickMs": {
+          "first": 9.799999952316284,
+          "last": 5.8999998569488525,
+          "max": 10.899999856948853,
+          "sum": 190.89999914169312
+        },
+        "longestLoadTask": 0,
+        "heapMB": 57.506561279296875,
+        "wallMs": 488
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 4,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 3.5,
+        "p95": 4.6000001430511475,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 87.79999995231628,
+        "p95": 109.40000009536743
+      },
+      "teammateToFrame": {
+        "median": 88.90000009536743,
+        "p95": 109.79999995231628
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 20.700000047683716,
+        "max": 21.59999990463257
+      },
+      "task": 88,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 57.506561279296875
+    },
+    {
+      "case": "blocks-200k",
+      "config": "C",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 200000,
+        "storeMs": 4.599999904632568,
+        "firstEditableMs": 51.700000047683716,
+        "fullMs": 383.2999999523163,
+        "canonicalChars": 205318,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 7755,
+        "domElements": 503,
+        "loadTicks": 22,
+        "loadTickMs": {
+          "first": 9.5,
+          "last": 5,
+          "max": 10.5,
+          "sum": 179.79999947547913
+        },
+        "longestLoadTask": 0,
+        "heapMB": 51.021575927734375,
+        "wallMs": 485
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 3,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 2.0999999046325684,
+        "p95": 5.199999809265137,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 88.90000009536743,
+        "p95": 112.79999995231628
+      },
+      "teammateToFrame": {
+        "median": 89.99999976158142,
+        "p95": 113.29999995231628
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 20.399999856948853,
+        "max": 21.5
+      },
+      "task": 91,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 51.021575927734375
+    },
+    {
+      "case": "blocks-1m",
+      "config": "B",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 1000000,
+        "storeMs": 5.5,
+        "firstEditableMs": 52.09999990463257,
+        "fullMs": 3516.7000000476837,
+        "canonicalChars": 1026603,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 38777,
+        "domElements": 505,
+        "loadTicks": 111,
+        "loadTickMs": {
+          "first": 9.700000047683716,
+          "last": 52.700000047683716,
+          "max": 56.5,
+          "sum": 2978.3999996185303
+        },
+        "longestLoadTask": 56,
+        "heapMB": 189.78118896484375,
+        "wallMs": 3569
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 3,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 4.1000001430511475,
+        "p95": 18.799999952316284,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 102.10000014305115,
+        "p95": 119.70000004768372
+      },
+      "teammateToFrame": {
+        "median": 103.10000014305115,
+        "p95": 120.70000004768372
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 59.09999990463257,
+        "max": 63.89999985694885
+      },
+      "task": 120,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 189.78118896484375
+    },
+    {
+      "case": "blocks-1m",
+      "config": "B",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 1000000,
+        "storeMs": 5.5,
+        "firstEditableMs": 52.59999990463257,
+        "fullMs": 3433.2999999523163,
+        "canonicalChars": 1026603,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 38777,
+        "domElements": 505,
+        "loadTicks": 111,
+        "loadTickMs": {
+          "first": 9.599999904632568,
+          "last": 55.799999952316284,
+          "max": 55.799999952316284,
+          "sum": 2990.6000003814697
+        },
+        "longestLoadTask": 56,
+        "heapMB": 227.92816162109375,
+        "wallMs": 3485
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 3,
+        "p95": 7
+      },
+      "keystrokeToFrame": {
+        "median": 3.0999999046325684,
+        "p95": 6.299999952316284,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 104.20000004768372,
+        "p95": 110.30000019073486
+      },
+      "teammateToFrame": {
+        "median": 105.09999990463257,
+        "p95": 111.5
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 59.59999990463257,
+        "max": 63.40000009536743
+      },
+      "task": 111,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 227.92816162109375
+    },
+    {
+      "case": "blocks-1m",
+      "config": "B",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 1000000,
+        "storeMs": 5.299999952316284,
+        "firstEditableMs": 52.5,
+        "fullMs": 3466.7000000476837,
+        "canonicalChars": 1026603,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 38777,
+        "domElements": 505,
+        "loadTicks": 111,
+        "loadTickMs": {
+          "first": 9.799999952316284,
+          "last": 54.89999985694885,
+          "max": 76.5,
+          "sum": 2997.800001144409
+        },
+        "longestLoadTask": 76,
+        "heapMB": 214.57672119140625,
+        "wallMs": 3504
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 3,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 2.799999952316284,
+        "p95": 5.599999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 104,
+        "p95": 120.5
+      },
+      "teammateToFrame": {
+        "median": 104.90000009536743,
+        "p95": 122
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 58.799999952316284,
+        "max": 67.69999980926514
+      },
+      "task": 121,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 214.57672119140625
+    },
+    {
+      "case": "blocks-1m",
+      "config": "C",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 1000000,
+        "storeMs": 5.299999952316284,
+        "firstEditableMs": 52.89999985694885,
+        "fullMs": 3533.2000000476837,
+        "canonicalChars": 1026603,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 38777,
+        "domElements": 505,
+        "loadTicks": 111,
+        "loadTickMs": {
+          "first": 9.900000095367432,
+          "last": 55.799999952316284,
+          "max": 66.59999990463257,
+          "sum": 3060.600000858307
+        },
+        "longestLoadTask": 135,
+        "heapMB": 68.85528564453125,
+        "wallMs": 3891
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 3,
+        "p95": 7
+      },
+      "keystrokeToFrame": {
+        "median": 2.9000000953674316,
+        "p95": 7.5,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 79.79999995231628,
+        "p95": 84.60000014305115
+      },
+      "teammateToFrame": {
+        "median": 80,
+        "p95": 84.80000019073486
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 59.5,
+        "max": 64.30000019073486
+      },
+      "task": 65,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 68.85528564453125
+    },
+    {
+      "case": "blocks-1m",
+      "config": "C",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 1000000,
+        "storeMs": 5.5,
+        "firstEditableMs": 52.700000047683716,
+        "fullMs": 3533.2999999523163,
+        "canonicalChars": 1026603,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 38777,
+        "domElements": 505,
+        "loadTicks": 111,
+        "loadTickMs": {
+          "first": 9.600000143051147,
+          "last": 51.60000014305115,
+          "max": 72,
+          "sum": 3028.100000143051
+        },
+        "longestLoadTask": 142,
+        "heapMB": 68.85528564453125,
+        "wallMs": 3912
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 3,
+        "p95": 7
+      },
+      "keystrokeToFrame": {
+        "median": 4.300000190734863,
+        "p95": 16.100000143051147,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 81.39999985694885,
+        "p95": 88.5
+      },
+      "teammateToFrame": {
+        "median": 81.59999990463257,
+        "p95": 88.60000014305115
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 60,
+        "max": 65.29999995231628
+      },
+      "task": 66,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 68.85528564453125
+    },
+    {
+      "case": "blocks-1m",
+      "config": "C",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 1000000,
+        "storeMs": 5.6000001430511475,
+        "firstEditableMs": 33.30000019073486,
+        "fullMs": 3496.7000000476837,
+        "canonicalChars": 1026603,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 38777,
+        "domElements": 505,
+        "loadTicks": 111,
+        "loadTickMs": {
+          "first": 9.699999809265137,
+          "last": 60.40000009536743,
+          "max": 69.29999995231628,
+          "sum": 3016.7000007629395
+        },
+        "longestLoadTask": 145,
+        "heapMB": 68.85528564453125,
+        "wallMs": 3882
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 3,
+        "p95": 8
+      },
+      "keystrokeToFrame": {
+        "median": 3.700000047683716,
+        "p95": 16.200000047683716,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 80.09999990463257,
+        "p95": 84.40000009536743
+      },
+      "teammateToFrame": {
+        "median": 80.50000023841858,
+        "p95": 84.50000023841858
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 59.200000047683716,
+        "max": 63.200000047683716
+      },
+      "task": 63,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 68.85528564453125
+    },
+    {
+      "case": "verses-20k",
+      "config": "B",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 20000,
+        "storeMs": 4.299999952316284,
+        "firstEditableMs": 33.40000009536743,
+        "fullMs": 50,
+        "canonicalChars": 20000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 800,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 53
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 12,
+        "p95": 14
+      },
+      "keystrokeToFrame": {
+        "median": 13.399999856948853,
+        "p95": 16.700000047683716,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 12.5,
+        "p95": 18.600000143051147
+      },
+      "teammateToFrame": {
+        "median": 17,
+        "p95": 23.5
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 7.300000190734863,
+        "max": 13.099999904632568
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 20,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-20k",
+      "config": "B",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 20000,
+        "storeMs": 4.099999904632568,
+        "firstEditableMs": 32.89999985694885,
+        "fullMs": 49.89999985694885,
+        "canonicalChars": 20000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 800,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 54
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 12,
+        "p95": 13
+      },
+      "keystrokeToFrame": {
+        "median": 13.300000190734863,
+        "p95": 15.299999952316284,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 12.900000095367432,
+        "p95": 19.59999990463257
+      },
+      "teammateToFrame": {
+        "median": 17.899999856948853,
+        "p95": 24.90000009536743
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 7.599999904632568,
+        "max": 14
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 20,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-20k",
+      "config": "B",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 20000,
+        "storeMs": 4.200000047683716,
+        "firstEditableMs": 33.299999952316284,
+        "fullMs": 50,
+        "canonicalChars": 20000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 800,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 59
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 12,
+        "p95": 14
+      },
+      "keystrokeToFrame": {
+        "median": 13.599999904632568,
+        "p95": 15.099999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 12.599999904632568,
+        "p95": 20.09999990463257
+      },
+      "teammateToFrame": {
+        "median": 17.100000143051147,
+        "p95": 34.200000047683716
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 7.5,
+        "max": 14.300000190734863
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 20,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-20k",
+      "config": "C",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 20000,
+        "storeMs": 4,
+        "firstEditableMs": 33.40000009536743,
+        "fullMs": 49.90000009536743,
+        "canonicalChars": 20000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 800,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 82
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 12,
+        "p95": 16
+      },
+      "keystrokeToFrame": {
+        "median": 13.299999952316284,
+        "p95": 17,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 11.099999904632568,
+        "p95": 20.300000190734863
+      },
+      "teammateToFrame": {
+        "median": 22.59999990463257,
+        "p95": 26.800000190734863
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 7.700000047683716,
+        "max": 15.200000047683716
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 20,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-20k",
+      "config": "C",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 20000,
+        "storeMs": 4.300000190734863,
+        "firstEditableMs": 33.40000009536743,
+        "fullMs": 50,
+        "canonicalChars": 20000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 800,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 83
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 12,
+        "p95": 13
+      },
+      "keystrokeToFrame": {
+        "median": 12.900000095367432,
+        "p95": 14.900000095367432,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 11.399999618530273,
+        "p95": 19.90000009536743
+      },
+      "teammateToFrame": {
+        "median": 24.40000009536743,
+        "p95": 26.699999809265137
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 8,
+        "max": 14.599999904632568
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 20,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "verses-20k",
+      "config": "C",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [],
+      "open": {
+        "chars": 20000,
+        "storeMs": 4.299999952316284,
+        "firstEditableMs": 33.40000009536743,
+        "fullMs": 50.09999990463257,
+        "canonicalChars": 20000,
+        "canonicalSameAsInput": true,
+        "topLevelBlocks": 1,
+        "domElements": 800,
+        "loadTicks": 0,
+        "loadTickMs": {
+          "first": 0,
+          "last": 0,
+          "max": 0,
+          "sum": 0
+        },
+        "longestLoadTask": 0,
+        "heapMB": 9.5367431640625,
+        "wallMs": 85
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "Book 1:1\tland of fo"
+      },
+      "keystroke": {
+        "median": 12,
+        "p95": 13
+      },
+      "keystrokeToFrame": {
+        "median": 13.400000095367432,
+        "p95": 14.600000143051147,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 11.400000095367432,
+        "p95": 18.799999952316284
+      },
+      "teammateToFrame": {
+        "median": 23.399999856948853,
+        "p95": 26.90000009536743
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 7.799999952316284,
+        "max": 13.899999856948853
+      },
+      "task": 0,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 20,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 9.5367431640625
+    },
+    {
+      "case": "blocks-5m",
+      "config": "B",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [
+        {
+          "s": 30,
+          "ticks": 315,
+          "lastTickMs": 207.79999995231628,
+          "tickMsSum": 27623.399998903275,
+          "loading": true
+        },
+        {
+          "s": 60,
+          "ticks": 426,
+          "lastTickMs": 387.7999999523163,
+          "tickMsSum": 56105.90000081062,
+          "loading": true
+        },
+        {
+          "s": 90,
+          "ticks": 509,
+          "lastTickMs": 401,
+          "tickMsSum": 85577.50000071526,
+          "loading": true
+        }
+      ],
+      "open": {
+        "chars": 5000000,
+        "storeMs": 10.799999952316284,
+        "firstEditableMs": 39,
+        "fullMs": 108685,
+        "canonicalChars": 5132969,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 193840,
+        "domElements": 503,
+        "loadTicks": 555,
+        "loadTickMs": {
+          "first": 11.099999904632568,
+          "last": 256.19999980926514,
+          "max": 739.2000000476837,
+          "sum": 103265.29999995232
+        },
+        "longestLoadTask": 739,
+        "heapMB": 712.3947143554688,
+        "wallMs": 108808
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 7,
+        "p95": 15
+      },
+      "keystrokeToFrame": {
+        "median": 6.900000095367432,
+        "p95": 19.799999952316284,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 426.19999980926514,
+        "p95": 466
+      },
+      "teammateToFrame": {
+        "median": 427.2999999523163,
+        "p95": 467.2000000476837
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 236.79999995231628,
+        "max": 269.59999990463257
+      },
+      "task": 467,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 712.3947143554688
+    },
+    {
+      "case": "blocks-5m",
+      "config": "B",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [
+        {
+          "s": 30,
+          "ticks": 321,
+          "lastTickMs": 195,
+          "tickMsSum": 27779.200000286102,
+          "loading": true
+        },
+        {
+          "s": 60,
+          "ticks": 432,
+          "lastTickMs": 319.90000009536743,
+          "tickMsSum": 56039.30000138283,
+          "loading": true
+        },
+        {
+          "s": 90,
+          "ticks": 518,
+          "lastTickMs": 394,
+          "tickMsSum": 85310.4000005722,
+          "loading": true
+        }
+      ],
+      "open": {
+        "chars": 5000000,
+        "storeMs": 10.599999904632568,
+        "firstEditableMs": 40.799999952316284,
+        "fullMs": 104335,
+        "canonicalChars": 5132969,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 193840,
+        "domElements": 503,
+        "loadTicks": 555,
+        "loadTickMs": {
+          "first": 9.700000047683716,
+          "last": 245.20000004768372,
+          "max": 640.3999998569489,
+          "sum": 99309.70000076294
+        },
+        "longestLoadTask": 640,
+        "heapMB": 2088.5467529296875,
+        "wallMs": 104470
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 6,
+        "p95": 15
+      },
+      "keystrokeToFrame": {
+        "median": 8.400000095367432,
+        "p95": 19.59999990463257,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 427.09999990463257,
+        "p95": 584.5
+      },
+      "teammateToFrame": {
+        "median": 428.2000000476837,
+        "p95": 585.9000000953674
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 239.20000004768372,
+        "max": 282.7999999523163
+      },
+      "task": 585,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 2088.5467529296875
+    },
+    {
+      "case": "blocks-5m",
+      "config": "B",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [
+        {
+          "s": 30,
+          "ticks": 320,
+          "lastTickMs": 200,
+          "tickMsSum": 27703.400000333786,
+          "loading": true
+        },
+        {
+          "s": 60,
+          "ticks": 431,
+          "lastTickMs": 325,
+          "tickMsSum": 55903.60000228882,
+          "loading": true
+        },
+        {
+          "s": 90,
+          "ticks": 517,
+          "lastTickMs": 369.39999985694885,
+          "tickMsSum": 85220.70000362396,
+          "loading": true
+        }
+      ],
+      "open": {
+        "chars": 5000000,
+        "storeMs": 10.799999952316284,
+        "firstEditableMs": 37.799999952316284,
+        "fullMs": 104769.5,
+        "canonicalChars": 5132969,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 193840,
+        "domElements": 503,
+        "loadTicks": 555,
+        "loadTickMs": {
+          "first": 10,
+          "last": 225.70000004768372,
+          "max": 644.1000001430511,
+          "sum": 99624.30000448227
+        },
+        "longestLoadTask": 644,
+        "heapMB": 2088.5467529296875,
+        "wallMs": 104923
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 7,
+        "p95": 14
+      },
+      "keystrokeToFrame": {
+        "median": 9.200000047683716,
+        "p95": 14.599999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 433.7000000476837,
+        "p95": 564.4000000953674
+      },
+      "teammateToFrame": {
+        "median": 434.7999999523163,
+        "p95": 565.9000000953674
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 240.39999985694885,
+        "max": 264.09999990463257
+      },
+      "task": 565,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 2088.5467529296875
+    },
+    {
+      "case": "blocks-5m",
+      "config": "C",
+      "run": 0,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [
+        {
+          "s": 30,
+          "ticks": 320,
+          "lastTickMs": 199.20000004768372,
+          "tickMsSum": 27624.500002384186,
+          "loading": true
+        },
+        {
+          "s": 60,
+          "ticks": 434,
+          "lastTickMs": 326,
+          "tickMsSum": 56349.10000252724,
+          "loading": true
+        },
+        {
+          "s": 90,
+          "ticks": 520,
+          "lastTickMs": 379,
+          "tickMsSum": 85510.10000133514,
+          "loading": true
+        }
+      ],
+      "open": {
+        "chars": 5000000,
+        "storeMs": 10.700000047683716,
+        "firstEditableMs": 37,
+        "fullMs": 103672.79999995232,
+        "canonicalChars": 5132969,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 193840,
+        "domElements": 503,
+        "loadTicks": 555,
+        "loadTickMs": {
+          "first": 10.099999904632568,
+          "last": 234.90000009536743,
+          "max": 644.5,
+          "sum": 98715.30000162125
+        },
+        "longestLoadTask": 998,
+        "heapMB": 2088.5467529296875,
+        "wallMs": 105773
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 10,
+        "p95": 23
+      },
+      "keystrokeToFrame": {
+        "median": 9.900000095367432,
+        "p95": 21.100000143051147,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 1946.3999998569489,
+        "p95": 2119.699999809265
+      },
+      "teammateToFrame": {
+        "median": 1946.7999999523163,
+        "p95": 2120.2999999523163
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 251.20000004768372,
+        "max": 304.19999980926514
+      },
+      "task": 1857,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 2088.5467529296875
+    },
+    {
+      "case": "blocks-5m",
+      "config": "C",
+      "run": 1,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [
+        {
+          "s": 30,
+          "ticks": 320,
+          "lastTickMs": 194.70000004768372,
+          "tickMsSum": 27631.699998617172,
+          "loading": true
+        },
+        {
+          "s": 60,
+          "ticks": 433,
+          "lastTickMs": 312.7999999523163,
+          "tickMsSum": 56148.999999046326,
+          "loading": true
+        },
+        {
+          "s": 90,
+          "ticks": 520,
+          "lastTickMs": 375.2999999523163,
+          "tickMsSum": 85434.8999991417,
+          "loading": true
+        }
+      ],
+      "open": {
+        "chars": 5000000,
+        "storeMs": 10.699999809265137,
+        "firstEditableMs": 37.19999980926514,
+        "fullMs": 103107.19999980927,
+        "canonicalChars": 5132969,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 193840,
+        "domElements": 503,
+        "loadTicks": 555,
+        "loadTickMs": {
+          "first": 10,
+          "last": 244.5,
+          "max": 635,
+          "sum": 98172.8999991417
+        },
+        "longestLoadTask": 1145,
+        "heapMB": 712.3947143554688,
+        "wallMs": 105345
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 8,
+        "p95": 12
+      },
+      "keystrokeToFrame": {
+        "median": 6.799999952316284,
+        "p95": 18,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 1922.7000000476837,
+        "p95": 2238.0999999046326
+      },
+      "teammateToFrame": {
+        "median": 1922.9000000953674,
+        "p95": 2238.7999999523163
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 256.40000009536743,
+        "max": 340.60000014305115
+      },
+      "task": 1972,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 712.3947143554688
+    },
+    {
+      "case": "blocks-5m",
+      "config": "C",
+      "run": 2,
+      "phase": "done",
+      "engine": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36",
+        "chrome": [
+          "Not?A_Brand 24",
+          "Chromium 152"
+        ]
+      },
+      "loadProgress": [
+        {
+          "s": 30,
+          "ticks": 320,
+          "lastTickMs": 197.40000009536743,
+          "tickMsSum": 27564.899999141693,
+          "loading": true
+        },
+        {
+          "s": 60,
+          "ticks": 433,
+          "lastTickMs": 319.10000014305115,
+          "tickMsSum": 56251.89999842644,
+          "loading": true
+        },
+        {
+          "s": 90,
+          "ticks": 520,
+          "lastTickMs": 372.2000000476837,
+          "tickMsSum": 85637.09999871254,
+          "loading": true
+        }
+      ],
+      "open": {
+        "chars": 5000000,
+        "storeMs": 10.899999856948853,
+        "firstEditableMs": 41.299999952316284,
+        "fullMs": 103217.79999995232,
+        "canonicalChars": 5132969,
+        "canonicalSameAsInput": false,
+        "topLevelBlocks": 193840,
+        "domElements": 503,
+        "loadTicks": 555,
+        "loadTickMs": {
+          "first": 9.599999904632568,
+          "last": 223.09999990463257,
+          "max": 738.7999999523163,
+          "sum": 98514.49999833107
+        },
+        "longestLoadTask": 1023,
+        "heapMB": 2355.5755615234375,
+        "wallMs": 105367
+      },
+      "caret": {
+        "caret": -1,
+        "focused": true,
+        "context": "# Launch plan\n\nWe p"
+      },
+      "keystroke": {
+        "median": 7,
+        "p95": 15
+      },
+      "keystrokeToFrame": {
+        "median": 7.099999904632568,
+        "p95": 20.09999990463257,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 1963.1000001430511,
+        "p95": 2199.4000000953674
+      },
+      "teammateToFrame": {
+        "median": 1963.8000001907349,
+        "p95": 2201.5000002384186
+      },
+      "teammateFailed": 0,
+      "flushes": {
+        "count": 20,
+        "median": 254.19999980926514,
+        "max": 305.40000009536743
+      },
+      "task": 1951,
+      "check": {
+        "lengthOk": true,
+        "typedInPlace": true,
+        "teammateInPlace": true,
+        "restUnchanged": true,
+        "ok": true,
+        "caret": 2,
+        "caretFrom": "typed run"
+      },
+      "heapMB": 2355.5755615234375
+    }
+  ],
+  "rows": [
+    {
+      "id": "blocks-100k",
+      "config": "B",
+      "chars": 100000,
+      "note": "ponjo: Markdown view limit",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 51.200000047683716,
+      "full": 266.7999999523163,
+      "fullWorst": 283.2000000476837,
+      "keystroke": {
+        "median": 5,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 4,
+        "p95": 7.599999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 21.800000190734863,
+        "p95": 23.700000047683716
+      },
+      "teammateToFrame": {
+        "median": 23.700000047683716,
+        "p95": 40.299999952316284
+      },
+      "task": 0,
+      "taskWorst": 0,
+      "loadTask": 0,
+      "flushMax": 14.700000047683716,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 3880,
+      "heapMB": 33.473968505859375
+    },
+    {
+      "id": "blocks-100k",
+      "config": "C",
+      "chars": 100000,
+      "note": "ponjo: Markdown view limit",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 51.799999952316284,
+      "full": 250,
+      "fullWorst": 266.69999980926514,
+      "keystroke": {
+        "median": 5,
+        "p95": 8
+      },
+      "keystrokeToFrame": {
+        "median": 3.9000000953674316,
+        "p95": 7.5,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 17.200000047683716,
+        "p95": 19
+      },
+      "teammateToFrame": {
+        "median": 20.600000143051147,
+        "p95": 23.40000009536743
+      },
+      "task": 0,
+      "taskWorst": 0,
+      "loadTask": 0,
+      "flushMax": 15,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 3880,
+      "heapMB": 40.149688720703125
+    },
+    {
+      "id": "verses-10k",
+      "config": "B",
+      "chars": 10000,
+      "note": "ponjo: Markdown view, one long block",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 33.40000009536743,
+      "full": 50,
+      "fullWorst": 50.200000047683716,
+      "keystroke": {
+        "median": 8,
+        "p95": 10
+      },
+      "keystrokeToFrame": {
+        "median": 8.799999952316284,
+        "p95": 10,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 8.799999952316284,
+        "p95": 15.299999952316284
+      },
+      "teammateToFrame": {
+        "median": 12.700000047683716,
+        "p95": 19.299999952316284
+      },
+      "task": 0,
+      "taskWorst": 0,
+      "loadTask": 0,
+      "flushMax": 12,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 1,
+      "heapMB": 9.5367431640625
+    },
+    {
+      "id": "verses-10k",
+      "config": "C",
+      "chars": 10000,
+      "note": "ponjo: Markdown view, one long block",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 33.40000009536743,
+      "full": 49.90000009536743,
+      "fullWorst": 53.40000009536743,
+      "keystroke": {
+        "median": 8,
+        "p95": 10
+      },
+      "keystrokeToFrame": {
+        "median": 8.600000143051147,
+        "p95": 9.700000047683716,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 9.000000238418579,
+        "p95": 17.09999990463257
+      },
+      "teammateToFrame": {
+        "median": 19.100000143051147,
+        "p95": 23.09999966621399
+      },
+      "task": 0,
+      "taskWorst": 0,
+      "loadTask": 0,
+      "flushMax": 12.800000190734863,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 1,
+      "heapMB": 9.5367431640625
+    },
+    {
+      "id": "blocks-200k",
+      "config": "B",
+      "chars": 200000,
+      "note": "#212: opened in 4.4 s",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 51.69999980926514,
+      "full": 416.7000000476837,
+      "fullWorst": 416.7999999523163,
+      "keystroke": {
+        "median": 5,
+        "p95": 5
+      },
+      "keystrokeToFrame": {
+        "median": 4.099999904632568,
+        "p95": 7.400000095367432,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 30.800000190734863,
+        "p95": 34
+      },
+      "teammateToFrame": {
+        "median": 33.60000014305115,
+        "p95": 47.10000014305115
+      },
+      "task": 0,
+      "taskWorst": 0,
+      "loadTask": 0,
+      "flushMax": 21.5,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 7755,
+      "heapMB": 64.849853515625
+    },
+    {
+      "id": "blocks-200k",
+      "config": "C",
+      "chars": 200000,
+      "note": "#212: opened in 4.4 s",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 51.39999985694885,
+      "full": 383.2999999523163,
+      "fullWorst": 400,
+      "keystroke": {
+        "median": 3,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 2.0999999046325684,
+        "p95": 5.199999809265137,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 88.90000009536743,
+        "p95": 112.79999995231628
+      },
+      "teammateToFrame": {
+        "median": 89.99999976158142,
+        "p95": 113.29999995231628
+      },
+      "task": 89,
+      "taskWorst": 91,
+      "loadTask": 0,
+      "flushMax": 21.59999990463257,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 7755,
+      "heapMB": 51.021575927734375
+    },
+    {
+      "id": "blocks-1m",
+      "config": "B",
+      "chars": 1000000,
+      "note": "#212: opened in 33 s",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 52.5,
+      "full": 3466.7000000476837,
+      "fullWorst": 3516.7000000476837,
+      "keystroke": {
+        "median": 3,
+        "p95": 6
+      },
+      "keystrokeToFrame": {
+        "median": 2.799999952316284,
+        "p95": 5.599999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 104,
+        "p95": 120.5
+      },
+      "teammateToFrame": {
+        "median": 104.90000009536743,
+        "p95": 122
+      },
+      "task": 120,
+      "taskWorst": 121,
+      "loadTask": 56,
+      "flushMax": 67.69999980926514,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 38777,
+      "heapMB": 214.57672119140625
+    },
+    {
+      "id": "blocks-1m",
+      "config": "C",
+      "chars": 1000000,
+      "note": "#212: opened in 33 s",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 52.700000047683716,
+      "full": 3533.2000000476837,
+      "fullWorst": 3533.2999999523163,
+      "keystroke": {
+        "median": 3,
+        "p95": 7
+      },
+      "keystrokeToFrame": {
+        "median": 2.9000000953674316,
+        "p95": 7.5,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 79.79999995231628,
+        "p95": 84.60000014305115
+      },
+      "teammateToFrame": {
+        "median": 80,
+        "p95": 84.80000019073486
+      },
+      "task": 65,
+      "taskWorst": 66,
+      "loadTask": 142,
+      "flushMax": 65.29999995231628,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 38777,
+      "heapMB": 68.85528564453125
+    },
+    {
+      "id": "verses-20k",
+      "config": "B",
+      "chars": 20000,
+      "note": "#212: one 20 KB paragraph, p95 145 ms",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 33.299999952316284,
+      "full": 50,
+      "fullWorst": 50,
+      "keystroke": {
+        "median": 12,
+        "p95": 14
+      },
+      "keystrokeToFrame": {
+        "median": 13.399999856948853,
+        "p95": 16.700000047683716,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 12.5,
+        "p95": 18.600000143051147
+      },
+      "teammateToFrame": {
+        "median": 17,
+        "p95": 23.5
+      },
+      "task": 0,
+      "taskWorst": 0,
+      "loadTask": 0,
+      "flushMax": 14.300000190734863,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 1,
+      "heapMB": 9.5367431640625
+    },
+    {
+      "id": "verses-20k",
+      "config": "C",
+      "chars": 20000,
+      "note": "#212: one 20 KB paragraph, p95 145 ms",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 33.40000009536743,
+      "full": 50,
+      "fullWorst": 50.09999990463257,
+      "keystroke": {
+        "median": 12,
+        "p95": 13
+      },
+      "keystrokeToFrame": {
+        "median": 12.900000095367432,
+        "p95": 14.900000095367432,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 11.399999618530273,
+        "p95": 19.90000009536743
+      },
+      "teammateToFrame": {
+        "median": 24.40000009536743,
+        "p95": 26.699999809265137
+      },
+      "task": 0,
+      "taskWorst": 0,
+      "loadTask": 0,
+      "flushMax": 15.200000047683716,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 1,
+      "heapMB": 9.5367431640625
+    },
+    {
+      "id": "blocks-5m",
+      "config": "B",
+      "chars": 5000000,
+      "note": "ponjo: plain view limit",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 39,
+      "full": 104769.5,
+      "fullWorst": 108685,
+      "keystroke": {
+        "median": 7,
+        "p95": 14
+      },
+      "keystrokeToFrame": {
+        "median": 9.200000047683716,
+        "p95": 14.599999904632568,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 433.7000000476837,
+        "p95": 564.4000000953674
+      },
+      "teammateToFrame": {
+        "median": 434.7999999523163,
+        "p95": 565.9000000953674
+      },
+      "task": 565,
+      "taskWorst": 585,
+      "loadTask": 644,
+      "flushMax": 282.7999999523163,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 193840,
+      "heapMB": 2088.5467529296875
+    },
+    {
+      "id": "blocks-5m",
+      "config": "C",
+      "chars": 5000000,
+      "note": "ponjo: plain view limit",
+      "runs": 3,
+      "of": 3,
+      "firstEditable": 37.19999980926514,
+      "full": 103217.79999995232,
+      "fullWorst": 103672.79999995232,
+      "keystroke": {
+        "median": 7,
+        "p95": 15
+      },
+      "keystrokeToFrame": {
+        "median": 7.099999904632568,
+        "p95": 20.09999990463257,
+        "samples": 40
+      },
+      "teammate": {
+        "median": 1963.1000001430511,
+        "p95": 2199.4000000953674
+      },
+      "teammateToFrame": {
+        "median": 1963.8000001907349,
+        "p95": 2201.5000002384186
+      },
+      "task": 1951,
+      "taskWorst": 1972,
+      "loadTask": 1023,
+      "flushMax": 340.60000014305115,
+      "checks": "ok",
+      "teammateFailed": 0,
+      "blocks": 193840,
+      "heapMB": 2355.5755615234375
+    }
+  ]
+}
