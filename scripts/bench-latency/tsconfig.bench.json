@@ -1,0 +1,4 @@
+{
+  "//": "Forced on every file esbuild bundles (run.mjs): no path mappings, so @do-md/core-react always resolves to the npm package in node_modules, never to the kernel source the app's tsconfig maps it to.",
+  "compilerOptions": { "jsx": "react-jsx" }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "domd-bench-latency",
+  "private": true,
+  "type": "module",
+  "description": "Long-document latency benchmark for the DOMD kernel, measured the way ponjo's test/perf/latency.test.js measures its views.",
+  "scripts": {
+    "bench": "node run.mjs"
+  },
+  "dependencies": {
+    "@do-md/core-react": "0.13.1",
+    "immer": "11.1.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.64.1"
+  }
+}
