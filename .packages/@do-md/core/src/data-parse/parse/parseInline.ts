@@ -103,6 +103,15 @@ const INLINE_TAG_TO_TYPE: Record<string, MarkdownType> = {
 };
 const inlineTagReg = /^<(ins|sub|sup|u|kbd|mark)>([\s\S]*?)<\/\1>/;
 
+// Void inline HTML that renders as a line break. CommonMark treats `<br>` as
+// inline raw HTML, and GFM table cells have no newline of their own, so
+// generators (LLM output in particular) write the break as `<br>`. The
+// paired-tag branch below cannot claim it — there is no closing tag — so it
+// used to fall through to plain text and show the tag itself. Like the paired
+// tags, the source text stays in a hidden MdSymbol so the Markdown round-trip
+// remains byte-exact; the node next to it renders the real `<br>`.
+const inlineBrReg = /^<br\s*\/?>/i;
+
 // Escapable chars now come from the compiled inline rules (base CommonMark set
 // ∪ active rule chars — see data-parse/inline-rules.ts), so `\^x^` neutralizes
 // a host-registered `^` rule exactly like `\==` neutralizes highlight.
@@ -979,6 +988,60 @@ export const parseInline = ({
                 break;
             }
             case "<": {
+                // Void inline HTML: `<br>`, `<br/>`, `<br />` — a hard line
+                // break, so no paired content to recurse into. Wrapped like the
+                // image branch: a hidden MdSymbol carries the exact source text
+                // (round-trip) and the Br leaf renders the element itself.
+                const inlineBrMatch = parseText_
+                    .slice(charIndex)
+                    .match(inlineBrReg);
+                if (inlineBrMatch) {
+                    const fullMatch = inlineBrMatch[0];
+                    const symbolId = nanoid8();
+
+                    const preText = parseText_.slice(0, charIndex);
+                    if (preText) {
+                        renderData_.children_.push(
+                            createTextRenderData({ text_: preText }),
+                        );
+                    }
+
+                    const breakNode: ParentRenderData = {
+                        htmlType_: MarkdownType.Plain,
+                        children_: [
+                            {
+                                htmlType_: MarkdownType.MdSymbol,
+                                text_: fullMatch,
+                                uuid_: symbolId,
+                                mdSymbols_: [symbolId],
+                                htmlProps_: {},
+                            },
+                            {
+                                htmlType_: MarkdownType.Br,
+                                text_: "",
+                                uuid_: nanoid8(),
+                                mdSymbols_: [symbolId],
+                                htmlProps_: {},
+                            },
+                        ],
+                        uuid_: nanoid8(),
+                        mdSymbols_: [],
+                        htmlProps_: {},
+                    };
+                    renderData_.children_.push(breakNode);
+
+                    parseText_ = parseText_.slice(
+                        charIndex + fullMatch.length,
+                    );
+                    if (parseText_.length) {
+                        return parseInline({
+                            parseText_: parseText_,
+                            renderData_: renderData_,
+                        });
+                    }
+                    return "";
+                }
+
                 // Inline HTML tags with matching open/close (see
                 // INLINE_TAG_TO_TYPE). Content recurses so nested inline markup
                 // (e.g. `<u>**bold**</u>`) parses instead of staying literal —

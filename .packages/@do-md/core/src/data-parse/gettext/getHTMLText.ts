@@ -1,14 +1,17 @@
-// Tags handled by the inline parser (parseInline). A BARE `<tag>…</tag>` must
-// fall through to the paragraph/inline path so hidden md-symbol wrapping
-// kicks in. Versions with attributes (`<ins class="x">…</ins>`) stay on the
+// Tags handled by the inline parser (parseInline). A BARE `<tag>` must fall
+// through to the paragraph/inline path so hidden md-symbol wrapping kicks in.
+// `<br>` is void — no closing tag and no content — but it is inline raw HTML
+// all the same, and the inline parser now claims it as a break.
+// Versions with attributes (`<ins class="x">…</ins>`) stay on the
 // block path for backward compatibility — attrs would otherwise be lost.
-// Keep in sync with INLINE_TAG_TO_TYPE in parse/parseInline.ts.
-const INLINE_HTML_TAGS = new Set(["ins", "sub", "sup", "u", "kbd", "mark"]);
+// Keep in sync with INLINE_TAG_TO_TYPE / inlineBrReg in parseInline.ts.
+const INLINE_HTML_TAGS = new Set(["ins", "sub", "sup", "u", "kbd", "mark", "br"]);
 
 export function extractLeadingHtmlBlocks(text: string) {
     // Bail early when the line leads with a bare inline tag (no attrs),
-    // letting parseInline own it.
-    const bareInline = text.match(/^\s*<([a-zA-Z][\w-]*)>/);
+    // letting parseInline own it. `\s*\/?` covers the void-tag spellings
+    // `<br/>` and `<br />` alongside the paired `<u>` form.
+    const bareInline = text.match(/^\s*<([a-zA-Z][\w-]*)\s*\/?>/);
     if (bareInline && INLINE_HTML_TAGS.has(bareInline[1].toLowerCase())) {
         return null;
     }
