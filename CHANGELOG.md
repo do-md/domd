@@ -10,7 +10,9 @@ All notable changes to DOMD are documented in this file, newest first. The forma
 
 ## [Unreleased]
 
-Kernel: `@do-md/core-react` 0.13.1, 0.14.0 and 0.15.0 are published on npm.
+## [0.11.0] - 2026-11-07
+
+Kernel: `@do-md/core-react` 0.13.1, 0.14.0, 0.15.0.
 
 ### Added
 
@@ -505,7 +507,8 @@ First release, Apple Silicon only.
 - `domd-cli` for agents and scripts: open windows, stream content into a document, rewrite the selection.
 - Web editor: drop in a `.md` file or open one from a URL (including `gh:owner/repo`), with nothing uploaded.
 
-[Unreleased]: https://github.com/do-md/domd/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/do-md/domd/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/do-md/domd/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/do-md/domd/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/do-md/domd/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/do-md/domd/compare/v0.9.0...v0.9.1

@@ -10,7 +10,9 @@ DOMD の主な変更をこのファイルに新しい順で記録します。形
 
 ## [Unreleased]
 
-カーネル：`@do-md/core-react` 0.13.1、0.14.0 と 0.15.0 は npm で公開済みです。
+## [0.11.0] - 2026-11-07
+
+カーネル：`@do-md/core-react` 0.13.1、0.14.0、0.15.0。
 
 ### 追加
 
@@ -505,7 +507,8 @@ DOMD の主な変更をこのファイルに新しい順で記録します。形
 - agent やスクリプト向けの `domd-cli`：ウインドウを開く、ドキュメントにストリーミング書き込みする、選択範囲を書き換える。
 - Web エディタ：`.md` ファイルをドロップするか URL（`gh:owner/repo` を含む）から開けます。何もアップロードされません。
 
-[Unreleased]: https://github.com/do-md/domd/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/do-md/domd/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/do-md/domd/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/do-md/domd/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/do-md/domd/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/do-md/domd/compare/v0.9.0...v0.9.1

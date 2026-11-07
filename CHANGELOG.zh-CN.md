@@ -10,7 +10,9 @@
 
 ## [Unreleased]
 
-内核：`@do-md/core-react` 0.13.1、0.14.0 和 0.15.0 已发布到 npm。
+## [0.11.0] - 2026-11-07
+
+内核：`@do-md/core-react` 0.13.1、0.14.0、0.15.0。
 
 ### 新增
 
@@ -505,7 +507,8 @@
 - 面向 agent 和脚本的 `domd-cli`：打开窗口、向文档流式写入内容、改写选区。
 - Web 编辑器：拖入 `.md` 文件或从 URL（包括 `gh:owner/repo`）打开，不上传任何内容。
 
-[Unreleased]: https://github.com/do-md/domd/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/do-md/domd/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/do-md/domd/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/do-md/domd/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/do-md/domd/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/do-md/domd/compare/v0.9.0...v0.9.1
