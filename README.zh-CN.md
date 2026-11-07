@@ -111,9 +111,11 @@ AI 模型通常会一段一段输出 Markdown，而且经常会把语法切在�
 DOMD 把上述内核能力封装成一款克制、轻量、本地优先的 Markdown 编辑器：
 
 * **大文件编辑：**打开 5 KB 笔记和 1 MB 文档的感知速度几乎没有区别，并且始终是完整的所见即所得渲染，而不是纯文本视图。
-* **原生 macOS 应用：**采用普通文件工作流，提供 Quick Look 预览，没有项目树、标签页、账号或内置同步服务。下载 [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) 或 [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg) 版本。
+* **原生 macOS 应用：**采用普通文件工作流，提供 Quick Look 预览，没有项目树、账号或内置同步服务。下载 [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) 或 [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg) 版本。
 * **本地优先 Web 编辑器：**打开网页或直接拖入 `.md` 文件即可编辑，处理始终留在本机。[在线试用 DOMD](https://www.domd.app/editor)。
 * **面向 Agent 的 CLI：**`domd-cli` 支持打开窗口、向文档流式写入内容和改写选区，让 DOMD 可以作为 agent 与自动化工具的本地 Markdown 渲染界面。
+
+每个版本的更新内容见[更新日志](https://github.com/do-md/domd/blob/main/CHANGELOG.zh-CN.md)。
 
 macOS 应用的大文件编辑演示：
 

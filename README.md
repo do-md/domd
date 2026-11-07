@@ -105,9 +105,11 @@ Markdown renders while typing, while the underlying value stays Markdown. For ch
 DOMD packages the kernel into a deliberately lean, local-first Markdown editor:
 
 * **Large files:** a 5 KB note and a 1 MB document open at virtually the same perceptual speed, with full WYSIWYG rendering rather than a plain-text view.
-* **Native macOS app:** a lightweight, ordinary-file workflow with Quick Look preview and no project tree, tabs, account, or bundled sync service. Download for [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) or [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg).
+* **Native macOS app:** a lightweight, ordinary-file workflow with Quick Look preview and no project tree, account, or bundled sync service. Download for [Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) or [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg).
 * **Local-first Web editor:** open the editor or drag in a `.md` file; processing stays on the device. [Try DOMD on the Web](https://www.domd.app/editor).
 * **Agent-friendly CLI:** `domd-cli` can open windows, stream content into a document, and rewrite selections, making DOMD a local Markdown rendering surface for agents and automation.
+
+What changed in each release is listed in the [changelog](https://github.com/do-md/domd/blob/main/CHANGELOG.md).
 
 Large-file editing in the macOS app:
 

@@ -113,9 +113,11 @@ AI モデルは Markdown を少しずつ出力します。しかも、構文の�
 DOMD は、上記のカーネル機能を意図的にシンプルで軽量な、ローカル優先の Markdown エディタとして提供します。
 
 * **大きなファイルの編集：**5 KB のメモと 1 MB の文書をほぼ同じ体感速度で開き、プレーンテキスト表示ではなく完全な WYSIWYG レンダリングを維持します。
-* **ネイティブ macOS アプリ：**Quick Look プレビューに対応した通常のファイルワークフローで、プロジェクトツリー、タブ、アカウント、内蔵同期サービスはありません。[Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) または [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg) 版をダウンロードできます。
+* **ネイティブ macOS アプリ：**Quick Look プレビューに対応した通常のファイルワークフローで、プロジェクトツリー、アカウント、内蔵同期サービスはありません。[Apple Silicon](https://github.com/do-md/domd/releases/latest/download/DOMD_aarch64.dmg) または [Intel](https://github.com/do-md/domd/releases/latest/download/DOMD_x86_64.dmg) 版をダウンロードできます。
 * **ローカル優先の Web エディタ：**ブラウザで開くか `.md` ファイルをドラッグするだけで編集でき、処理はデバイス上に留まります。[Web で DOMD を試す](https://www.domd.app/editor)。
 * **Agent 向け CLI：**`domd-cli` はウィンドウを開く、文書へストリーミング書き込みする、選択範囲を書き換えるといった操作に対応し、agent や自動化ツールのローカル Markdown レンダリングサーフェスとして利用できます。
+
+各リリースの変更内容は[変更履歴](https://github.com/do-md/domd/blob/main/CHANGELOG.ja.md)にまとめています。
 
 macOS アプリでの大きなファイル編集：
 
