@@ -10,7 +10,8 @@
         "build": "next build",
         "analyze": "next experimental-analyze --output && cd .next/diagnostics/analyze && python3 -m http.server 3000 --bind 0.0.0.0",
         "start": "next start",
-        "lint": "eslint"
+        "lint": "eslint",
+        "release": "bash scripts/release.sh"
     },
     "dependencies": {
         "@tauri-apps/api": "^2.10.1",

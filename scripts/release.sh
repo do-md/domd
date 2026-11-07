@@ -1,15 +1,22 @@
 #!/bin/bash
-# Manual release pipeline. Driven by the "version" field in package.json.
+# Desktop release pipeline — the same posture as the kernel's release.mjs:
+# the script picks the version, checks everything, and only then bumps it.
 #
 # Usage:
-#   1. Bump "version" in package.json (e.g. 0.1.0 -> 0.2.0)
-#   2. Run this script:  ./scripts/release.sh
+#   npm run release                      # asks: Enter = patch, or major/minor/patch, or x.y.z
+#   npm run release -- minor             # no prompt
+#   npm run release -- 0.11.0
 #
 # It will:
-#   - Read the new version from package.json
-#   - Verify it differs from src-tauri/tauri.conf.json (terminates if same)
-#   - Sync the new version into Cargo.toml, tauri.conf.json, and project.yml
+#   - Check before changing anything: on main, clean working tree, gh signed
+#     in, package.json and tauri.conf.json agree on the current version, the
+#     tag is free, the CHANGELOG is ready
+#   - Write the new version into package.json, Cargo.toml, tauri.conf.json
+#     and project.yml
 #   - Run scripts/build.sh once per target (signed + notarized DMG; needs .env.local)
+#   - Move the CHANGELOG's Unreleased entries into the vX.Y.Z section
+#     (scripts/changelog.mjs app — validated before the build, applied before
+#     the commit, so the release commit carries it)
 #   - Commit + tag + push to origin
 #   - Create a GitHub release with both DMGs attached
 #
@@ -19,7 +26,8 @@
 #
 # Recovery: if build fails after the version sync, reset with
 #   git checkout -- package.json src-tauri/Cargo.toml \
-#       src-tauri/tauri.conf.json src-tauri/preview-extension/project.yml
+#       src-tauri/tauri.conf.json src-tauri/preview-extension/project.yml \
+#       CHANGELOG.md CHANGELOG.zh-CN.md CHANGELOG.ja.md
 
 set -euo pipefail
 
@@ -27,25 +35,21 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
-# ── Read versions ─────────────────────────────────────────────────────────────
-NEW_VERSION=$(node -e "console.log(require('./package.json').version)")
-OLD_VERSION=$(node -e "console.log(require('./src-tauri/tauri.conf.json').version)")
-
-if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Error: package.json version '$NEW_VERSION' is not semver X.Y.Z" >&2
+# ── Sanity (nothing is changed until every check passes) ─────────────────────
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$BRANCH" != "main" ]; then
+    echo "Error: releases are cut from main; current branch is \"$BRANCH\"." >&2
     exit 1
 fi
 
-if [ "$NEW_VERSION" = "$OLD_VERSION" ]; then
-    echo "Error: package.json version ($NEW_VERSION) is unchanged." >&2
-    echo "       Bump 'version' in package.json before running release." >&2
+# The DMGs are built from the working tree, so it must equal the commit.
+DIRTY=$(git status --porcelain)
+if [ -n "$DIRTY" ]; then
+    echo "Error: the working tree has uncommitted changes — commit or stash them first:" >&2
+    echo "$DIRTY" >&2
     exit 1
 fi
 
-TAG="v$NEW_VERSION"
-echo "Releasing $TAG (previous: $OLD_VERSION)"
-
-# ── Sanity ────────────────────────────────────────────────────────────────────
 if ! command -v gh >/dev/null 2>&1; then
     echo "Error: gh CLI not found. Install with: brew install gh" >&2
     exit 1
@@ -55,13 +59,52 @@ if ! gh auth status >/dev/null 2>&1; then
     exit 1
 fi
 
-# Allow package.json to be dirty (the user just bumped it). Reject anything else.
-UNEXPECTED_DIRTY=$(git status --porcelain | awk '{print $NF}' | grep -v '^package\.json$' || true)
-if [ -n "$UNEXPECTED_DIRTY" ]; then
-    echo "Error: only package.json may have uncommitted changes. Also dirty:" >&2
-    echo "$UNEXPECTED_DIRTY" >&2
+OLD_VERSION=$(node -p "require('./package.json').version")
+TAURI_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+if [ "$OLD_VERSION" != "$TAURI_VERSION" ]; then
+    echo "Error: package.json ($OLD_VERSION) and tauri.conf.json ($TAURI_VERSION) disagree" >&2
+    echo "       on the current version — finish or undo the previous release first." >&2
     exit 1
 fi
+
+# ── Choose the version ────────────────────────────────────────────────────────
+bump() {
+    local major minor patch
+    IFS=. read -r major minor patch <<< "$1"
+    case "$2" in
+        major) echo "$((major + 1)).0.0" ;;
+        minor) echo "$major.$((minor + 1)).0" ;;
+        *)     echo "$major.$minor.$((patch + 1))" ;;
+    esac
+}
+
+SUGGESTED=$(bump "$OLD_VERSION" patch)
+echo ""
+echo "  Package  domd (desktop + web)"
+echo "  Current  $OLD_VERSION"
+echo ""
+ANSWER="${1:-}"
+if [ $# -eq 0 ]; then
+    read -r -p "New version (Enter=patch→$SUGGESTED, or major/minor/patch, or explicit x.y.z): " ANSWER
+fi
+case "$ANSWER" in
+    "" | patch)   NEW_VERSION="$SUGGESTED" ;;
+    major | minor) NEW_VERSION=$(bump "$OLD_VERSION" "$ANSWER") ;;
+    *)            NEW_VERSION="$ANSWER" ;;
+esac
+
+if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Error: invalid version \"$ANSWER\" (expected x.y.z, major, minor or patch)" >&2
+    exit 1
+fi
+if [ "$NEW_VERSION" = "$OLD_VERSION" ]; then
+    echo "Error: $NEW_VERSION is already the current version" >&2
+    exit 1
+fi
+
+TAG="v$NEW_VERSION"
+echo ""
+echo "Releasing $TAG (previous: $OLD_VERSION)"
 
 if git rev-parse --verify "$TAG" >/dev/null 2>&1; then
     echo "Error: tag $TAG already exists locally" >&2
@@ -72,13 +115,26 @@ if git ls-remote --tags origin "refs/tags/$TAG" 2>/dev/null | grep -q "refs/tags
     exit 1
 fi
 
-# ── [1/4] Sync version into the other three files ─────────────────────────────
-echo "[1/4] Syncing $NEW_VERSION into Cargo.toml, tauri.conf.json, project.yml..."
+# The CHANGELOG must be ready for this release (aligned, Unreleased has
+# entries) — checked now, before the long build, applied before the commit.
+if ! node scripts/changelog.mjs app "$NEW_VERSION" --dry-run; then
+    echo "Error: the CHANGELOG is not ready for $TAG (see above)" >&2
+    exit 1
+fi
+
+# ── [1/4] Write the version into the four files ───────────────────────────────
+echo "[1/4] Writing $NEW_VERSION into package.json, Cargo.toml, tauri.conf.json, project.yml..."
+node -e '
+const fs = require("fs");
+const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+pkg.version = process.argv[1];
+fs.writeFileSync("package.json", JSON.stringify(pkg, null, 4) + "\n");
+' "$NEW_VERSION"
 sed -i '' -E "s/^version = \"[0-9]+\.[0-9]+\.[0-9]+\"/version = \"$NEW_VERSION\"/" src-tauri/Cargo.toml
 sed -i '' -E "s/^  \"version\": \"[0-9]+\.[0-9]+\.[0-9]+\"/  \"version\": \"$NEW_VERSION\"/" src-tauri/tauri.conf.json
 sed -i '' -E "s/(MARKETING_VERSION: \")[0-9]+\.[0-9]+\.[0-9]+(\")/\1$NEW_VERSION\2/" src-tauri/preview-extension/project.yml
 
-for f in src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/preview-extension/project.yml; do
+for f in package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/preview-extension/project.yml; do
     if ! grep -q "$NEW_VERSION" "$f"; then
         echo "Error: version sync did not apply to $f" >&2
         exit 1
@@ -137,7 +193,9 @@ EOF
 
 # ── [3/4] Commit + tag + push ─────────────────────────────────────────────────
 echo "[3/4] Committing + tagging + pushing..."
-git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/preview-extension/project.yml
+node scripts/changelog.mjs app "$NEW_VERSION"
+git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/preview-extension/project.yml \
+    CHANGELOG.md CHANGELOG.zh-CN.md CHANGELOG.ja.md
 if git ls-files --error-unmatch src-tauri/Cargo.lock >/dev/null 2>&1; then
     git add src-tauri/Cargo.lock
 fi
