@@ -10,24 +10,24 @@ All notable changes to DOMD are documented in this file, newest first. The forma
 
 ## [Unreleased]
 
-Kernel: `@do-md/core-react` 0.13.1 and 0.14.0 are published on npm; entries marked *(kernel, unpublished)* ship in the next kernel release.
+Kernel: `@do-md/core-react` 0.13.1, 0.14.0 and 0.15.0 are published on npm.
 
 ### Added
 
-- Line breaks in table cells: Enter or Shift+Enter inside a cell inserts a line break, stored as `<br>` in the Markdown. Typed or pasted multi-line text in a cell is written the same way, and `<br/>`, `<BR>` and `<br />` are normalized to `<br>` on save. Cells stay inline-only: `- x`, `# x` or a blank line inside a cell never become a list, heading or new paragraph. *(kernel, unpublished)*
-- **Kernel API:** an inline `<br>` renders as a `MarkdownType.HardBreak` node, so a `renderComponent` override can target it; its `<br>` element carries `data-domd-hard-break`. `MarkdownType.Br` remains only the placeholder of an empty block. *(kernel, unpublished)*
+- Line breaks in table cells: Enter or Shift+Enter inside a cell inserts a line break, stored as `<br>` in the Markdown. Typed or pasted multi-line text in a cell is written the same way, and `<br/>`, `<BR>` and `<br />` are normalized to `<br>` on save. Cells stay inline-only: `- x`, `# x` or a blank line inside a cell never become a list, heading or new paragraph. *(kernel 0.15.0)*
+- **Kernel API:** an inline `<br>` renders as a `MarkdownType.HardBreak` node, so a `renderComponent` override can target it; its `<br>` element carries `data-domd-hard-break`. `MarkdownType.Br` remains only the placeholder of an empty block. *(kernel 0.15.0)*
 - **Kernel API:** `filePaths` option (off by default) recognizes local file paths in text — `/tmp/a.png`, `~/notes/x.md`, `src/foo.ts:12:3` — and wraps each in a `FilePath` node that hosts can render as they like; `getFilePathInfo()` returns the path, line and column. The source text is unchanged. *(kernel 0.14.0)*
 - **Kernel API:** `copyAs` option on `DOMDProvider`: `"markdown"` (default, unchanged) or `"text"` — what a reader sees, without syntax symbols or link URLs, with tables as tab-separated rows ([#46](https://github.com/do-md/domd/issues/46)). *(kernel 0.14.0)*
 
 ### Changed
 
 - Copy and cut write to the clipboard synchronously from the copy event instead of through the async Clipboard API, so they need no permission and work inside iframes. *(kernel 0.14.0)*
-- With `copyAs: "text"`, a `<br>` line break is copied as a line break, and copying a whole table quotes the cells that span several lines, so a spreadsheet still gets one row per row. *(kernel, unpublished)*
+- With `copyAs: "text"`, a `<br>` line break is copied as a line break, and copying a whole table quotes the cells that span several lines, so a spreadsheet still gets one row per row. *(kernel 0.15.0)*
 
 ### Fixed
 
-- Inline `<br>` (also `<br/>`, `<br />`, any case) renders as a line break instead of showing the tag as text — common in AI answers inside table cells ([#47](https://github.com/do-md/domd/pull/47) — thanks [@123soulshell](https://github.com/123soulshell)). *(kernel, unpublished)*
-- Right after a `<br>` line break, the caret is drawn at the start of the next line, and typed or IME text lands after the break instead of before it. *(kernel, unpublished)*
+- Inline `<br>` (also `<br/>`, `<br />`, any case) renders as a line break instead of showing the tag as text — common in AI answers inside table cells ([#47](https://github.com/do-md/domd/pull/47) — thanks [@123soulshell](https://github.com/123soulshell)). *(kernel 0.15.0)*
+- Right after a `<br>` line break, the caret is drawn at the start of the next line, and typed or IME text lands after the break instead of before it. *(kernel 0.15.0)*
 - Clicking formatted text in a read-only view no longer reveals its Markdown symbols, such as the `**` around bold text. *(kernel 0.13.1)*
 - A bare URL inside link text no longer produces a link nested inside a link. *(kernel 0.14.0)*
 - Copying a selection that starts inside an inline badge (such as a mention) no longer shifts the copied text, and a copy that cannot be mapped to the document falls back to the browser's own copy instead of an empty clipboard. *(kernel 0.14.0)*
