@@ -20,6 +20,7 @@ import {
 } from "../inline-rule-params";
 import { InlineRuleParams } from "../../editor/type";
 import { matchFilePathAt } from "../file-paths";
+import { DATA_HARD_BREAK } from "../constant";
 
 const imgReg = /^!\[[^\]]*\]\((.*?)\s*("(?:.*[^"])")?\s*\)/;
 const imgUrlReg = /\(([^)]+)\)/;
@@ -109,7 +110,8 @@ const inlineTagReg = /^<(ins|sub|sup|u|kbd|mark)>([\s\S]*?)<\/\1>/;
 // paired-tag branch below cannot claim it — there is no closing tag — so it
 // used to fall through to plain text and show the tag itself. Like the paired
 // tags, the source text stays in a hidden MdSymbol so the Markdown round-trip
-// remains byte-exact; the node next to it renders the real `<br>`.
+// remains byte-exact; the HardBreak node next to it renders the real `<br>`.
+// Table cells lower the group to a "\n" after parsing (data-parse/hardBreak.ts).
 const inlineBrReg = /^<br\s*\/?>/i;
 
 // Escapable chars now come from the compiled inline rules (base CommonMark set
@@ -991,7 +993,9 @@ export const parseInline = ({
                 // Void inline HTML: `<br>`, `<br/>`, `<br />` — a hard line
                 // break, so no paired content to recurse into. Wrapped like the
                 // image branch: a hidden MdSymbol carries the exact source text
-                // (round-trip) and the Br leaf renders the element itself.
+                // (round-trip) and the HardBreak leaf renders the element
+                // itself. The group shape is a contract: hardBreakSourceOf
+                // (data-parse/hardBreak.ts) reads it back.
                 const inlineBrMatch = parseText_
                     .slice(charIndex)
                     .match(inlineBrReg);
@@ -1017,11 +1021,11 @@ export const parseInline = ({
                                 htmlProps_: {},
                             },
                             {
-                                htmlType_: MarkdownType.Br,
+                                htmlType_: MarkdownType.HardBreak,
                                 text_: "",
                                 uuid_: nanoid8(),
                                 mdSymbols_: [symbolId],
-                                htmlProps_: {},
+                                htmlProps_: { [DATA_HARD_BREAK]: "true" },
                             },
                         ],
                         uuid_: nanoid8(),

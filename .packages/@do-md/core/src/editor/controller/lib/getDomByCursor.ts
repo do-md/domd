@@ -1,4 +1,7 @@
-import { DATA_FILLER_BR } from "../../../data-parse/constant";
+import {
+    DATA_FILLER_BR,
+    DATA_HARD_BREAK,
+} from "../../../data-parse/constant";
 import { getClosestRenderDom } from "./getClosestRenderDom";
 import { isInsideInactiveSymbol } from "./isInsideInactiveSymbol";
 import { isViewOnlyDom } from "./isViewOnlyDom";
@@ -83,12 +86,20 @@ export const getDomByCursor = (editDom: HTMLElement, cursor: number) => {
             }
         };
         collect(scope);
+        // A <br> is a landing spot only where it sits alone on its line (the
+        // trailing filler, an EmptyP's placeholder). A hard break's <br> ends
+        // a line mid-content: (br, 0) is the END of the previous line —
+        // Chrome paints the caret there and inserts typed text there — while
+        // the offset right after the hidden `<br>` source means the start of
+        // the next line. Skip it, so the snap reaches the next line's first
+        // text (or the trailing filler when the break ends the block).
         const isVisibleCaretHost = (n: Node): boolean => {
             if (isInsideInactiveSymbol(n, scope)) return false;
             if (n.nodeType === Node.TEXT_NODE) return true;
             return (
                 n.nodeType === Node.ELEMENT_NODE &&
-                (n as Element).tagName === "BR"
+                (n as Element).tagName === "BR" &&
+                !(n as Element).hasAttribute(DATA_HARD_BREAK)
             );
         };
         const at = leaves.indexOf(found);

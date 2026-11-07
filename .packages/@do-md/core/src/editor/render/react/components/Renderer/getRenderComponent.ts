@@ -33,7 +33,11 @@ export const getRenderComponent = (
             parsedData: ParentRenderData | RenderData;
         }>;
     }
-    if (markdownType === MarkdownType.Br || markdownType === MarkdownType.Hr)
+    if (
+        markdownType === MarkdownType.Br ||
+        markdownType === MarkdownType.HardBreak ||
+        markdownType === MarkdownType.Hr
+    )
         return SelfCloseElement as React.ComponentType<{
             parsedData: ParentRenderData | RenderData;
         }>;

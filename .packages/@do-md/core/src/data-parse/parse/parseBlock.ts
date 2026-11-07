@@ -168,10 +168,7 @@ export const parseBlock = ({
 
         if (tableText) {
             parentRenderData_.children_.push(
-                parseTable({
-                    text_: tableText,
-                    rootRenderData_: rootRenderData_,
-                }),
+                parseTable({ text_: tableText }),
             );
             const textDraft = text_.slice(tableText.length);
 

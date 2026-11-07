@@ -79,6 +79,7 @@ export const HtmlTags: Record<keyof typeof MarkdownType, React.ElementType> = {
     [MarkdownType.FunctionIcon]: "span",
     [MarkdownType.HideSecondLine]: "span",
     [MarkdownType.Br]: "br",
+    [MarkdownType.HardBreak]: "br",
     [MarkdownType.LineBr]: "div",
     [MarkdownType.LineBrBr]: "div",
     [MarkdownType.InlinePlain]: "span",

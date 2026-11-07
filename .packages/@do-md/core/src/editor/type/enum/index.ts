@@ -49,7 +49,13 @@ export enum MarkdownType {
     FunctionSymbolHide = "FunctionSymbolHide",
     FunctionIcon = "FunctionIcon",
     HideSecondLine = "HideSecondLine",
+    /** Placeholder <br> that props an empty block open (EmptyP, empty
+     *  heading). Not a line break in the content. */
     Br = "Br",
+    /** Inline hard line break written as raw HTML (`<br>`, `<br/>`, …):
+     *  renders a real <br>, its source lives in the hidden MdSymbol next to
+     *  it (see data-parse/hardBreak.ts). */
+    HardBreak = "HardBreak",
     LineBrBr = "LineBrBr",
     LineBr = "LineBr",
     InlinePlain = "InlinePlain",

@@ -6,6 +6,7 @@ import {
     RenderData,
     RootRenderData,
 } from "../../type";
+import { hardBreakSourceOf } from "../../../data-parse/hardBreak";
 
 type AnyNode = ParentRenderData | RootRenderData | RenderData;
 
@@ -107,8 +108,9 @@ const anchorCursor = (
  * The plain-text counterpart of toMarkdown: the document as a reader sees it.
  * Syntax symbols are dropped, block structure survives as line breaks
  * (paragraphs keep their blank line, list items and quote lines their line),
- * and a table becomes tab-separated rows — what a browser produces for the
- * same rendered HTML, and what spreadsheets paste as cells. Document text
+ * a hard break (`<br>`) is a line break too, and a table becomes
+ * tab-separated rows, multi-line cells quoted — what spreadsheets paste as
+ * cells. Document text
  * only: view-only decorations a host renders around it are not part of the
  * model. The model is the source, never the DOM: a virtualized view only
  * mounts a window of blocks.
@@ -130,25 +132,59 @@ export const toPlainText = (
         markers.set(anchor.leaf.uuid_, list);
     }
 
+    // Markers emitted so far, in document order (emission order).
+    let markersEmitted = 0;
+
+    const injectMarkers = (
+        text: string,
+        positions: number[],
+    ): string => {
+        let out = text;
+        // Insert from the right so earlier positions stay valid.
+        for (const position of [...positions].sort((a, b) => b - a)) {
+            out = out.slice(0, position) + CursorMarker + out.slice(position);
+        }
+        markersEmitted += positions.length;
+        return out;
+    };
+
     const emitLeaf = (leaf: RenderData): string => {
         const { text, project } = readLeaf(leaf);
         const offsets = markers.get(leaf.uuid_);
         if (!offsets) return text;
-        let out = text;
-        // Insert from the right so earlier positions stay valid.
-        for (const position of offsets.map(project).sort((a, b) => b - a)) {
-            out = out.slice(0, position) + CursorMarker + out.slice(position);
-        }
-        return out;
+        return injectMarkers(text, offsets.map(project));
+    };
+
+    // A hard break reads as a line break. Its source has a length and its
+    // <br> has none, so a cursor anchors on the source symbol (anchorCursor
+    // takes the earlier leaf at a boundary): any offset past the symbol's
+    // start is after the break — the start of the next line.
+    const emitHardBreak = (source: RenderData): string => {
+        const offsets = markers.get(source.uuid_);
+        if (!offsets) return "\n";
+        return injectMarkers(
+            "\n",
+            offsets.map((offset) => (offset > 0 ? 1 : 0)),
+        );
+    };
+
+    // A cell holding a line break (or a tab) is a multi-line field: quoted
+    // the way spreadsheets read TSV ("" for a quote), so pasting the table
+    // keeps one row per row. A cell that holds a selection endpoint stays
+    // raw — the caller cuts there, and half a quoted field is worse than
+    // none.
+    const emitCell = (cell: AnyNode): string => {
+        const before = markersEmitted;
+        const text = emit(cell);
+        if (markersEmitted !== before || !/[\n\t]/.test(text)) return text;
+        return `"${text.split('"').join('""')}"`;
     };
 
     const emitTable = (table: AnyNode): string => {
         const rows: string[] = [];
         for (const section of table.children_ ?? []) {
             for (const tr of section.children_ ?? []) {
-                rows.push(
-                    (tr.children_ ?? []).map((cell) => emit(cell)).join("\t"),
-                );
+                rows.push((tr.children_ ?? []).map(emitCell).join("\t"));
             }
         }
         return rows.join("\n");
@@ -157,6 +193,8 @@ export const toPlainText = (
     const emit = (node: AnyNode): string => {
         if (!node.children_) return emitLeaf(node as RenderData);
         if (node.htmlType_ === MarkdownType.Table) return emitTable(node);
+        const hardBreak = hardBreakSourceOf(node);
+        if (hardBreak) return emitHardBreak(hardBreak);
         let text = "";
         for (const child of node.children_) text += emit(child);
         return text;

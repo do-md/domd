@@ -20,6 +20,8 @@ import {
     Token,
 } from "../type";
 import { parseMarkdown } from "../../data-parse/parseMarkdown";
+import { encodeCellBreaks } from "../../data-parse/hardBreak";
+import { findEnclosingTableCell } from "../model/tree/findEnclosingTableCell";
 import {
     CompiledInlineRules,
     compileInlineRules,
@@ -1911,6 +1913,17 @@ export class EditorStore extends ZenithStore<StoreState> {
         if (!renderData) {
             debugger;
             return;
+        }
+
+        // The edit splices into the top-level block's markdown; inside a
+        // table cell that is the table's, where a line break is written
+        // `<br>` — a raw "\n" would split the row (data-parse/hardBreak.ts).
+        if (
+            text.includes("\n") &&
+            renderData.htmlType_ === MarkdownType.Table &&
+            findEnclosingTableCell(uuid_, renderData)
+        ) {
+            text = encodeCellBreaks(text);
         }
 
         const oldText = toMarkdown(renderData, [

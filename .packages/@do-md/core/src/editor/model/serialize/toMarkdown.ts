@@ -11,6 +11,7 @@ import {
 // format/inlineItems.ts): both sides only call across it from inside function
 // bodies, which is safe under ESM live bindings.
 import { serializeInlineWithFormat } from "../format/serializeInlineWithFormat";
+import { encodeCellBreaks } from "../../../data-parse/hardBreak";
 
 /**
  * The one serializer from a RenderData tree to markdown text — the outbound
@@ -33,8 +34,11 @@ export const toMarkdown = (
             table.children_?.[0].children_?.[0]?.children_ || [];
         const body = table.children_?.[1];
 
-        const headerChildrenText = headerChildren.map(
-            (child) => processNode(child, listDepth) || "",
+        // A cell's line break is "\n" in the model and `<br>` in markdown:
+        // a row is one line (data-parse/hardBreak.ts). Encoded before the
+        // widths are measured, so the padding fits the written text.
+        const headerChildrenText = headerChildren.map((child) =>
+            encodeCellBreaks(processNode(child, listDepth) || ""),
         );
         const bodyEntries = (body?.children_ || []).map((tr) => {
             if (tr.isAutoFill_) {
@@ -46,8 +50,8 @@ export const toMarkdown = (
             const trChildren = tr.children_ || [];
             return {
                 autoFillRaw: null as string | null,
-                cells: trChildren.map(
-                    (trChild) => processNode(trChild, listDepth) || "",
+                cells: trChildren.map((trChild) =>
+                    encodeCellBreaks(processNode(trChild, listDepth) || ""),
                 ),
             };
         });

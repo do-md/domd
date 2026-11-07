@@ -7,6 +7,7 @@ import {
 import { MarkdownType } from "../editor/type/enum";
 import { nanoid8 } from "@do-md/utils";
 import { parseBlock } from "./parse/parseBlock";
+import { parseTableCell } from "./parse/parseTable";
 import { CompiledInlineRules } from "./inline-rules";
 
 interface ParseConfig {
@@ -91,3 +92,30 @@ export const parseMarkdown = (
         }
     });
 };
+
+/**
+ * The text→tree seam for ONE table cell: an edit inside a cell reparses the
+ * cell's paragraph, never the document. `text` is the cell's content in
+ * markdown form (`<br>` for a line break — see data-parse/hardBreak.ts); the
+ * result is a root holding the single cell paragraph, parsed exactly as
+ * parseTable parses every cell. Through parseMarkdown the same text would be
+ * read as blocks: `a\n\nb` splits in three, `- x` becomes a list in the cell.
+ */
+export const parseTableCellMarkdown = (
+    text: string,
+    parseConfig: ParseConfig = {},
+): RootRenderData =>
+    runWithParseContext(parseConfig, () => {
+        const id = nanoid8();
+        const renderData: RootRenderData = {
+            htmlType_: MarkdownType.Root,
+            children_: [],
+            uuid_: id,
+            mdSymbols_: [],
+            htmlProps_: {
+                "data-render-id": id,
+            },
+        };
+        parseTableCell(text, renderData);
+        return renderData;
+    });

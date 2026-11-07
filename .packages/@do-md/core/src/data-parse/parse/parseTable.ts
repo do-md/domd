@@ -1,21 +1,28 @@
 import { nanoid8 } from "@do-md/utils";
-import {
-    CursorInfo,
-    ParentRenderData,
-    RootRenderData,
-} from "../../editor/type";
+import { ParentRenderData } from "../../editor/type";
 import { MarkdownType } from "../../editor/type/enum";
-import { parseP } from "./parseP";
+import { parseActualP } from "./parseP";
 import { CursorMarker } from "../../editor/constant";
 import { DATA_ATOMIC_RENDER_ID, DATA_RENDER_ID } from "../constant";
+import { getParseContext } from "../parseMarkdown";
 
-export function parseTable({
-    text_,
-    rootRenderData_,
-}: {
-    text_: string;
-    rootRenderData_: RootRenderData;
-}): ParentRenderData {
+/**
+ * A cell's content: one inline paragraph, whatever its text holds. GFM cells
+ * are inline only — a cell starting with `# ` or `- ` is text, not a heading
+ * or a list — and a cell line break (`<br>`) becomes a "\n" in the model
+ * (data-parse/hardBreak.ts). The single cell parser: parseTable uses it for
+ * every cell, and parseTableCellMarkdown for an edit's reparse of one cell.
+ */
+export const parseTableCell = (text: string, cell: ParentRenderData) => {
+    parseActualP({
+        text,
+        parentRenderData: cell,
+        onCursorFound: getParseContext().onCursorFound_,
+        tableCell: true,
+    });
+};
+
+export function parseTable({ text_ }: { text_: string }): ParentRenderData {
     if (!text_) throw Error("text is not a valid unordered list");
     const lineUUID = nanoid8();
 
@@ -83,11 +90,7 @@ export function parseTable({
             htmlProps_: {},
         };
         headerTRData.children_.push(th);
-        parseP({
-            text_: h,
-            parentRenderData_: th,
-            rootRenderData_: rootRenderData_,
-        });
+        parseTableCell(h, th);
     });
 
     // Parse data rows: real rows wrap with `|` on both sides (and need two
@@ -126,11 +129,7 @@ export function parseTable({
                 htmlProps_: {},
                 ...(isAutoFill ? { isAutoFill_: true } : {}),
             };
-            parseP({
-                text_: col,
-                parentRenderData_: render,
-                rootRenderData_: rootRenderData_,
-            });
+            parseTableCell(col, render);
             trData.children_.push(render);
         });
     });

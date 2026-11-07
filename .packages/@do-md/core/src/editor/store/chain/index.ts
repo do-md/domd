@@ -21,7 +21,11 @@ import { createEmptyP } from "../../../data-parse/create-render-data/createEmpty
 import { createEmptyUL } from "../../../data-parse/create-render-data/createEmptyUL";
 import { createEmptyOl } from "../../../data-parse/create-render-data/createEmptyOl";
 import { nanoid8 as uuid } from "@do-md/utils";
-import { parseMarkdown } from "../../../data-parse/parseMarkdown";
+import {
+    parseMarkdown,
+    parseTableCellMarkdown,
+} from "../../../data-parse/parseMarkdown";
+import { encodeCellBreaks } from "../../../data-parse/hardBreak";
 import { CompiledInlineRules } from "../../../data-parse/inline-rules";
 import { MarkdownType } from "../../type/enum";
 import { CursorMarker, ZeroWidthSpace } from "../../constant";
@@ -87,6 +91,23 @@ const clampToOneTableCell_ = (
         : { ...cursorInfo[lastIdx], ...cursorInfo[firstIsA ? 0 : 1] };
     return out;
 };
+
+/**
+ * Text inserted at a selection edit's first marker, in the markdown form of
+ * the block it lands in. Inside a table cell a line break is written `<br>`:
+ * the edit splices into the table's markdown, where a raw "\n" would split
+ * the row (data-parse/hardBreak.ts).
+ */
+const encodeForCell_ = (
+    text: string,
+    block: AnyNode,
+    cursorInfo: CursorInfo[],
+): string =>
+    text.includes("\n") &&
+    block.htmlType_ === MarkdownType.Table &&
+    cursorInfo.some((ci) => findEnclosingTableCell(ci.uuid, block))
+        ? encodeCellBreaks(text)
+        : text;
 
 const topLevelIndexOf = (id: string, root: RootRenderData): number => {
     const children = root.children_ || [];
@@ -165,8 +186,12 @@ export const editorStateChainable = (
          */
         resetTextByUUID_(id: string, text: string, dirtySpanUuid_?: string) {
             const draftRenderData = draft.renderData_;
+            const parentAndIndex = getParentAndIndex(id, draftRenderData);
+            if (!parentAndIndex) return this;
+            const { parent, index } = parentAndIndex;
+            const oldNode = parent.children_[index];
             let findCursorInfo: CursorInfo | null = null;
-            const newParsedData = parseMarkdown(text, {
+            const parseConfig = {
                 onCursorFound_: (cursorInfo: CursorInfo) => {
                     findCursorInfo = cursorInfo;
                 },
@@ -174,17 +199,25 @@ export const editorStateChainable = (
                 inlineRules_: inlineRules,
                 filePaths_: filePaths,
                 imgGroupSeparators_: imgGroupSeparators,
-            });
+            };
+            // A table cell's paragraph is not a document: its text (model
+            // form, a line break is "\n") goes back to markdown form and
+            // through the cell parser, so it stays one inline paragraph
+            // (data-parse/hardBreak.ts).
+            const newParsedData =
+                parent.htmlType_ === MarkdownType.TD ||
+                parent.htmlType_ === MarkdownType.TH
+                    ? parseTableCellMarkdown(
+                          encodeCellBreaks(text),
+                          parseConfig,
+                      )
+                    : parseMarkdown(text, parseConfig);
             // The markdown-text → tree seam: pre-split large plain-text spans.
             // The first time an existing single-span paragraph is edited, the
             // merge takes its changed region from the already-split new parse →
             // one edit restores sentence-level granularity in place (untouched
             // paragraphs stay coarse-grained at zero cost).
             splitTextSpans(newParsedData);
-            const parentAndIndex = getParentAndIndex(id, draftRenderData);
-            if (!parentAndIndex) return this;
-            const { parent, index } = parentAndIndex;
-            const oldNode = parent.children_[index];
 
             // Span-preserving merge: when the first block of the new parse has
             // the same type as the old block (P / a Header of the same level) we
@@ -704,7 +737,8 @@ export const editorStateChainable = (
                 if (array.length < 2) {
                     return this.fullReparseSelect_(cursorInfo, insertText);
                 }
-                const before = array[0] + insertText;
+                const before =
+                    array[0] + encodeForCell_(insertText, block, cursorInfo);
                 const after = array[array.length - 1];
                 const newText =
                     before +
@@ -724,7 +758,10 @@ export const editorStateChainable = (
             if (array.length < 3) {
                 return this.fullReparseSelect_(cursorInfo, insertText);
             }
-            const before = array[0] + insertText;
+            // The insertion point is the first marker, in block `start`.
+            const before =
+                array[0] +
+                encodeForCell_(insertText, root.children_[start], cursorInfo);
             const after = array[array.length - 1];
             const newText =
                 before +

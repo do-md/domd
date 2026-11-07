@@ -16,6 +16,7 @@ import { getCursorInfo, getCursorInfoOfRange } from "./lib/getCursorInfo";
 import { CursorMarker, ZeroWidthSpace } from "../constant";
 import { isCursorAfterSymbol } from "../model/rich/isCursorAfterSymbol";
 import { normalizeRichCursorOffset } from "../model/rich/normalizeRichCursorOffset";
+import { isOffsetInCodeSpan } from "../model/rich/isOffsetInCodeSpan";
 import { planRichBackspace } from "../model/rich/planRichBackspace";
 import { isModelDomInSync } from "./lib/isModelDomInSync";
 import { EditorStore } from "../store";
@@ -679,9 +680,8 @@ export class EditorController {
      * - Mid-li / heading / blockquote: the \n splits the block in two, per literal
      *   markdown semantics;
      * - Code block: a new line.
-     * The one guard is table cells: a markdown table row cannot hold a literal \n
-     * (serializing splits the row, and reparsing the document shatters the table), so
-     * this is a no-op there, consistent with Enter.
+     * - Table cell: a line break in the cell, the same as Enter there
+     *   (insertTableCellBreak_).
      */
     public handleSoftBreakInCursor_() {
         // Select-all terminal state: skip the DOM-coordinate guards (the endpoints
@@ -704,6 +704,10 @@ export class EditorController {
             parentNodeData?.htmlType_ === MarkdownType.TH ||
             parentNodeData?.htmlType_ === MarkdownType.TD
         ) {
+            this.insertTableCellBreak_(
+                cursorInfo[0].renderUUID,
+                cursorInfo[0].offset,
+            );
             return;
         }
 
@@ -711,6 +715,34 @@ export class EditorController {
         // speculatively rendered pending text first
         this._editorStore_.applyPendingText_();
         this._editorStore_.insertText("\n");
+    }
+
+    /**
+     * A line break inside a table cell — Enter and Shift+Enter alike: a cell
+     * has no paragraphs to split. In the model it is a "\n", the same
+     * character a paragraph soft break is, so every caret / delete / IME rule
+     * already handles it; insertText writes it into the table's markdown as
+     * `<br>` (data-parse/hardBreak.ts). Block-split affinity in rich mode, as
+     * for Enter: at a construct's tail the break goes after the construct.
+     * Inside a code span it is a no-op — GFM cannot write a line break there
+     * (`<br>` in a code span is literal text).
+     */
+    private insertTableCellBreak_(renderUUID: string, domOffset: number) {
+        // insertText takes its context from the serialized model, so commit
+        // the speculatively rendered pending text first; after that the DOM
+        // offset is a model offset.
+        this._editorStore_.applyPendingText_();
+        const renderData = getRenderDataById(
+            renderUUID,
+            this._editorStore_.renderData_,
+        ) as ParentRenderData | undefined;
+        if (!renderData?.children_) return;
+        const offset =
+            this._editorStore_.mode === "rich"
+                ? normalizeRichCursorOffset(renderData, domOffset)
+                : domOffset;
+        if (isOffsetInCodeSpan(renderData, offset)) return;
+        this._editorStore_.insertText("\n", { uuid: renderUUID, offset });
     }
 
     public handleEnterInCursor_(commandKey: boolean) {
@@ -761,7 +793,7 @@ export class EditorController {
                     parentNodeData?.htmlType_ === MarkdownType.TH ||
                     parentNodeData?.htmlType_ === MarkdownType.TD
                 ) {
-                    // Enter typed inside a table cell
+                    this.insertTableCellBreak_(renderUUID, offset);
                 } else if (renderData.htmlType_ === MarkdownType.PreEmpty) {
                     // Enter typed right after a ``` fence opener
                     this._editorStore_.chainProduceParsedData_((chain) => {

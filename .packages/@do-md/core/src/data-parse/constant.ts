@@ -24,3 +24,10 @@ export const DATA_VIEW_ONLY = "data-domd-view-only";
  *  (Range.toString() does not include a br) and has zero impact on the
  *  model or on serialization. */
 export const DATA_FILLER_BR = "data-domd-filler";
+/** The <br> of an inline hard break (MarkdownType.HardBreak). It ends a
+ *  line in the middle of the content, so the caret never lands on it: the
+ *  position before a mid-line <br> is the end of the previous line, and the
+ *  position after its hidden source is the start of the next one (see
+ *  getDomByCursor). Unlike the filler and the EmptyP placeholder, which
+ *  sit alone on their line and ARE the landing spot there. */
+export const DATA_HARD_BREAK = "data-domd-hard-break";

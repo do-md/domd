@@ -85,3 +85,4 @@ scripts/verify-file-paths/out.css
 scripts/verify-copy/out.mjs
 scripts/verify-copy/out.css
 scripts/verify-inline-br/out.mjs
+scripts/verify-inline-br/caret-out/

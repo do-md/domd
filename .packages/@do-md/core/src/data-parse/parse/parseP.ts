@@ -21,6 +21,7 @@ import { createParentRenderData } from "../create-render-data/createParentRender
 import { DATA_RENDER_ID } from "../constant";
 import { createTextRenderData } from "../create-render-data/createTextRenderData";
 import { wrapImgGroups } from "./wrapImgGroups";
+import { lowerCellHardBreaks, mapLoweredOffset } from "../hardBreak";
 
 export const parseP = ({
     text_,
@@ -126,10 +127,15 @@ export const parseActualP = ({
     text,
     parentRenderData,
     onCursorFound,
+    tableCell = false,
 }: {
     text: string;
     parentRenderData: ParentRenderData;
     onCursorFound?: (cursorInfo: CursorInfo) => void;
+    /** The text is a table cell's content (markdown form): its `<br>` hard
+     *  breaks are lowered to "\n" and the reported cursor offsets follow
+     *  (data-parse/hardBreak.ts). */
+    tableCell?: boolean;
 }) => {
     // Strip every CursorMarker, recording each position in the progressively
     // stripped text. A caret op leaves one marker; an inline-format op leaves
@@ -155,13 +161,6 @@ export const parseActualP = ({
           })
         : createEmptyP()[0];
 
-    cursorOffsets.forEach((offset_) =>
-        onCursorFound?.({
-            uuid: lineRenderData.uuid_,
-            offset: offset_,
-        }),
-    );
-
     const remainingLineText = parseInline({
         parseText_: text,
         renderData_: lineRenderData,
@@ -172,6 +171,16 @@ export const parseActualP = ({
             createTextRenderData({ text_: remainingLineText }),
         );
     }
+
+    // Offsets were recorded in the text as written; a table cell's lowered
+    // breaks shorten it, so they are mapped onto the model text.
+    const breaks = tableCell ? lowerCellHardBreaks(lineRenderData) : [];
+    cursorOffsets.forEach((offset_) =>
+        onCursorFound?.({
+            uuid: lineRenderData.uuid_,
+            offset: mapLoweredOffset(offset_, breaks),
+        }),
+    );
 
     // Image-group aggregation (opt-in): a P's children take their final
     // shape here, and every reparse path funnels through this point — one
