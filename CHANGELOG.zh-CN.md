@@ -15,12 +15,14 @@
 ### 新增
 
 - 表格单元格支持换行：在单元格里按 Enter 或 Shift+Enter 插入换行，Markdown 中存为 `<br>`。在单元格里输入或粘贴的多行文本同样这样写入，`<br/>`、`<BR>`、`<br />` 保存时统一为 `<br>`。单元格只承载行内内容：在单元格里输入 `- x`、`# x` 或空行，不会变成列表、标题或新段落。*（内核，未发布）*
+- **内核 API：**行内 `<br>` 渲染为 `MarkdownType.HardBreak` 节点，可用 `renderComponent` 单独覆盖；它的 `<br>` 元素带 `data-domd-hard-break` 属性。`MarkdownType.Br` 仍只表示空块的占位。*（内核，未发布）*
 - **内核 API：**新增 `filePaths` 选项（默认关闭），识别文本中的本地文件路径——如 `/tmp/a.png`、`~/notes/x.md`、`src/foo.ts:12:3`——并包成 `FilePath` 节点，由宿主自行决定如何渲染；`getFilePathInfo()` 返回路径、行号和列号。源文本保持不变。*（内核 0.14.0）*
 - **内核 API：**`DOMDProvider` 新增 `copyAs` 选项：`"markdown"`（默认，行为不变）或 `"text"`——复制读者看到的内容，不含语法符号和链接 URL，表格按制表符分隔的行输出（[#46](https://github.com/do-md/domd/issues/46)）。*（内核 0.14.0）*
 
 ### 变更
 
 - 复制和剪切改为在 copy 事件中同步写入剪贴板，不再走异步 Clipboard API，因此无需权限，在 iframe 中也能用。*（内核 0.14.0）*
+- 使用 `copyAs: "text"` 时，`<br>` 换行会复制为换行；复制整张表格时，跨多行的单元格会加上引号，粘贴到电子表格后仍是一行对一行。*（内核，未发布）*
 
 ### 修复
 

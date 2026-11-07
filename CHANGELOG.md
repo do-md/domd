@@ -15,12 +15,14 @@ Kernel: `@do-md/core-react` 0.13.1 and 0.14.0 are published on npm; entries mark
 ### Added
 
 - Line breaks in table cells: Enter or Shift+Enter inside a cell inserts a line break, stored as `<br>` in the Markdown. Typed or pasted multi-line text in a cell is written the same way, and `<br/>`, `<BR>` and `<br />` are normalized to `<br>` on save. Cells stay inline-only: `- x`, `# x` or a blank line inside a cell never become a list, heading or new paragraph. *(kernel, unpublished)*
+- **Kernel API:** an inline `<br>` renders as a `MarkdownType.HardBreak` node, so a `renderComponent` override can target it; its `<br>` element carries `data-domd-hard-break`. `MarkdownType.Br` remains only the placeholder of an empty block. *(kernel, unpublished)*
 - **Kernel API:** `filePaths` option (off by default) recognizes local file paths in text — `/tmp/a.png`, `~/notes/x.md`, `src/foo.ts:12:3` — and wraps each in a `FilePath` node that hosts can render as they like; `getFilePathInfo()` returns the path, line and column. The source text is unchanged. *(kernel 0.14.0)*
 - **Kernel API:** `copyAs` option on `DOMDProvider`: `"markdown"` (default, unchanged) or `"text"` — what a reader sees, without syntax symbols or link URLs, with tables as tab-separated rows ([#46](https://github.com/do-md/domd/issues/46)). *(kernel 0.14.0)*
 
 ### Changed
 
 - Copy and cut write to the clipboard synchronously from the copy event instead of through the async Clipboard API, so they need no permission and work inside iframes. *(kernel 0.14.0)*
+- With `copyAs: "text"`, a `<br>` line break is copied as a line break, and copying a whole table quotes the cells that span several lines, so a spreadsheet still gets one row per row. *(kernel, unpublished)*
 
 ### Fixed
 
