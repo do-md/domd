@@ -6,12 +6,38 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Target triple — first arg, defaults to Apple Silicon.
 # Supported: aarch64-apple-darwin (Apple Silicon) | x86_64-apple-darwin (Intel)
+# Second arg --check: verify the toolchain and the signing secrets, build
+# nothing (release.sh runs it before bumping the version).
 TARGET="${1:-aarch64-apple-darwin}"
+CHECK_ONLY="${2:-}"
 case "$TARGET" in
   aarch64-apple-darwin|x86_64-apple-darwin) ;;
   *) echo "Error: unsupported target '$TARGET'" >&2; exit 1 ;;
 esac
 ARCH="${TARGET%-apple-darwin}"
+
+# ── Toolchain ─────────────────────────────────────────────────────────────────
+# rustup lives in ~/.cargo/bin and relies on the shell sourcing ~/.cargo/env;
+# load it here so the build does not depend on the shell's startup files.
+if ! command -v rustup >/dev/null 2>&1 && [ -f "$HOME/.cargo/env" ]; then
+  . "$HOME/.cargo/env"
+fi
+for tool in rustup cargo xcodegen xcodebuild codesign hdiutil; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "Error: $tool not found on PATH" >&2
+    exit 1
+  fi
+done
+for tool in notarytool stapler; do
+  if ! xcrun --find "$tool" >/dev/null 2>&1; then
+    echo "Error: xcrun $tool not found (install Xcode)" >&2
+    exit 1
+  fi
+done
+if ! (cd "$PROJECT_DIR" && npx --no-install tauri --version >/dev/null 2>&1); then
+  echo "Error: the Tauri CLI is not installed (npm install in $PROJECT_DIR)" >&2
+  exit 1
+fi
 
 # Ensure cross-compile stdlib is available (idempotent).
 rustup target add "$TARGET" >/dev/null
@@ -32,6 +58,11 @@ for var in APPLE_SIGNING_IDENTITY APPLE_CERTIFICATE_BASE64 APPLE_CERTIFICATE_PAS
     exit 1
   fi
 done
+
+if [ "$CHECK_ONLY" = "--check" ]; then
+  echo "✓ Build prerequisites for $TARGET"
+  exit 0
+fi
 
 # ── Decode secrets to temp files ──────────────────────────────────────────────
 TMPDIR_BUILD=$(mktemp -d)

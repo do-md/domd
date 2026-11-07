@@ -24,10 +24,9 @@
 # No version in the names — matches README's releases/latest/download/...
 # permalink so the link stays valid across releases.
 #
-# Recovery: if build fails after the version sync, reset with
-#   git checkout -- package.json src-tauri/Cargo.toml \
-#       src-tauri/tauri.conf.json src-tauri/preview-extension/project.yml \
-#       CHANGELOG.md CHANGELOG.zh-CN.md CHANGELOG.ja.md
+# Recovery: a failure after the version is written and before the release
+# commit restores the version files, Cargo.lock and the CHANGELOG by itself,
+# so the release can simply be run again.
 
 set -euo pipefail
 
@@ -66,6 +65,12 @@ if [ "$OLD_VERSION" != "$TAURI_VERSION" ]; then
     echo "       on the current version — finish or undo the previous release first." >&2
     exit 1
 fi
+
+# Toolchain + signing secrets for both arches (build.sh --check builds nothing).
+TARGETS=(aarch64-apple-darwin x86_64-apple-darwin)
+for TARGET in "${TARGETS[@]}"; do
+    "$SCRIPT_DIR/build.sh" "$TARGET" --check
+done
 
 # ── Choose the version ────────────────────────────────────────────────────────
 bump() {
@@ -123,6 +128,27 @@ if ! node scripts/changelog.mjs app "$NEW_VERSION" --dry-run; then
 fi
 
 # ── [1/4] Write the version into the four files ───────────────────────────────
+# From here until the release commit, any failure puts the tree back the way
+# the sanity check found it (clean), so fixing the cause and re-running is all
+# a failed release needs.
+RELEASE_FILES=(package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
+    src-tauri/preview-extension/project.yml src-tauri/Cargo.lock
+    CHANGELOG.md CHANGELOG.zh-CN.md CHANGELOG.ja.md)
+COMMITTED=0
+restore_on_failure() {
+    local status=$?
+    if [ "$status" -ne 0 ] && [ "$COMMITTED" -eq 0 ]; then
+        echo "Release failed before the commit — restoring the version files and the CHANGELOG" >&2
+        # One file at a time: a single pathspec git does not know would make
+        # a combined checkout restore nothing.
+        local file
+        for file in "${RELEASE_FILES[@]}"; do
+            git checkout -- "$file" 2>/dev/null || true
+        done
+    fi
+}
+trap restore_on_failure EXIT
+
 echo "[1/4] Writing $NEW_VERSION into package.json, Cargo.toml, tauri.conf.json, project.yml..."
 node -e '
 const fs = require("fs");
@@ -143,7 +169,6 @@ done
 
 # ── [2/4] Build signed + notarized DMGs (Apple Silicon + Intel) ──────────────
 echo "[2/4] Building signed + notarized DMGs for both arches (this takes a while)..."
-TARGETS=(aarch64-apple-darwin x86_64-apple-darwin)
 DMG_PATHS=()
 TAR_PATHS=()
 SIG_AARCH64=""
@@ -200,6 +225,7 @@ if git ls-files --error-unmatch src-tauri/Cargo.lock >/dev/null 2>&1; then
     git add src-tauri/Cargo.lock
 fi
 git commit -m "Release $TAG"
+COMMITTED=1
 git tag -a "$TAG" -m "DOMD $TAG"
 git push
 git push origin "$TAG"
